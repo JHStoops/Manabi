@@ -1,0 +1,211 @@
+{
+  "generatedFrom": "Tatoeba per-language exports + tanos N5/N4 (Wayback 2020-07-28)",
+  "vocab": {
+    "N5": 669,
+    "N4": 582
+  },
+  "pipeline": {
+    "totalJpn": 248970,
+    "withEng": 232828,
+    "duplicateText": 0,
+    "containsLatin": 1081,
+    "analysed": 231747
+  },
+  "byLevelLength": {
+    "above": 176368,
+    "N5": 26593,
+    "N4": 28786
+  },
+  "counts": {
+    "N5_le10": {
+      "sentences": 9650,
+      "words": 669,
+      "wordsWith1": 606,
+      "wordsWith3": 529,
+      "wordsWith5": 495,
+      "withProperNoun": 1143
+    },
+    "N5_le10_native": {
+      "sentences": 7370,
+      "words": 669,
+      "wordsWith1": 587,
+      "wordsWith3": 509,
+      "wordsWith5": 454,
+      "withProperNoun": 884
+    },
+    "N4(cumulative)_le10": {
+      "sentences": 16295,
+      "words": 582,
+      "wordsWith1": 492,
+      "wordsWith3": 401,
+      "wordsWith5": 314,
+      "withProperNoun": 1635
+    },
+    "N4(cumulative)_le10_native": {
+      "sentences": 12081,
+      "words": 582,
+      "wordsWith1": 460,
+      "wordsWith3": 335,
+      "wordsWith5": 257,
+      "withProperNoun": 1280
+    },
+    "N5_le15": {
+      "sentences": 20379,
+      "words": 669,
+      "wordsWith1": 645,
+      "wordsWith3": 609,
+      "wordsWith5": 582,
+      "withProperNoun": 3588
+    },
+    "N5_le15_native": {
+      "sentences": 14583,
+      "words": 669,
+      "wordsWith1": 636,
+      "wordsWith3": 590,
+      "wordsWith5": 547,
+      "withProperNoun": 2698
+    },
+    "N4(cumulative)_le15": {
+      "sentences": 38638,
+      "words": 582,
+      "wordsWith1": 541,
+      "wordsWith3": 492,
+      "wordsWith5": 449,
+      "withProperNoun": 5534
+    },
+    "N4(cumulative)_le15_native": {
+      "sentences": 25403,
+      "words": 582,
+      "wordsWith1": 517,
+      "wordsWith3": 443,
+      "wordsWith5": 386,
+      "withProperNoun": 4139
+    },
+    "N5_le20": {
+      "sentences": 25122,
+      "words": 669,
+      "wordsWith1": 652,
+      "wordsWith3": 618,
+      "wordsWith5": 597,
+      "withProperNoun": 5149
+    },
+    "N5_le20_native": {
+      "sentences": 17264,
+      "words": 669,
+      "wordsWith1": 641,
+      "wordsWith3": 598,
+      "wordsWith5": 561,
+      "withProperNoun": 3812
+    },
+    "N4(cumulative)_le20": {
+      "sentences": 50501,
+      "words": 582,
+      "wordsWith1": 548,
+      "wordsWith3": 513,
+      "wordsWith5": 478,
+      "withProperNoun": 8332
+    },
+    "N4(cumulative)_le20_native": {
+      "sentences": 30975,
+      "words": 582,
+      "wordsWith1": 527,
+      "wordsWith3": 460,
+      "wordsWith5": 413,
+      "withProperNoun": 6031
+    },
+    "N5_nolimit": {
+      "sentences": 26593,
+      "words": 669,
+      "wordsWith1": 652,
+      "wordsWith3": 623,
+      "wordsWith5": 605,
+      "withProperNoun": 5720
+    },
+    "N5_nolimit_native": {
+      "sentences": 18003,
+      "words": 669,
+      "wordsWith1": 643,
+      "wordsWith3": 602,
+      "wordsWith5": 568,
+      "withProperNoun": 4178
+    },
+    "N4(cumulative)_nolimit": {
+      "sentences": 55379,
+      "words": 582,
+      "wordsWith1": 551,
+      "wordsWith3": 518,
+      "wordsWith5": 487,
+      "withProperNoun": 9679
+    },
+    "N4(cumulative)_nolimit_native": {
+      "sentences": 32962,
+      "words": 582,
+      "wordsWith1": 528,
+      "wordsWith3": 472,
+      "wordsWith5": 419,
+      "withProperNoun": 6841
+    }
+  },
+  "topNearMissLemmas": [
+    ["彼ら", 411],
+    ["父", 274],
+    ["フランス語", 186],
+    ["母", 167],
+    ["出発", 166],
+    ["幸せ", 152],
+    ["終わる", 145],
+    ["ずっと", 145],
+    ["俺", 144],
+    ["信じる", 143],
+    ["心配", 141],
+    ["ありがとう", 133],
+    ["お願い", 126],
+    ["運転", 124],
+    ["愛す", 120],
+    ["なんで", 117],
+    ["うまい", 114],
+    ["お前", 112],
+    ["嘘", 111],
+    ["通り", 108],
+    ["他", 106],
+    ["どんな", 105],
+    ["起こる", 100],
+    ["列車", 98],
+    ["夕食", 97],
+    ["少年", 96],
+    ["成功", 93],
+    ["出身", 91],
+    ["月", 91],
+    ["ご飯", 88],
+    ["冗談", 87],
+    ["話せる", 87],
+    ["食事", 82],
+    ["遅刻", 79],
+    ["準備", 79],
+    ["顔", 78],
+    ["泳げる", 78],
+    ["守る", 75],
+    ["ごめん", 74],
+    ["全く", 74],
+    ["ビール", 71],
+    ["朝食", 71],
+    ["飼う", 71],
+    ["全然", 69],
+    ["助ける", 69],
+    ["野球", 69],
+    ["外出", 69],
+    ["帰宅", 68],
+    ["黙る", 68],
+    ["滞在", 68],
+    ["昼食", 67],
+    ["誕生", 67],
+    ["健康", 67],
+    ["修理", 67],
+    ["到着", 66],
+    ["行ける", 65],
+    ["考え", 65],
+    ["得意", 65],
+    ["よろしい", 65],
+    ["気に入る", 64]
+  ]
+}

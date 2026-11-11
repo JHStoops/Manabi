@@ -1,0 +1,6 @@
+{
+  "name": "spike-sentence-yield",
+  "private": true,
+  "type": "module",
+  "description": "Throwaway spike for issue #3; not a workspace."
+}
