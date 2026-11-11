@@ -1,0 +1,82 @@
+{
+  "description": "Spike #1 TTS samples: 30 N5 words and 10 short sentences. 'text' is the written form, 'kana' is the reading sent to engines.",
+  "words": [
+    { "id": "w01", "text": "水", "kana": "みず", "en": "water" },
+    { "id": "w02", "text": "山", "kana": "やま", "en": "mountain" },
+    { "id": "w03", "text": "川", "kana": "かわ", "en": "river" },
+    { "id": "w04", "text": "雨", "kana": "あめ", "en": "rain" },
+    { "id": "w05", "text": "犬", "kana": "いぬ", "en": "dog" },
+    { "id": "w06", "text": "猫", "kana": "ねこ", "en": "cat" },
+    { "id": "w07", "text": "本", "kana": "ほん", "en": "book" },
+    { "id": "w08", "text": "学校", "kana": "がっこう", "en": "school" },
+    { "id": "w09", "text": "先生", "kana": "せんせい", "en": "teacher" },
+    { "id": "w10", "text": "学生", "kana": "がくせい", "en": "student" },
+    { "id": "w11", "text": "友達", "kana": "ともだち", "en": "friend" },
+    { "id": "w12", "text": "電車", "kana": "でんしゃ", "en": "train" },
+    { "id": "w13", "text": "駅", "kana": "えき", "en": "station" },
+    { "id": "w14", "text": "今日", "kana": "きょう", "en": "today" },
+    { "id": "w15", "text": "明日", "kana": "あした", "en": "tomorrow" },
+    { "id": "w16", "text": "一人", "kana": "ひとり", "en": "one person" },
+    { "id": "w17", "text": "大人", "kana": "おとな", "en": "adult" },
+    { "id": "w18", "text": "食べる", "kana": "たべる", "en": "to eat" },
+    { "id": "w19", "text": "飲む", "kana": "のむ", "en": "to drink" },
+    { "id": "w20", "text": "行く", "kana": "いく", "en": "to go" },
+    { "id": "w21", "text": "見る", "kana": "みる", "en": "to see" },
+    { "id": "w22", "text": "大きい", "kana": "おおきい", "en": "big" },
+    { "id": "w23", "text": "小さい", "kana": "ちいさい", "en": "small" },
+    { "id": "w24", "text": "新しい", "kana": "あたらしい", "en": "new" },
+    { "id": "w25", "text": "日本語", "kana": "にほんご", "en": "Japanese language" },
+    { "id": "w26", "text": "時計", "kana": "とけい", "en": "clock" },
+    { "id": "w27", "text": "切手", "kana": "きって", "en": "stamp" },
+    { "id": "w28", "text": "ありがとう", "kana": "ありがとう", "en": "thank you" },
+    { "id": "w29", "text": "コーヒー", "kana": "コーヒー", "en": "coffee" },
+    { "id": "w30", "text": "上手", "kana": "じょうず", "en": "skilful" }
+  ],
+  "sentences": [
+    { "id": "s01", "text": "これは本です。", "kana": "これは ほんです。", "en": "This is a book." },
+    {
+      "id": "s02",
+      "text": "私は学生です。",
+      "kana": "わたしは がくせいです。",
+      "en": "I am a student."
+    },
+    { "id": "s03", "text": "水を飲みます。", "kana": "みずを のみます。", "en": "I drink water." },
+    {
+      "id": "s04",
+      "text": "明日、学校に行きます。",
+      "kana": "あした、がっこうに いきます。",
+      "en": "Tomorrow I will go to school."
+    },
+    {
+      "id": "s05",
+      "text": "駅はどこですか。",
+      "kana": "えきは どこですか。",
+      "en": "Where is the station?"
+    },
+    { "id": "s06", "text": "猫が好きです。", "kana": "ねこが すきです。", "en": "I like cats." },
+    {
+      "id": "s07",
+      "text": "今日は雨が降っています。",
+      "kana": "きょうは あめが ふっています。",
+      "en": "It is raining today."
+    },
+    {
+      "id": "s08",
+      "text": "日本語を勉強しています。",
+      "kana": "にほんごを べんきょうしています。",
+      "en": "I am studying Japanese."
+    },
+    {
+      "id": "s09",
+      "text": "コーヒーを一杯ください。",
+      "kana": "コーヒーを いっぱい ください。",
+      "en": "One coffee, please."
+    },
+    {
+      "id": "s10",
+      "text": "友達と電車で行きました。",
+      "kana": "ともだちと でんしゃで いきました。",
+      "en": "I went by train with a friend."
+    }
+  ]
+}
