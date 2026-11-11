@@ -54,5 +54,6 @@ Manabi is a self-hosted, Duolingo-style language learning web app, served from a
 4. Add tests with the change.
 5. Make sure typecheck, lint and tests pass, then open a PR whose description says `Closes #<number>`; fill in `.github/pull_request_template.md`.
 6. Do not push to `main` directly (the initial scaffold was the only exception).
+7. Do not add AI attribution anywhere: no `Co-Authored-By` trailers, no session links, and no 'Generated with Claude Code' lines in commit messages, pull request descriptions or issues.
 
 Keep changes focused on the issue. Keep placeholder code honest: mark stubs with a short comment, no fake implementations.
