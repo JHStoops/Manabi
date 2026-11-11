@@ -2,7 +2,7 @@
 
 Issue #1. Requirements: FR-131 (generated audio through a free, self-hosted provider), IF-09 (engine only behind the provider interface, internal network), NFR-07 (mono Opus at 32 kbps or less, silence trimmed), FR-135 (device voice fallback). Rules: SDD section 10 (Audio generation) and section 14 (Spikes).
 
-Status: measurements done; **owner listening, device testing and the decision are still open** (see [Owner decision](#owner-decision)).
+Status: **decided 2026-11-11** (Kokoro, voice `jf_alpha`, always sent the kana reading; see [Owner decision](#owner-decision)). Measurements below are kept as findings, including the VOICEVOX ones.
 
 ## Summary
 
@@ -18,7 +18,7 @@ Status: measurements done; **owner listening, device testing and the decision ar
 | Licence | Engine LGPL-3.0; each voice has its own terms; **credit required** (`VOICEVOX:キャラ名`) | Apache-2.0 (weights and server); no credit required |
 | Author's own quality grade | n/a | C+ (jf_alpha) down to C- (jm_kumo, jf_nezumi) |
 
-**Recommendation: VOICEVOX** with one calm standard voice (the samples use 四国めたん ノーマル), sending the written form and checking the engine's reading against the item's kana, falling back to the kana when they differ. Details in [Recommendation](#recommendation). Kokoro is the runner-up: faster, no credit, but weaker Japanese.
+**Decision (2026-11-11): Kokoro** (Kokoro-FastAPI), voice `jf_alpha`, always sent the kana reading because Kokoro misreads kanji. VOICEVOX is not used. Details in [Recommendation](#recommendation) and [Owner decision](#owner-decision).
 
 ## Setup
 
@@ -196,55 +196,66 @@ Test page: [tts-device-voices.html](tts-device-voices.html) (single file, no ext
 
 Checked on this machine with headless Chromium only: the page loads without errors, Ogg Opus plays, and headless Chromium has no speech voices (expected).
 
-**TODO (owner):** fill in one row per family device and browser.
+Device voices are only a fallback for when the TTS service is unavailable (FR-135). Owner results, 2026-11-11:
 
-| Device | Browser | Japanese voices | Voice used | Quality (1–5) | Opus | Notes |
+| Device | Browser | Japanese voices | Voice used | Quality (1-5) | Opus | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| | | | | | | |
+| Linux desktop | Brave | None ("No Japanese") | n/a | n/a | not recorded | Expected: Brave on Linux ships no speech voices, so `speechSynthesis` offers none. The fallback is therefore unavailable on this setup. |
+
+Testing phones (iOS Safari, Android Chrome) is deferred and low priority, since device voices are only the fallback. Ogg Opus support on the family's iPhones should be checked when the first real clips are played in the app; SDD 10 keeps an MP3 copy as the fallback only if a browser needs it.
 
 ## Recommendation
 
-**VOICEVOX**, one voice for all Japanese audio, recommended to start with 四国めたん ノーマル (speaker id 2) unless the owner prefers another after listening.
+**Decided 2026-11-11: Kokoro (Kokoro-FastAPI), voice `jf_alpha`, always sent the kana reading.** VOICEVOX is not used.
 
 Why:
 
-1. **Japanese quality is the point of the app.** VOICEVOX is built for Japanese, reads written forms correctly and models pitch accent from a dictionary. Kokoro's own author grades its Japanese voices C+ at best, trained on a few hours of audio, and its front end misreads common N5 kanji unless given kana. For a learner copying pronunciation, pitch accent and correct readings matter more than speed.
-2. **It fits the server.** About 0.3 GB of memory with one voice, against Kokoro's 1.35 GB. It is slower (0.7–1 s per clip at 4 vCPU), but a one-off batch of about 1.6 hours for the whole N3 course is acceptable for a background job, and the container can be stopped afterwards.
-3. **Its terms work for Manabi.** Free for this use; the cost is a visible `VOICEVOX:四国めたん` credit, which fits on the About page.
+1. **The owner's ear.** The owner listened to the samples and disliked `jf_tebukuro` and `jm_kumo`; `jf_alpha` was the preferred Kokoro voice. VOICEVOX is dropped.
+2. **No credit and a permissive licence.** Apache-2.0 weights and server; nothing to display for generated audio.
+3. **Fast.** 0.20 s per word and 0.36 s per sentence at 4 vCPU with tuned threads (measured 0.2-0.4 s per clip), so clips can be generated when first played.
+4. **One engine for future languages.** Kokoro also covers English, Spanish, French, Hindi, Italian, Portuguese and Chinese.
 
-Kokoro is the right choice instead if the owner, after listening, finds its voices good enough and prefers no credit, a 3x faster batch, or one engine for future languages (Kokoro also covers English, Spanish, French, Hindi, Italian, Portuguese and Chinese). The provider interface makes switching later cheap: regenerate the audio.
+Costs accepted:
 
-Deployment notes for the real implementation (separate issue):
+- Kokoro misreads kanji (川, 明日, 上手, 私), so it is **always sent the kana reading**, never the written form. Sentence kana readings come from the kuromoji segmentation step (spike #4); word readings come from the item.
+- No explicit pitch-accent model, and the author grades the Japanese voices C+ at best. The Whisper round-trip (21/30 words with kana for `jf_alpha`) is a finding, not a blocker.
+- About 1.35 GB of memory while running.
 
-- Compose service under the optional `tts` profile, on the internal network only (IF-09), no published port. Pin the image by version or digest, not `cpu-latest`.
-- Set `VV_CPU_NUM_THREADS` to the LXC's vCPU count.
-- Allow ~1 GB of memory for the container while generating.
+Generation policy:
+
+- Clips are **generated on request when first played**, then cached (stored as Opus, per NFR-07). There is no bulk pre-generation. The owner accepts a wait of about 1 s on the first play of a clip.
+- Because the first play waits on synthesis, the thread tuning below is a requirement, not an optimisation.
+
+Deployment requirements for the real implementation (separate issue):
+
+- Compose service under the optional `tts` profile, internal network only (IF-09), no published port. Pin the image by version or digest, not `latest`.
+- **Set `OMP_NUM_THREADS` to the LXC's vCPU count.** Measured: without it, Kokoro used about 40% more CPU under a 4-CPU quota, which directly affects first-play latency.
+- Allow about 1.35 GB of memory for the container (peak 1.35 GB measured; about 1.2 GB resident as soon as it starts). It needs 6-7 s to start.
+- Optionally list "Kokoro-82M (Apache-2.0)" on the About page as a courtesy.
+
+Not used, kept as findings: VOICEVOX read all 40 written forms correctly with dictionary pitch accent and used about 0.3 GB, but is slower (0.67 s per word, 1.04 s per sentence at 4 vCPU), needs a `VOICEVOX:<character>` credit, and was not preferred by ear.
 
 ## TtsProvider request shape
 
-SDD 10 sketches `synthesize(text, voice)`. VOICEVOX (and Kokoro) need a little more: the kana reading next to the written form, and something to report which input was used and the credit.
+SDD 10 sketches `synthesize(text, voice)`. With Kokoro this fits almost directly: `text` is what is spoken, and for Japanese it is always the kana reading. The caller (not the provider) chooses the reading, so the provider stays engine-neutral and has no language logic.
 
 ```ts
 // packages/core: engine-neutral types.
 export type TtsVoice = {
   locale: string;   // 'ja-JP'
-  provider: string; // 'voicevox' | 'kokoro'
-  voice: string;    // VOICEVOX speaker style id ('2') or Kokoro voice name ('jf_alpha')
-  credit?: string;  // text the app must show, e.g. 'VOICEVOX:四国めたん'
+  provider: string; // 'kokoro'
+  voice: string;    // Kokoro voice id, e.g. 'jf_alpha'
 };
 
 export type TtsRequest = {
-  text: string;     // written form, e.g. '水を飲みます。'
-  reading?: string; // kana reading from the item or sentence, e.g. 'みずを のみます。'
+  text: string;     // what to speak. For Japanese: the kana reading, e.g. 'みずを のみます'
   voice: TtsVoice;
-  speed?: number;   // 1.0 default; VOICEVOX speedScale, Kokoro speed
+  speed?: number;   // 1.0 default; Kokoro speed
 };
 
 export type TtsResult = {
   audio: Uint8Array;      // WAV from the engine; the worker trims and converts to Opus
   mimeType: 'audio/wav';
-  input: 'text' | 'reading'; // what was finally sent, stored on audio_assets for review
-  engineReading?: string;   // VOICEVOX's reading of the text, for logs and author review
 };
 
 export interface TtsProvider {
@@ -252,29 +263,27 @@ export interface TtsProvider {
 }
 ```
 
-VOICEVOX provider (apps/api worker), two HTTP calls per clip:
+Where the text comes from:
 
-1. `POST /audio_query?text=<text>&speaker=<id>` returns an AudioQuery JSON with `kana` (the engine's reading, e.g. `ミズオ'/ノミマ'_ス`), `accent_phrases`, `speedScale`, `prePhonemeLength`, `postPhonemeLength`, `outputSamplingRate` (24000), `outputStereo` (false).
-2. If `reading` is given and the language plugin says the engine's reading does not match it, call `audio_query` again with the reading (spaces removed).
-3. Set `speedScale` from `speed`, then `POST /synthesis?speaker=<id>` with the AudioQuery as the JSON body; the response is `audio/wav` (24 kHz, 16-bit mono).
+- Words: the item's kana reading.
+- Sentences: the kana reading built from the kuromoji segmentation step (spike #4), joined from the per-token readings stored with the sentence. Producing it is language-specific, so it belongs behind the `LanguagePlugin` interface / importers, not in the provider or the audio worker.
 
-Comparing the engine's katakana reading (`ミズオ'/ノミマ'_ス`, long vowels written as オオ/エエ) with the item's kana (`みずを のみます`) is Japanese-specific, so it belongs in `packages/lang-ja` behind the `LanguagePlugin` interface (for example a `readingsMatch(engineReading, reading)` helper), not in the provider or the worker.
+Kokoro provider, one call: `POST /v1/audio/speech` with `{ "model": "kokoro", "input": text, "voice": "jf_alpha", "lang_code": "j", "response_format": "wav", "speed": 1.0 }`. The worker then trims silence and encodes mono Opus (see [Setup](#setup)) and caches the file; the endpoint serving a clip generates it on a cache miss.
 
-Kokoro provider, one call: `POST /v1/audio/speech` with `{ "model": "kokoro", "input": reading ?? text, "voice": "jf_alpha", "lang_code": "j", "response_format": "wav", "speed": 1.0 }`, always sending the reading when there is one.
+Not carried over from the VOICEVOX design: the `reading` field next to the written form, `input`/`engineReading` result fields, the credit field, and the two-call `audio_query` check. Those were VOICEVOX-specific; see the findings above if VOICEVOX is ever reconsidered.
 
 ## Owner decision
 
-**Open: the owner picks.** Before deciding:
+**Decided 2026-11-11 by the owner.**
 
-- [ ] Listen to the samples ([tts-samples/index.html](tts-samples/index.html)).
-- [ ] Run [tts-device-voices.html](tts-device-voices.html) on the family's phones and browsers and fill in the device table.
-- [ ] Choose one:
-  - [ ] VOICEVOX, voice: ______ (credit text: `VOICEVOX:______`)
-  - [ ] Kokoro, voice: ______
-  - [ ] Device voices only for v1 (SDD 14 fallback)
-- [ ] Record the date and reasoning here, then update SDD 10/14 and `ttsVoice` in `packages/lang-ja`.
+- Engine: **Kokoro** (Kokoro-FastAPI), voice **`jf_alpha`**, always sent the kana reading (Kokoro misreads kanji).
+- VOICEVOX is **not used**. The owner disliked `jf_tebukuro` and `jm_kumo`; `jf_alpha` was the preferred Kokoro voice. The VOICEVOX measurements stay in this document as findings.
+- Clips are **generated on request when first played** (the owner accepts a wait of about 1 s; Kokoro measured 0.2-0.4 s per clip at 4 CPUs), then cached. No bulk pre-generation.
+- `OMP_NUM_THREADS` must be set to the vCPU count (deployment requirement); budget about 1.35 GB of memory.
+- Sentence kana readings come from the kuromoji segmentation step (spike #4).
+- Device voices are only a fallback when the TTS service is unavailable. Linux + Brave has no Japanese voice (expected: Brave on Linux ships no speech voices). Testing phones is deferred and low priority.
 
-Decision: _(pending)_
+Follow-up for the implementation issue: update SDD 10/14 and set `ttsVoice` in `packages/lang-ja` to `kokoro` / `jf_alpha`.
 
 ## Reproducing
 
