@@ -2,7 +2,7 @@
 
 Issue #2. Requirements: FR-072 (judge drawn strokes from mouse, touch and stylus on order, direction and position within a configurable tolerance), FR-073 (trace mode guide; memory mode guide after 2 failed attempts), NFR-05 (60 frames per second pointer tracking on a mid-range phone), IF-11 (mouse, touch or stylus, no extra hardware). Rules: SDD section 9 (Stroke canvas) and section 14 (Stroke matching), Product Spec section 5 (Drawing canvas).
 
-**Status:** the matcher, the synthetic fixtures and the phone test page are done. Real recordings and the phone frame-rate check still need the owner (see [Owner testing](#owner-testing)).
+**Status:** decided 2026-11-11: **adopt Hanzi Writer** (see [Decision](#decision)). The custom matcher prototype, the synthetic fixtures, the comparison and the phone test page are kept as findings. The owner's real recordings are attached to issue #2 and are to be used in the implementation issue to confirm the leniency setting.
 
 ## Summary
 
@@ -19,12 +19,12 @@ Issue #2. Requirements: FR-072 (judge drawn strokes from mouse, touch and stylus
   | Resample points N                                       | 32 (16 to 64 make no measurable difference) |
 
 - Hanzi Writer 3.7.3, fed the same KanjiVG strokes, is slightly more forgiving at its default leniency (100% good, 96.1% sloppy, 0% bad). Above leniency 1 it starts accepting misplaced and straightened strokes (18.9% false accepts at 1.5).
-- **Build vs adopt (proposal for the owner to confirm):** build the small matcher. It is about 150 lines of pure TypeScript that fits the `LanguagePlugin` and core boundaries, uses Pointer Events, has no licence entanglement, and performs comparably. Hanzi Writer stays a useful reference (see [trade-offs](#matcher-versus-hanzi-writer)).
-- **Not yet known:** whether real fingers on a family phone match the synthetic picture, and whether 60 fps tracking (NFR-05) is reached. The test page measures both; see the owner checklist.
+- **Build vs adopt: decided 2026-11-11, adopt Hanzi Writer** (owner's call). See [Decision](#decision).
+- **Real attempts:** the owner recorded real attempts with the test page and attached them to issue #2 (`stroke-attempts-2026-11-11T15-54-23-737Z.json`). They are not processed in this spike. The implementation issue should use them to confirm the leniency setting. The 60 fps (NFR-05) phone measurement was not recorded here and moves to the implementation issue.
 
 ## What was built
 
-All prototype code lives in `spikes/stroke-matching/` (an npm workspace, `@manabi/spike-stroke-matching`, so `npm test` and `npm run typecheck` cover it). Nothing in `packages/` or `apps/` changed.
+All prototype code lives in `spikes/stroke-matching/` (not an npm workspace: it has its own `package.json`, like the other spikes; run `npm install` and `npm test` inside the folder). Nothing in `packages/` or `apps/` changed.
 
 | Path                                                                 | What it is                                                                                                                                                                                                                                             |
 | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -39,7 +39,7 @@ All prototype code lives in `spikes/stroke-matching/` (an npm workspace, `@manab
 | `spikes/stroke-matching/page/template.html`                          | Source of the phone test page                                                                                                                                                                                                                          |
 | `docs/spikes/stroke-test.html`                                       | The built, self-contained test page (open it directly; no server or network needed)                                                                                                                                                                    |
 
-Scripts (run with `npm run <name> --workspace @manabi/spike-stroke-matching`): `data` (rebuild the stroke JSON from downloaded KanjiVG SVGs), `fixtures` (regenerate synthetic fixtures), `evaluate` (rewrite the results tables), `page` (rebuild the test page).
+Scripts (run with `npm run <name>` inside `spikes/stroke-matching/` after `npm install` there): `data` (rebuild the stroke JSON from downloaded KanjiVG SVGs), `fixtures` (regenerate synthetic fixtures), `evaluate` (rewrite the results tables), `page` (rebuild the test page).
 
 ### Characters
 
@@ -123,7 +123,33 @@ Hanzi Writer's matcher has more checks (Fréchet shape fit with small rotations,
 | Rendering, animation, hints    | We write them (the SDD already plans dash-offset animation of KanjiVG paths)                          | Built in: stroke animation, outline, hint after N misses                                                                                                                                        |
 | Theming                        | Our Emotion theme                                                                                     | Hex colours passed as options                                                                                                                                                                   |
 
-Recommendation: build our matcher (FR-072 needs the reason codes and configurable tolerance; the SDD needs the code in the plugin layer). If real recordings show it is too strict on sloppy strokes, borrow two of Hanzi Writer's ideas rather than the library: a looser distance threshold once the first stroke has fixed the character's position, and a scale-tolerant shape check. Fallback stays as in SDD section 14: trace mode only in v1.
+Original recommendation (superseded by the decision below): build our matcher for its reason codes and plugin-layer fit. The comparison above stays as the evidence.
+
+## Decision
+
+**Decided 2026-11-11 by the owner: adopt Hanzi Writer, not a custom matcher.**
+
+Reasons:
+
+1. FR-072 only requires judging order, direction and position within a configurable tolerance. It does not require reason codes, which was the main argument for building our own.
+2. Hanzi Writer's shape-fit (Frechet) and length-ratio checks reject squiggly strokes that average out along a straight line. The owner found this problem with the prototype matcher, whose average-distance check accepts them.
+3. It scored better on the fixtures: at leniency 1, 100% good, 96.1% sloppy, 0% bad (prototype: 99.7%, 90.8%, 0%).
+4. It provides stroke animation (FR-071) and hint-after-misses (FR-073) out of the box.
+
+Costs accepted:
+
+- Outlines are generated as fixed-width ribbons around the KanjiVG centrelines (the `hanziWriterData.ts` approach), done at import time. They look less like brush strokes than Make Me a Hanzi data.
+- Stylus input works through touch emulation, since Hanzi Writer uses mouse and touch events, not Pointer Events.
+- Theming goes through colour options rather than the Emotion theme.
+- The matcher is DOM-bound (not exported without its renderer), so it lives in the web app rather than `packages/lang-ja`.
+
+Settled with it:
+
+- **Trace mode and memory mode stay as the SRS describes** (FR-073): trace mode shows the guide; memory mode shows it after 2 failed attempts.
+- **Leniency:** start at 1 (the default). Above 1, misplaced and straightened strokes start to pass (18.9% false accepts at 1.5).
+- **Real recordings:** the owner's recordings are attached to issue #2 (`stroke-attempts-2026-11-11T15-54-23-737Z.json`). The implementation issue should convert them to fixtures and use them to confirm the leniency setting. They are deliberately not processed in this spike.
+- Fallback from SDD section 14 (trace mode only in v1) is no longer needed.
+- Not carried out here: the 60 fps phone check (NFR-05); do it in the implementation issue with the real component.
 
 ## Test page
 
@@ -138,7 +164,7 @@ Recommendation: build our matcher (FR-072 needs the reason codes and configurabl
 
 ## Owner testing
 
-To be done by the owner on a family phone. Please send back the exported JSON files and the numbers; an agent can then convert them into `fixtures/recorded-*.json` and rerun the evaluation.
+Status: the owner has recorded real attempts (attached to issue #2). The checklist below was the original plan and is kept for reference; remaining items move to the implementation issue. Original wording: please send back the exported JSON files and the numbers; an agent can then convert them into `fixtures/recorded-*.json` and rerun the evaluation.
 
 - [ ] Copy `docs/spikes/stroke-test.html` to the phone (or serve it from the home server) and open it in the phone's normal browser. It needs no network.
 - [ ] Type the phone model and input into the device box (for example "Pixel 6a, finger").
@@ -155,16 +181,16 @@ To be done by the owner on a family phone. Please send back the exported JSON fi
 
 Open results to fill in after the owner test:
 
-| Question                                         | Answer                                  |
-| ------------------------------------------------ | --------------------------------------- |
-| Phone tested                                     | _owner to fill in_                      |
-| 60 fps tracking achieved (NFR-05)?               | _owner to fill in_                      |
-| False reject / false accept on recorded fixtures | _to be computed from the exported JSON_ |
-| Tolerances agreed                                | _owner to fill in_                      |
-| Build or adopt                                   | _owner to decide_                       |
+| Question                                         | Answer                                                                                       |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Phone tested                                     | Not recorded in this spike; recordings attached to issue #2                                  |
+| 60 fps tracking achieved (NFR-05)?               | Not recorded; check in the implementation issue                                              |
+| False reject / false accept on recorded fixtures | Synthetic only here; recorded data to be processed in the implementation issue               |
+| Tolerances agreed                                | Hanzi Writer leniency 1 to start; confirm against the recordings in the implementation issue |
+| Build or adopt                                   | **Adopt Hanzi Writer** (decided 2026-11-11)                                                  |
 
 ## Licences and attribution
 
 - Stroke data: [KanjiVG](https://kanjivg.tagaini.net), Copyright (C) 2009/2010/2011 Ulrich Apel, licensed under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). The 20 SVG files were downloaded from the official repository, <https://github.com/KanjiVG/kanjivg> (`kanji/` folder, commit `610091ce618cf757ed1357a8954cd65283e015d6`). `data/kanjivg-strokes.json` holds the unchanged stroke paths; the fixtures and the Hanzi Writer outlines are adaptations and are shared under the same licence. Attribution also appears in the JSON file and on the test page.
-- Hanzi Writer 3.7.3: MIT, Copyright (c) 2014 David Chanin. Installed from npm as a dev dependency of the spike workspace and inlined into the test page with its licence header.
+- Hanzi Writer 3.7.3: MIT, Copyright (c) 2014 David Chanin. Installed from npm as a dev dependency of the spike and inlined into the test page with its licence header.
 - Hanzi Writer's own character data comes from Make Me a Hanzi and Arphic fonts under the Arphic Public License. This spike does not use or redistribute that data.
