@@ -2,7 +2,7 @@
 
 Issue #3. Requirements: SRS FR-226 (import Tatoeba and level lists), NFR-62 (store and show attribution and licence); SDD section 10 step 5 and section 14 (Sentence quality).
 
-Date: 2026-11-11. Script and small outputs: [`spikes/sentence-yield/`](../../spikes/sentence-yield/). Raw data stays in `~/.cache/manabi-spikes/` and is not committed.
+Date: 2026-11-11. Owner decisions recorded 2026-11-11 (see [Owner decisions](#owner-decisions)); measured findings below are unchanged. Script and small outputs: [`spikes/sentence-yield/`](../../spikes/sentence-yield/). Raw data stays in `~/.cache/manabi-spikes/` and is not committed.
 
 ## Answer
 
@@ -29,12 +29,12 @@ Pipeline: 248,970 Japanese sentences; 232,828 have at least one direct English t
 
 ### Limits of this method
 
-- **Grammar is not checked.** Word coverage says nothing about grammar level: 6 of the 23 N5-labelled sentences in the sample use N4 or higher grammar (させてもらう, はず, てほしい, ておく). The importer should flag these for the author rather than trust the level.
+- **Grammar is not checked by this spike.** Word coverage says nothing about grammar level: 6 of the 23 N5-labelled sentences in the sample use N4 or higher grammar (させてもらう, はず, てほしい, ておく). The importer should flag these for the author rather than trust the level.
 - **Homographs are credited twice.** いる (居る and 要る) and 私 (わたし and わたくし) both get the same sentences, so a few per-word counts are inflated.
 - **Suffixes and compounds leak.** Tokens tagged as counters or name suffixes are skipped, so a few unknown words pass (for example マイル as a counter).
 - **The tanos lists have gaps and errors.** Very common words are missing from both lists: 父, 母, 彼ら, どんな, 心配, 幸せ, 出発, 終わる, ありがとう (the most frequent single missing words, each blocking 100 to 400 short sentences; full list in `output/summary.json`, `topNearMissLemmas`). There is at least one typo (明い for 明るい). Counts would rise if the course adds these words.
 - **Proper names are allowed.** About 18% of N5 survivors contain a person or place name (mostly トム).
-- **The quality rating is one rater (an AI) on 50 sentences.** It is a first pass for the owner to check, not a measurement.
+- **The quality rating is one rater (an AI) on 50 sentences.** It is a first pass, accepted by the owner without re-rating, not a measurement.
 
 ## Survivor counts
 
@@ -72,7 +72,7 @@ The N5 words with no sentence (24 with all owners, 33 with the native filter) ar
 
 50 sentences drawn with a fixed seed (mulberry32, seed 3) from the N4-cumulative, length ≤15 survivors (all owners, so that the effect of the native filter can be seen). 23 are N5 and 27 are N4.
 
-**First pass by the agent; the owner should check these ratings.** Scale: **Nat** (naturalness of the Japanese) 3 = natural, 2 = understandable but stiff, odd or context-dependent, 1 = unnatural or wrong. **Tr** (English translation) 3 = correct, 2 = loose or loses meaning, 1 = wrong.
+**First pass by the agent. Accepted as is by the owner on 2026-11-11; the owner will not re-rate them (not proficient enough in Japanese).** Scale: **Nat** (naturalness of the Japanese) 3 = natural, 2 = understandable but stiff, odd or context-dependent, 1 = unnatural or wrong. **Tr** (English translation) 3 = correct, 2 = loose or loses meaning, 1 = wrong.
 
 | #   | Tatoeba id                                                 | Lvl | Len | Japanese                         | English                                        | JA owner            | Nat | Tr  | Note                                                                           |
 | --- | ---------------------------------------------------------- | --- | --- | -------------------------------- | ---------------------------------------------- | ------------------- | --- | --- | ------------------------------------------------------------------------------ |
@@ -146,11 +146,12 @@ For the importer (SDD section 10 step 5):
 
 1. Japanese sentence has at least one direct English translation; use the lowest-id translation and keep the others' ids for the author to choose from.
 2. No Latin letters in the Japanese.
-3. Every content word is at or below the item's level (the coverage rule above), with grammar tokens, counters, numbers and person and place names exempt.
+3. Every content word is at or below the item's level (the coverage rule above), with grammar tokens, counters, numbers and person and place names exempt, and words on the level's supplementary common-words list count as in-level (owner decision 2). Words on the language's blocklist reject the sentence (owner decision 5).
 4. **Length ≤ 15** characters, excluding spaces and punctuation. ≤10 loses about a quarter of N5 words with five or more sentences; ≤20 adds little coverage and the extra sentences are the longest and hardest.
 5. **Owner declares native Japanese** on Tatoeba (`user_languages`, level 5). This drops orphan sentences, which failed most often, and still leaves 14,583 N5 sentences. If coverage for a particular word is too thin, fall back to all owners for that word.
-6. Import everything as "unreviewed". Authors pick at most a few sentences per item; the rest stay unpublished.
-7. Store the kuromoji tokenization with each sentence so authors can see which words it uses and the coverage check can be re-run when the course word list changes.
+6. Grammar (owner decision 4): at most one grammar point from the next level above the item's level; otherwise drop or flag for author review, detected automatically.
+7. Import everything as "unreviewed". Authors pick at most a few sentences per item; the rest stay unpublished.
+8. Store the kuromoji tokenization with each sentence so authors can see which words it uses and the coverage check can be re-run when the course word list changes.
 
 Expected yield under this filter: about 14,600 N5 sentences covering 95% of N5 words (82% with five or more), and about 10,800 more at N4 covering 89% of N4 words (66% with five or more). The fallback (hand-curate fewer sentences per item) applies to the roughly 200 N4 words with fewer than five sentences and the 33 N5 words with none.
 
@@ -179,9 +180,11 @@ The site's "Use my data!" page (Wayback copy, updated 2011-10-12) says everythin
 
 ## Owner decisions
 
-1. **tanos.co.uk is unreachable** (no DNS on 2026-11-11). The importer cannot download from it. Options: commit the N5 to N3 lists into the content pack as a parsed file (CC BY allows redistribution with credit), or download from the Wayback Machine snapshot. Committing a parsed copy is simpler and makes imports reproducible.
-2. **Add common words the tanos lists lack** (父, 母, 彼ら, どんな, 心配, 幸せ, ありがとう …) to the course word list? They block hundreds of otherwise easy sentences and learners need them anyway.
-3. **Native-owner filter**: keep it (recommended) or import all owners and rely on author review?
-4. **Grammar level**: accept that imported sentences may use grammar above the item's level and leave it to author review, or add a grammar check later (it needs grammar points in the course first)?
-5. **Content**: Tatoeba includes sentences about romance, drinking and violence. Author review is the only filter here; say if a word blocklist is wanted for a family audience.
-6. **Check the 50 ratings above** (the issue's "owner has reviewed the rating" item).
+Decided by the owner on 2026-11-11. These are settled; the importer (issue #16) implements them.
+
+1. **Word lists: commit a parsed copy.** A parsed copy of the tanos N5 and N4 lists is committed to the repo, credited (CC BY, "JLPT Resources by Jonathan Waller (tanos.co.uk)"), and the importer reads that copy. There is no runtime dependency on tanos.co.uk or the Wayback Machine. The actual committing happens in issue #16; this records the decision.
+2. **Supplementary common-words list per level.** Each level gets a supplementary list of common words the tanos lists lack, seeded from the words that block the most sentences (`topNearMissLemmas` in `output/summary.json`, for example 父, 母, ありがとう, 彼ら, どんな, 心配, 幸せ). Admins can edit it.
+3. **Native-speaker-owner filter: kept.** It applies to Tatoeba sentence authors (owners who declare native Japanese), applied once at import.
+4. **Grammar: automated, with a one-level allowance.** A sentence may use grammar slightly above its level, at most one grammar point from the next level. Otherwise grammar is detected automatically and the sentence is dropped or flagged for author review. The owner cannot judge grammar levels by hand, so this must be automated. (It needs a grammar-point list per level; the 6 of 23 N5-labelled sample sentences with N4+ grammar are the test case.)
+5. **Content: word blocklist per language.** Empty at the start, editable by admins. Author review remains the other filter.
+6. **The 50 first-pass ratings are accepted as is.** The owner will not re-rate them (not proficient enough in Japanese).
