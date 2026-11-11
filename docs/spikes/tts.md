@@ -9,11 +9,12 @@ Status: measurements done; **owner listening, device testing and the decision ar
 | | VOICEVOX | Kokoro |
 | --- | --- | --- |
 | What it is | Japanese-only TTS engine with ~44 character voice libraries | Small (82M) multi-language model; 5 Japanese voices |
-| Japanese readings of kanji | Correct for all 40 samples when sent the written form, with pitch accent | Misreads some kanji (上手 → uwate, 明日 → asu, 川 → gawa); fine when sent kana |
+| Japanese readings of kanji | Correct for all 40 samples when sent the written form, with dictionary pitch accent | Misreads some kanji (上手 → uwate, 明日 → asu, 川 → gawa); fine when sent kana |
 | Pitch accent | Modelled from the OpenJTalk dictionary; editable per accent phrase | Not modelled explicitly; the model guesses it from phonemes |
+| Isolated words recognised by Whisper | 24–25 of 30 | 17–21 of 30 |
 | Speed at 4 vCPU (threads tuned) | 0.67 s per word, 1.04 s per sentence | 0.20 s per word, 0.36 s per sentence |
 | Memory | ~0.3 GB with one voice loaded (+~0.15–0.25 GB per extra voice) | ~1.35 GB |
-| Clip size (Opus 24 kbps) | ~1.7 kB per word, ~5.5 kB per sentence | ~1.9 kB per word, ~4.5 kB per sentence |
+| Clip size (Opus 24 kbps) | ~1.7 kB per word, ~4.3–5.5 kB per sentence | ~1.9 kB per word, ~4.5 kB per sentence |
 | Licence | Engine LGPL-3.0; each voice has its own terms; **credit required** (`VOICEVOX:キャラ名`) | Apache-2.0 (weights and server); no credit required |
 | Author's own quality grade | n/a | C+ (jf_alpha) down to C- (jm_kumo, jf_nezumi) |
 
@@ -124,7 +125,24 @@ What this means for "send the kana reading where the engine allows" (SDD 10):
 
 ### Round-trip intelligibility (speech recognition)
 
-ASR_PLACEHOLDER
+As a rough, objective stand-in for listening, every Opus clip was transcribed by Whisper (`medium`, faster-whisper, language forced to Japanese, in the `onerahmet/openai-whisper-asr-webservice` container) and counted as a match when the transcript equals the sample's written form or kana (after normalising script and punctuation).
+
+| Set | Words recognised | Sentences recognised |
+| --- | --- | --- |
+| VOICEVOX 四国めたん, written form | 24/30 | 10/10 |
+| VOICEVOX 四国めたん, kana | 24/30 | 9/10 |
+| VOICEVOX 冥鳴ひまり, kana | 24/30 | 9/10 |
+| VOICEVOX 玄野武宏, kana | 25/30 | 10/10 |
+| Kokoro jf_alpha, kana | 21/30 | 10/10 |
+| Kokoro jf_alpha, written form | 17/30 | 10/10 |
+| Kokoro jf_tebukuro, kana | 19/30 | 9/10 |
+| Kokoro jm_kumo, kana | 18/30 | 10/10 |
+
+How to read this:
+
+- Single words with no context are hard for speech recognition, so no set scores 30/30, and some "misses" are homophones that sound right (切手 heard as 切って or 聞いて, 時計 heard as オッケー by several voices, 飲む as ナム for both engines). Sentences, where context helps, are recognised almost perfectly by both engines.
+- The misses that point at real pronunciation problems are mostly Kokoro's: 犬 heard as いいなぁ / いいの, 学校 as だっこ, 見る as 見える, 行く as 一個, 駅 as IQ / レッキー, 一人 as フィトリア, and with written-form input 上手 as うわて and 明日 as 汗. VOICEVOX's misses are mostly short or devoiced words (水 → ミス, 駅 → でき, 電車 → 列車).
+- Overall this supports the reading check above: VOICEVOX is more intelligible on isolated words, which is what most Manabi clips are. It does not replace listening.
 
 ## Licence, usage and credit terms
 
