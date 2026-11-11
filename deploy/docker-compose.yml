@@ -1,0 +1,83 @@
+# Run from this folder: docker compose --env-file .env up -d
+# There is deliberately no reverse proxy here; the owner's Nginx Proxy Manager fronts the app port.
+name: manabi
+
+x-app: &app
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile
+  image: manabi:local
+  restart: unless-stopped
+  environment: &app-env
+    PUBLIC_URL: ${PUBLIC_URL}
+    DATABASE_URL: ${DATABASE_URL}
+    SESSION_SECRET: ${SESSION_SECRET}
+    MEDIA_DIR: /media
+    SMTP_HOST: ${SMTP_HOST:-}
+    SMTP_PORT: ${SMTP_PORT:-}
+    SMTP_USER: ${SMTP_USER:-}
+    SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    SMTP_FROM: ${SMTP_FROM:-}
+    TZ: ${TZ:-UTC}
+  volumes:
+    - ${MEDIA_DIR:-./media}:/media
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  app:
+    <<: *app
+    ports:
+      - "${APP_PORT:-3000}:3000"
+
+  worker:
+    <<: *app
+    command: ["node", "dist/worker.js"]
+
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: manabi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: manabi
+      TZ: ${TZ:-UTC}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U manabi -d manabi"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Optional text-to-speech service: docker compose --profile tts up -d
+  tts:
+    profiles: ["tts"]
+    # PLACEHOLDER: the TTS engine has not been chosen yet. Replace this image with the real one.
+    image: busybox:stable
+    command: ["sleep", "infinity"]
+    restart: unless-stopped
+
+  # Nightly pg_dump into DUMPS_DIR, keeping 14 days. Back that folder up with Backrest/restic.
+  backup:
+    image: postgres:17
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "/dump.sh", "--loop"]
+    environment:
+      PGHOST: db
+      PGUSER: manabi
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: manabi
+      DUMP_DIR: /dumps
+      KEEP_DAYS: "14"
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./backup/dump.sh:/dump.sh:ro
+      - ${DUMPS_DIR:-./dumps}:/dumps
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

@@ -1,0 +1,31 @@
+{
+  "name": "@manabi/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Manabi Fastify API and background worker.",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "dev:worker": "tsx watch src/worker.ts",
+    "build": "esbuild src/server.ts src/worker.ts --bundle --platform=node --target=node24 --format=cjs --outdir=dist --external:fastify --external:@fastify/static --external:pg --external:pg-boss --external:pg-native",
+    "start": "node dist/server.js",
+    "start:worker": "node dist/worker.js",
+    "migrate": "node-pg-migrate up --migrations-dir migrations --database-url-var DATABASE_URL --ignore-pattern \"(^\\.|\\.md$)\"",
+    "migrate:create": "node-pg-migrate create --migrations-dir migrations --migration-file-language sql",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "jest --passWithNoTests"
+  },
+  "dependencies": {
+    "@fastify/static": "^8.0.0",
+    "@manabi/core": "*",
+    "fastify": "^5.1.0",
+    "node-pg-migrate": "^7.8.0",
+    "pg": "^8.13.1",
+    "pg-boss": "^10.1.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.2"
+  }
+}

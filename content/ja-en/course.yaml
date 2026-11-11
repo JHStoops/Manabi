@@ -1,0 +1,14 @@
+# STUB: course definition for the Japanese (from English) pack. Schema is not final.
+id: ja-en
+target: ja
+base: en
+plugin: ja
+sections:
+  - id: kana
+    title: Kana
+  - id: n5
+    title: N5
+  - id: n4
+    title: N4
+  - id: n3
+    title: N3

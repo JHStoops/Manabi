@@ -1,0 +1,30 @@
+{
+  "name": "manabi",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Self-hosted, Duolingo-style language learning web app (Japanese first).",
+  "workspaces": ["apps/*", "packages/*"],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "dev:web": "npm run dev --workspace @manabi/web",
+    "dev:api": "npm run dev --workspace @manabi/api",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.14.0",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.14.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.3.3",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.14.0"
+  }
+}
