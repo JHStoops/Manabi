@@ -134,7 +134,7 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
       // The web app reads mustChangePassword here to show the change-password screen.
       config: { allowPasswordChangeRequired: true },
       schema: {
-        summary: 'The signed-in user',
+        summary: 'The signed-in user (drift test)',
         tags: ['auth'],
         querystring: emptyQuerySchema,
         response: { 200: userSchema, 401: apiErrorSchema },
