@@ -1,3 +1,4 @@
+import type { QueryResultRow } from 'pg';
 import type { Queryable } from '../../db/db';
 import { query, queryOne } from '../../db/db';
 import type {
@@ -12,6 +13,17 @@ import type {
 // Hand-written, parameterized SQL for the content tables. Importer and editor queries are
 // added by the issues that need them.
 
+/** INSERT ... RETURNING always yields exactly one row (or throws). */
+async function insertReturning<R extends QueryResultRow>(
+  db: Queryable,
+  sql: string,
+  params: readonly unknown[],
+): Promise<R> {
+  const row = await queryOne<R>(db, sql, params);
+  if (!row) throw new Error('INSERT ... RETURNING returned no row');
+  return row;
+}
+
 export interface NewCourse {
   key: string;
   targetLang: string;
@@ -20,8 +32,8 @@ export interface NewCourse {
   title: string;
 }
 
-export function insertCourse(db: Queryable, c: NewCourse): Promise<CourseRow | null> {
-  return queryOne<CourseRow>(
+export async function insertCourse(db: Queryable, c: NewCourse): Promise<CourseRow> {
+  return insertReturning<CourseRow>(
     db,
     `INSERT INTO courses (key, target_lang, base_lang, plugin, title)
      VALUES ($1, $2, $3, $4, $5)
@@ -40,8 +52,8 @@ export interface NewItem {
   datasetVersion: string | null;
 }
 
-export function insertItem(db: Queryable, i: NewItem): Promise<ItemRow | null> {
-  return queryOne<ItemRow>(
+export async function insertItem(db: Queryable, i: NewItem): Promise<ItemRow> {
+  return insertReturning<ItemRow>(
     db,
     `INSERT INTO items (course_id, key, type, level_code, data, source, dataset_version)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -80,16 +92,16 @@ export interface NewSentence {
   sourceId: string | null;
   attribution: SentenceAttribution | null;
   grammar: string[];
-  levelCode: string | null;
+  vocabLevelCode: string | null;
   grammarLevelCode: string | null;
 }
 
-export function insertSentence(db: Queryable, s: NewSentence): Promise<SentenceRow | null> {
-  return queryOne<SentenceRow>(
+export async function insertSentence(db: Queryable, s: NewSentence): Promise<SentenceRow> {
+  return insertReturning<SentenceRow>(
     db,
     `INSERT INTO sentences
        (course_id, text, tokens, translation, source, source_id, attribution, grammar,
-        level_code, grammar_level_code)
+        vocab_level_code, grammar_level_code)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING *`,
     [
@@ -101,7 +113,7 @@ export function insertSentence(db: Queryable, s: NewSentence): Promise<SentenceR
       s.sourceId,
       s.attribution,
       JSON.stringify(s.grammar),
-      s.levelCode,
+      s.vocabLevelCode,
       s.grammarLevelCode,
     ],
   );

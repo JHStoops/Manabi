@@ -22,10 +22,19 @@ const typeParsers = {
       : types.getTypeParser(oid, format as 'text')) as typeof types.getTypeParser,
 };
 
-/** Creates the shared pg connection pool. All SQL is hand-written and parameterized. */
-export function createPool(databaseUrl: string): Pool {
+/**
+ * Creates the shared pg connection pool. All SQL is hand-written and parameterized.
+ * An idle client that loses its connection (for example a database restart) emits 'error' on
+ * the pool; without a listener Node would crash, so it is logged and the pool replaces the client.
+ */
+export function createPool(
+  databaseUrl: string,
+  logError: (message: string, err: Error) => void = console.error,
+): Pool {
   if (!databaseUrl) {
     throw new Error('DATABASE_URL is not set');
   }
-  return new Pool({ connectionString: databaseUrl, types: typeParsers });
+  const pool = new Pool({ connectionString: databaseUrl, types: typeParsers });
+  pool.on('error', (err) => logError('Idle database client error', err));
+  return pool;
 }

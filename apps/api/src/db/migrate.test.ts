@@ -65,4 +65,46 @@ describeWithDb('runMigrations against PostgreSQL', () => {
     );
     expect(applied.map((r) => r.name)).toEqual(first);
   });
+
+  describe('while another process holds the migration lock', () => {
+    // node-pg-migrate's advisory lock id.
+    const LOCK_ID = '7241865325823964';
+
+    async function holdLock(): Promise<() => Promise<void>> {
+      const client = await getPool().connect();
+      await client.query('SELECT pg_advisory_lock($1::bigint)', [LOCK_ID]);
+      return async () => {
+        await client.query('SELECT pg_advisory_unlock($1::bigint)', [LOCK_ID]);
+        client.release();
+      };
+    }
+
+    it('retries with backoff and succeeds once the lock is free', async () => {
+      const release = await holdLock();
+      const messages: string[] = [];
+      const run = runMigrations({
+        databaseUrl: testDatabaseUrl(),
+        schema,
+        log: (m) => messages.push(m),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await release();
+      await expect(run).resolves.toEqual(sqlFiles.map((f) => f.replace(/\.sql$/, '')));
+      expect(
+        messages.some((m) => m.startsWith('Another migration is already running; retrying')),
+      ).toBe(true);
+      expect(messages).not.toContain('Failed to release migration lock');
+    });
+
+    it('gives up after the lock timeout', async () => {
+      const release = await holdLock();
+      try {
+        await expect(
+          runMigrations({ databaseUrl: testDatabaseUrl(), schema, lockTimeoutMs: 300 }),
+        ).rejects.toThrow('gave up waiting for the migration lock');
+      } finally {
+        await release();
+      }
+    });
+  });
 });

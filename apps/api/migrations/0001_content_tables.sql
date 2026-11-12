@@ -11,6 +11,11 @@ CREATE DOMAIN level_code AS text
 CREATE DOMAIN stable_key AS text
   CHECK (VALUE ~ '^\S+$' AND char_length(VALUE) <= 200);
 
+-- Positions: each structure table keeps (parent, position) unique. The constraints are
+-- DEFERRABLE INITIALLY IMMEDIATE, so a reorder runs `SET CONSTRAINTS ... DEFERRED` inside its
+-- transaction to swap positions. Archived rows keep their position slot, so importers move
+-- archived rows after the active ones instead of reusing their positions.
+
 CREATE TABLE courses (
   id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   key         stable_key NOT NULL UNIQUE,
@@ -30,10 +35,11 @@ CREATE TABLE sections (
   position   integer NOT NULL CHECK (position >= 0),
   title      text NOT NULL CHECK (title <> ''),
   level_code level_code NOT NULL,
+  archived_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  -- Deferrable so a reorder can swap positions inside one transaction.
-  CONSTRAINT sections_course_position_key UNIQUE (course_id, position) DEFERRABLE INITIALLY DEFERRED
+  CONSTRAINT sections_course_position_key UNIQUE (course_id, position)
+    DEFERRABLE INITIALLY IMMEDIATE
 );
 
 -- FR-225: draft and published states per unit and lesson.
@@ -48,7 +54,8 @@ CREATE TABLE units (
   archived_at timestamptz,
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT units_section_position_key UNIQUE (section_id, position) DEFERRABLE INITIALLY DEFERRED
+  CONSTRAINT units_section_position_key UNIQUE (section_id, position)
+    DEFERRABLE INITIALLY IMMEDIATE
 );
 
 -- FR-040: the six lesson types.
@@ -64,7 +71,8 @@ CREATE TABLE lessons (
   archived_at timestamptz,
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT lessons_unit_position_key UNIQUE (unit_id, position) DEFERRABLE INITIALLY DEFERRED
+  CONSTRAINT lessons_unit_position_key UNIQUE (unit_id, position)
+    DEFERRABLE INITIALLY IMMEDIATE
 );
 
 -- DR-02: key is stable and unique. DR-06: data holds plugin-validated, language-specific fields.
@@ -105,7 +113,8 @@ CREATE TABLE lesson_items (
   item_id   bigint NOT NULL REFERENCES items (id),
   position  integer NOT NULL CHECK (position >= 0),
   PRIMARY KEY (lesson_id, item_id),
-  CONSTRAINT lesson_items_lesson_position_key UNIQUE (lesson_id, position) DEFERRABLE INITIALLY DEFERRED
+  CONSTRAINT lesson_items_lesson_position_key UNIQUE (lesson_id, position)
+    DEFERRABLE INITIALLY IMMEDIATE
 );
 CREATE INDEX lesson_items_item_idx ON lesson_items (item_id);
 
@@ -113,7 +122,7 @@ CREATE INDEX lesson_items_item_idx ON lesson_items (item_id);
 -- sentence and for its translation in `attribution` ({ "sentence": {...}, "translation": {...} }),
 -- with separate edited flags. DR-12: tiles in `tokens`, review status, and detected grammar.
 -- Sentences are never dropped for grammar level: `grammar_level_code` is the highest level among
--- the detected grammar points (null when none were detected), `level_code` is the vocabulary
+-- the detected grammar points (null when none were detected), `vocab_level_code` is the vocabulary
 -- level, and "challenging" is derived by comparing the two unless `challenge_override` is set.
 CREATE TABLE sentences (
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -130,7 +139,9 @@ CREATE TABLE sentences (
                      CHECK (review_status IN ('unreviewed', 'flagged', 'reviewed')),
   -- Grammar point keys detected at import.
   grammar            jsonb NOT NULL DEFAULT '[]' CHECK (jsonb_typeof(grammar) = 'array'),
-  level_code         level_code,
+  -- Highest level among the sentence's levelled content words (null when it has none). Set by the
+  -- importer's coverage check (FR-235) and recomputed whenever the tiles change.
+  vocab_level_code   level_code,
   grammar_level_code level_code,
   -- Null: derive "challenging" from the levels; true or false: author decision.
   challenge_override boolean,
@@ -149,6 +160,9 @@ CREATE TABLE sentences (
 CREATE UNIQUE INDEX sentences_course_source_key ON sentences (course_id, source, source_id)
   WHERE source IS NOT NULL;
 CREATE INDEX sentences_course_review_idx ON sentences (course_id, review_status);
+-- Sentence selection by level (FR-056, FR-057).
+CREATE INDEX sentences_course_levels_idx
+  ON sentences (course_id, vocab_level_code, grammar_level_code);
 
 CREATE TABLE sentence_items (
   sentence_id bigint NOT NULL REFERENCES sentences (id) ON DELETE CASCADE,
@@ -198,12 +212,15 @@ CREATE TABLE audio_assets (
   id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   owner_type text NOT NULL CHECK (owner_type IN ('item', 'sentence')),
   owner_id   bigint NOT NULL,
-  voice      text NOT NULL CHECK (voice <> ''),
+  -- TTS voice id; may be null only for an uploaded recording.
+  voice      text CHECK (voice <> ''),
   path       text NOT NULL UNIQUE CHECK (path <> ''),
   origin     text NOT NULL CHECK (origin IN ('generated', 'uploaded')),
   text_hash  text NOT NULL CHECK (text_hash <> ''),
   created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT audio_assets_owner_voice_origin_key UNIQUE (owner_type, owner_id, voice, origin)
+  CONSTRAINT audio_assets_voice_required CHECK (voice IS NOT NULL OR origin = 'uploaded'),
+  CONSTRAINT audio_assets_owner_voice_origin_key
+    UNIQUE NULLS NOT DISTINCT (owner_type, owner_id, voice, origin)
 );
 
 -- Hanzi Writer character data converted from KanjiVG: an outline and a median per stroke.

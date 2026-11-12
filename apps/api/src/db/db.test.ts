@@ -6,6 +6,15 @@ describe('createPool', () => {
   it('requires a database URL', () => {
     expect(() => createPool('')).toThrow('DATABASE_URL is not set');
   });
+
+  it('logs idle client errors instead of crashing the process', async () => {
+    const logError = jest.fn();
+    const pool = createPool('postgres://unused@localhost/none', logError);
+    const err = new Error('terminating connection due to administrator command');
+    expect(() => pool.emit('error', err)).not.toThrow();
+    expect(logError).toHaveBeenCalledWith('Idle database client error', err);
+    await pool.end();
+  });
 });
 
 describeWithDb('db helpers', () => {

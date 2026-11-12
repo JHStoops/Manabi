@@ -34,6 +34,7 @@ export interface SectionRow {
   position: number;
   title: string;
   level_code: string;
+  archived_at: Date | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -125,8 +126,8 @@ export interface SentenceRow {
   review_status: ReviewStatus;
   /** Keys of grammar points detected at import. */
   grammar: string[];
-  /** Vocabulary level of the sentence. */
-  level_code: string | null;
+  /** Highest level among levelled content words (FR-235); null when there are none. */
+  vocab_level_code: string | null;
   /** Highest level among the detected grammar points; null when none were detected. */
   grammar_level_code: string | null;
   /** Null: "challenging" is derived from the levels; otherwise the author's decision. */
@@ -176,7 +177,8 @@ export interface AudioAssetRow {
   id: number;
   owner_type: AudioOwnerType;
   owner_id: number;
-  voice: string;
+  /** Null only for uploaded recordings. */
+  voice: string | null;
   path: string;
   origin: AudioOrigin;
   text_hash: string;

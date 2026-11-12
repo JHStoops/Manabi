@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { query, queryOne } from '../../db/db';
+import { query, queryOne, withTransaction } from '../../db/db';
 import { describeWithDb, useTestDatabase } from '../../test/db';
 import {
   findItemByKey,
@@ -40,7 +40,7 @@ async function seedCourse(pool: Pool): Promise<number> {
     plugin: 'ja',
     title: 'Japanese for English speakers',
   });
-  return course!.id;
+  return course.id;
 }
 
 function word(courseId: number, overrides: Partial<NewItem> = {}): NewItem {
@@ -70,7 +70,7 @@ function sentence(courseId: number, overrides: Partial<NewSentence> = {}): NewSe
     sourceId: '4702',
     attribution,
     grammar: ['ja:grammar:wo-kudasai'],
-    levelCode: 'N5',
+    vocabLevelCode: 'N5',
     grammarLevelCode: 'N5',
     ...overrides,
   };
@@ -141,7 +141,7 @@ describeWithDb('content schema (migration 0001)', () => {
         attribution,
         review_status: 'unreviewed',
         grammar: ['ja:grammar:wo-kudasai'],
-        level_code: 'N5',
+        vocab_level_code: 'N5',
         grammar_level_code: 'N5',
         challenge_override: null,
         edited: false,
@@ -156,11 +156,11 @@ describeWithDb('content schema (migration 0001)', () => {
         pool(),
         sentence(courseId, { grammar: [], grammarLevelCode: null }),
       );
-      expect(row!.grammar_level_code).toBeNull();
+      expect(row.grammar_level_code).toBeNull();
       const updated = await queryOne<{ challenge_override: boolean }>(
         pool(),
         'UPDATE sentences SET challenge_override = true WHERE id = $1 RETURNING challenge_override',
-        [row!.id],
+        [row.id],
       );
       expect(updated!.challenge_override).toBe(true);
     });
@@ -170,12 +170,12 @@ describeWithDb('content schema (migration 0001)', () => {
       const row = await insertSentence(pool(), sentence(courseId));
       for (const status of ['flagged', 'reviewed']) {
         await query(pool(), 'UPDATE sentences SET review_status = $2 WHERE id = $1', [
-          row!.id,
+          row.id,
           status,
         ]);
       }
       await expect(
-        query(pool(), `UPDATE sentences SET review_status = 'approved' WHERE id = $1`, [row!.id]),
+        query(pool(), `UPDATE sentences SET review_status = 'approved' WHERE id = $1`, [row.id]),
       ).rejects.toMatchObject({ code: '23514' });
     });
 
@@ -191,7 +191,7 @@ describeWithDb('content schema (migration 0001)', () => {
         pool(),
         sentence(courseId, { source: null, sourceId: null, attribution: null }),
       );
-      expect(authored!.source).toBeNull();
+      expect(authored.source).toBeNull();
     });
 
     it('keeps one row per course and source sentence id', async () => {
@@ -244,22 +244,30 @@ describeWithDb('content schema (migration 0001)', () => {
       expect(status!.status).toBe('draft');
     });
 
-    it('enforces unique positions at commit, so positions can be swapped in a transaction', async () => {
+    it('checks unique positions immediately, deferrable for a reorder transaction', async () => {
       const { unitId } = await seedUnit();
       await insertLesson(unitId, 'a', 0, 'kana');
       await insertLesson(unitId, 'b', 1, 'kana');
       await expect(insertLesson(unitId, 'c', 1, 'kana')).rejects.toMatchObject({
         constraint: 'lessons_unit_position_key',
       });
-      const client = await pool().connect();
-      try {
-        await client.query('BEGIN');
-        await client.query(`UPDATE lessons SET position = 1 WHERE key = 'a'`);
-        await client.query(`UPDATE lessons SET position = 0 WHERE key = 'b'`);
-        await client.query('COMMIT');
-      } finally {
-        client.release();
-      }
+      // Without deferring, the first half of a swap fails straight away.
+      await expect(
+        withTransaction(pool(), (client) =>
+          query(client, `UPDATE lessons SET position = 1 WHERE key = 'a'`),
+        ),
+      ).rejects.toMatchObject({ constraint: 'lessons_unit_position_key' });
+      // A reorder defers the check to commit.
+      await withTransaction(pool(), async (client) => {
+        await query(client, 'SET CONSTRAINTS lessons_unit_position_key DEFERRED');
+        await query(client, `UPDATE lessons SET position = 1 WHERE key = 'a'`);
+        await query(client, `UPDATE lessons SET position = 0 WHERE key = 'b'`);
+      });
+      const order = await query<{ key: string }>(
+        pool(),
+        'SELECT key FROM lessons ORDER BY position',
+      );
+      expect(order.map((r) => r.key)).toEqual(['b', 'a']);
     });
 
     it('links lessons, items, sentences, exercises, strokes and audio', async () => {
@@ -273,17 +281,17 @@ describeWithDb('content schema (migration 0001)', () => {
       const water = await insertItem(pool(), word(courseId));
       const s = await insertSentence(pool(), sentence(courseId));
 
-      await query(pool(), `INSERT INTO lesson_items VALUES ($1, $2, 0)`, [lesson!.id, kanji!.id]);
+      await query(pool(), `INSERT INTO lesson_items VALUES ($1, $2, 0)`, [lesson!.id, kanji.id]);
       await query(pool(), `INSERT INTO item_links VALUES ($1, $2, 'contains')`, [
-        water!.id,
-        kanji!.id,
+        water.id,
+        kanji.id,
       ]);
       await expect(
-        query(pool(), `INSERT INTO item_links VALUES ($1, $1, 'contains')`, [kanji!.id]),
+        query(pool(), `INSERT INTO item_links VALUES ($1, $1, 'contains')`, [kanji.id]),
       ).rejects.toMatchObject({ code: '23514' });
-      await query(pool(), `INSERT INTO sentence_items VALUES ($1, $2)`, [s!.id, water!.id]);
+      await query(pool(), `INSERT INTO sentence_items VALUES ($1, $2)`, [s.id, water.id]);
       await query(pool(), `INSERT INTO stroke_data (item_id, strokes) VALUES ($1, $2)`, [
-        kanji!.id,
+        kanji.id,
         { strokes: ['M 0 0'], medians: [[[0, 0]]] },
       ]);
       await query(
@@ -301,23 +309,38 @@ describeWithDb('content schema (migration 0001)', () => {
         query(
           pool(),
           `INSERT INTO exercises (item_id, type, payload, origin) VALUES ($1, 'choice', '{}', 'copied')`,
-          [water!.id],
+          [water.id],
         ),
       ).rejects.toMatchObject({ code: '23514' });
       await query(
         pool(),
         `INSERT INTO audio_assets (owner_type, owner_id, voice, path, origin, text_hash)
          VALUES ('item', $1, 'jf_alpha', 'audio/1.opus', 'generated', 'abc')`,
-        [water!.id],
+        [water.id],
       );
       await expect(
         query(
           pool(),
           `INSERT INTO audio_assets (owner_type, owner_id, voice, path, origin, text_hash)
            VALUES ('item', $1, 'jf_alpha', 'audio/2.opus', 'generated', 'def')`,
-          [water!.id],
+          [water.id],
         ),
       ).rejects.toMatchObject({ constraint: 'audio_assets_owner_voice_origin_key' });
+      // Only an uploaded recording may omit the voice, and only once per owner.
+      const audio = (path: string, origin: string) =>
+        query(
+          pool(),
+          `INSERT INTO audio_assets (owner_type, owner_id, path, origin, text_hash)
+           VALUES ('sentence', $1, $2, $3, 'abc')`,
+          [s.id, path, origin],
+        );
+      await expect(audio('audio/3.opus', 'generated')).rejects.toMatchObject({
+        constraint: 'audio_assets_voice_required',
+      });
+      await audio('audio/4.opus', 'uploaded');
+      await expect(audio('audio/5.opus', 'uploaded')).rejects.toMatchObject({
+        constraint: 'audio_assets_owner_voice_origin_key',
+      });
 
       const counts = await queryOne<Record<string, number>>(
         pool(),
@@ -334,7 +357,7 @@ describeWithDb('content schema (migration 0001)', () => {
         sentence_items: 1,
         stroke_data: 1,
         exercises: 1,
-        audio_assets: 1,
+        audio_assets: 2,
       });
     });
   });
