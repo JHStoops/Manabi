@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TTS Sample Clips</title>
+    <!-- Spike #1 listening page. Open from a local clone (the clips are the .opus files next to this page). No external scripts. -->
+    <style>
+      :root {
+        --bg: #fafafa;
+        --fg: #1d1d1f;
+        --muted: #666;
+        --line: #ddd;
+        --accent: #1f6feb;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #111;
+          --fg: #eee;
+          --muted: #aaa;
+          --line: #333;
+          --accent: #4c9aff;
+        }
+      }
+      body {
+        margin: 0;
+        padding: 16px;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          15px/1.4 system-ui,
+          -apple-system,
+          'Hiragino Sans',
+          'Noto Sans JP',
+          sans-serif;
+      }
+      h1 {
+        font-size: 1.3rem;
+        margin: 0 0 4px;
+      }
+      p {
+        color: var(--muted);
+        margin: 0 0 12px;
+      }
+      .wrap {
+        overflow-x: auto;
+      }
+      table {
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 4px 6px;
+        text-align: left;
+        white-space: nowrap;
+      }
+      th {
+        position: sticky;
+        top: 0;
+        background: var(--bg);
+        font-size: 0.85rem;
+      }
+      td.jp {
+        font-size: 1.05rem;
+      }
+      button {
+        font: inherit;
+        font-size: 0.85rem;
+        padding: 3px 8px;
+        border: 1px solid var(--accent);
+        color: var(--accent);
+        background: transparent;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>TTS sample clips</h1>
+    <p>
+      Same 30 words and 10 sentences from each engine and voice, as mono Opus 24 kbps with silence
+      trimmed. "kana" = the reading was sent; "text" = the written form was sent.
+    </p>
+    <div class="wrap"><table id="t"></table></div>
+    <script>
+      (function () {
+        'use strict';
+        var SETS = [
+          ['voicevox/metan-text', 'VOICEVOX 四国めたん (text)'],
+          ['voicevox/metan-kana', 'VOICEVOX 四国めたん (kana)'],
+          ['voicevox/himari-kana', 'VOICEVOX 冥鳴ひまり (kana)'],
+          ['voicevox/takehiro-kana', 'VOICEVOX 玄野武宏 (kana)'],
+          ['kokoro/alpha-kana', 'Kokoro jf_alpha (kana)'],
+          ['kokoro/alpha-text', 'Kokoro jf_alpha (text)'],
+          ['kokoro/tebukuro-kana', 'Kokoro jf_tebukuro (kana)'],
+          ['kokoro/kumo-kana', 'Kokoro jm_kumo (kana)'],
+        ];
+        var S = [
+          ['w01', '水', 'みず'],
+          ['w02', '山', 'やま'],
+          ['w03', '川', 'かわ'],
+          ['w04', '雨', 'あめ'],
+          ['w05', '犬', 'いぬ'],
+          ['w06', '猫', 'ねこ'],
+          ['w07', '本', 'ほん'],
+          ['w08', '学校', 'がっこう'],
+          ['w09', '先生', 'せんせい'],
+          ['w10', '学生', 'がくせい'],
+          ['w11', '友達', 'ともだち'],
+          ['w12', '電車', 'でんしゃ'],
+          ['w13', '駅', 'えき'],
+          ['w14', '今日', 'きょう'],
+          ['w15', '明日', 'あした'],
+          ['w16', '一人', 'ひとり'],
+          ['w17', '大人', 'おとな'],
+          ['w18', '食べる', 'たべる'],
+          ['w19', '飲む', 'のむ'],
+          ['w20', '行く', 'いく'],
+          ['w21', '見る', 'みる'],
+          ['w22', '大きい', 'おおきい'],
+          ['w23', '小さい', 'ちいさい'],
+          ['w24', '新しい', 'あたらしい'],
+          ['w25', '日本語', 'にほんご'],
+          ['w26', '時計', 'とけい'],
+          ['w27', '切手', 'きって'],
+          ['w28', 'ありがとう', 'ありがとう'],
+          ['w29', 'コーヒー', 'コーヒー'],
+          ['w30', '上手', 'じょうず'],
+          ['s01', 'これは本です。', 'これは ほんです。'],
+          ['s02', '私は学生です。', 'わたしは がくせいです。'],
+          ['s03', '水を飲みます。', 'みずを のみます。'],
+          ['s04', '明日、学校に行きます。', 'あした、がっこうに いきます。'],
+          ['s05', '駅はどこですか。', 'えきは どこですか。'],
+          ['s06', '猫が好きです。', 'ねこが すきです。'],
+          ['s07', '今日は雨が降っています。', 'きょうは あめが ふっています。'],
+          ['s08', '日本語を勉強しています。', 'にほんごを べんきょうしています。'],
+          ['s09', 'コーヒーを一杯ください。', 'コーヒーを いっぱい ください。'],
+          ['s10', '友達と電車で行きました。', 'ともだちと でんしゃで いきました。'],
+        ];
+        var html =
+          '<tr><th>Sample</th>' +
+          SETS.map(function (s) {
+            return '<th>' + s[1] + '</th>';
+          }).join('') +
+          '</tr>';
+        S.forEach(function (x) {
+          html +=
+            '<tr><td class="jp">' +
+            x[1] +
+            '<br><small>' +
+            x[2] +
+            '</small></td>' +
+            SETS.map(function (s) {
+              return '<td><button data-src="' + s[0] + '/' + x[0] + '.opus">Play</button></td>';
+            }).join('') +
+            '</tr>';
+        });
+        var t = document.getElementById('t');
+        t.innerHTML = html;
+        var audio = new Audio();
+        t.onclick = function (e) {
+          var src = e.target.getAttribute && e.target.getAttribute('data-src');
+          if (src) {
+            audio.src = src;
+            audio.play();
+          }
+        };
+      })();
+    </script>
+  </body>
+</html>

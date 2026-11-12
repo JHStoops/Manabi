@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Device Voice Check</title>
+    <!-- Throwaway page for spike #1 (FR-135). Single file, no external scripts. Open it on each phone/browser,
+     listen to the samples, fill in the form and copy the Markdown row into docs/spikes/tts.md. -->
+    <style>
+      :root {
+        --bg: #fafafa;
+        --fg: #1d1d1f;
+        --muted: #666;
+        --card: #fff;
+        --line: #ddd;
+        --accent: #1f6feb;
+        --ok: #1a7f37;
+        --bad: #cf222e;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #111;
+          --fg: #eee;
+          --muted: #aaa;
+          --card: #1c1c1e;
+          --line: #333;
+          --accent: #4c9aff;
+          --ok: #3fb950;
+          --bad: #ff7b72;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 16px;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          16px/1.45 system-ui,
+          -apple-system,
+          'Hiragino Sans',
+          'Noto Sans JP',
+          sans-serif;
+      }
+      main {
+        max-width: 760px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 1.4rem;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 1.1rem;
+        margin: 24px 0 8px;
+      }
+      p.lead {
+        color: var(--muted);
+        margin: 0 0 12px;
+      }
+      section {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      label {
+        display: block;
+        margin: 8px 0 4px;
+        font-weight: 600;
+      }
+      select,
+      input[type='text'],
+      textarea {
+        width: 100%;
+        padding: 8px;
+        font: inherit;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+      }
+      textarea {
+        min-height: 70px;
+      }
+      button {
+        font: inherit;
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--accent);
+        background: var(--accent);
+        color: #fff;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: transparent;
+        color: var(--accent);
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+      }
+      td,
+      th {
+        border-bottom: 1px solid var(--line);
+        padding: 6px 4px;
+        text-align: left;
+        vertical-align: middle;
+      }
+      td.jp {
+        font-size: 1.1rem;
+      }
+      td.btns {
+        white-space: nowrap;
+        text-align: right;
+      }
+      td.btns button {
+        padding: 4px 8px;
+        font-size: 0.85rem;
+      }
+      .ok {
+        color: var(--ok);
+        font-weight: 600;
+      }
+      .bad {
+        color: var(--bad);
+        font-weight: 600;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 8px;
+        font-size: 0.85rem;
+      }
+      .table-wrap {
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Device voice check</h1>
+      <p class="lead">
+        Manabi spike #1. Checks whether this device and browser have a Japanese speech voice, how it
+        sounds, and whether it can play Opus clips.
+      </p>
+
+      <section>
+        <h2 style="margin-top: 0">1. This device</h2>
+        <div id="env" class="muted"></div>
+        <div id="support"></div>
+      </section>
+
+      <section>
+        <h2 style="margin-top: 0">2. Japanese voices</h2>
+        <div id="voiceSummary"></div>
+        <div class="table-wrap"><table id="voiceTable"></table></div>
+        <label for="voiceSel">Voice to use</label>
+        <select id="voiceSel"></select>
+        <label for="rate">Rate: <span id="rateVal">0.9</span></label>
+        <input
+          id="rate"
+          type="range"
+          min="0.5"
+          max="1.3"
+          step="0.05"
+          value="0.9"
+          style="width: 100%"
+        />
+        <div class="row" style="margin-top: 8px">
+          <label style="margin: 0; font-weight: 400"
+            ><input type="radio" name="inp" value="kana" checked /> Speak the kana reading</label
+          >
+          <label style="margin: 0; font-weight: 400"
+            ><input type="radio" name="inp" value="text" /> Speak the written form</label
+          >
+        </div>
+        <p class="muted">
+          Manabi will send the kana reading to avoid misread kanji. Try both: if the written form
+          sounds better, note it.
+        </p>
+      </section>
+
+      <section>
+        <h2 style="margin-top: 0">3. Samples</h2>
+        <div class="row">
+          <button id="playAllWords">Play all words</button
+          ><button id="playAllSent" class="secondary">Play all sentences</button
+          ><button id="stop" class="secondary">Stop</button>
+        </div>
+        <div class="table-wrap"><table id="samples"></table></div>
+      </section>
+
+      <section>
+        <h2 style="margin-top: 0">4. Opus playback test</h2>
+        <p class="muted">
+          Manabi stores clips as mono Opus (NFR-07). This plays one embedded generated clip
+          (VOICEVOX 四国めたん, 「水を飲みます。」, Ogg Opus 24 kbps).
+        </p>
+        <div class="row">
+          <button id="playOpus">Play Opus clip</button><span id="opusResult"></span>
+        </div>
+      </section>
+
+      <section>
+        <h2 style="margin-top: 0">5. Your notes</h2>
+        <label for="device">Device (model, OS version)</label>
+        <input id="device" type="text" placeholder="e.g. Pixel 7, Android 15" />
+        <label for="browser">Browser (and version if known)</label>
+        <input id="browser" type="text" placeholder="e.g. Chrome 131" />
+        <label for="quality">Japanese voice quality</label>
+        <select id="quality">
+          <option value="">(choose)</option>
+          <option>5 - natural, fine for learners</option>
+          <option>4 - good, minor oddities</option>
+          <option>3 - usable</option>
+          <option>2 - poor (robotic or wrong readings)</option>
+          <option>1 - unusable</option>
+          <option>none - no Japanese voice</option>
+        </select>
+        <label for="notes">Notes (misread words, odd pitch, delays, offline?)</label>
+        <textarea id="notes"></textarea>
+        <div class="row" style="margin-top: 8px">
+          <button id="copy">Copy Markdown row</button><span id="copied" class="muted"></span>
+        </div>
+        <pre id="md"></pre>
+      </section>
+    </main>
+
+    <script>
+      (function () {
+        'use strict';
+        var SAMPLES = [
+          ['w01', '水', 'みず', 'water'],
+          ['w02', '山', 'やま', 'mountain'],
+          ['w03', '川', 'かわ', 'river'],
+          ['w04', '雨', 'あめ', 'rain'],
+          ['w05', '犬', 'いぬ', 'dog'],
+          ['w06', '猫', 'ねこ', 'cat'],
+          ['w07', '本', 'ほん', 'book'],
+          ['w08', '学校', 'がっこう', 'school'],
+          ['w09', '先生', 'せんせい', 'teacher'],
+          ['w10', '学生', 'がくせい', 'student'],
+          ['w11', '友達', 'ともだち', 'friend'],
+          ['w12', '電車', 'でんしゃ', 'train'],
+          ['w13', '駅', 'えき', 'station'],
+          ['w14', '今日', 'きょう', 'today'],
+          ['w15', '明日', 'あした', 'tomorrow'],
+          ['w16', '一人', 'ひとり', 'one person'],
+          ['w17', '大人', 'おとな', 'adult'],
+          ['w18', '食べる', 'たべる', 'to eat'],
+          ['w19', '飲む', 'のむ', 'to drink'],
+          ['w20', '行く', 'いく', 'to go'],
+          ['w21', '見る', 'みる', 'to see'],
+          ['w22', '大きい', 'おおきい', 'big'],
+          ['w23', '小さい', 'ちいさい', 'small'],
+          ['w24', '新しい', 'あたらしい', 'new'],
+          ['w25', '日本語', 'にほんご', 'Japanese language'],
+          ['w26', '時計', 'とけい', 'clock'],
+          ['w27', '切手', 'きって', 'stamp'],
+          ['w28', 'ありがとう', 'ありがとう', 'thank you'],
+          ['w29', 'コーヒー', 'コーヒー', 'coffee'],
+          ['w30', '上手', 'じょうず', 'skilful'],
+          ['s01', 'これは本です。', 'これは ほんです。', 'This is a book.'],
+          ['s02', '私は学生です。', 'わたしは がくせいです。', 'I am a student.'],
+          ['s03', '水を飲みます。', 'みずを のみます。', 'I drink water.'],
+          [
+            's04',
+            '明日、学校に行きます。',
+            'あした、がっこうに いきます。',
+            'Tomorrow I will go to school.',
+          ],
+          ['s05', '駅はどこですか。', 'えきは どこですか。', 'Where is the station?'],
+          ['s06', '猫が好きです。', 'ねこが すきです。', 'I like cats.'],
+          [
+            's07',
+            '今日は雨が降っています。',
+            'きょうは あめが ふっています。',
+            'It is raining today.',
+          ],
+          [
+            's08',
+            '日本語を勉強しています。',
+            'にほんごを べんきょうしています。',
+            'I am studying Japanese.',
+          ],
+          [
+            's09',
+            'コーヒーを一杯ください。',
+            'コーヒーを いっぱい ください。',
+            'One coffee, please.',
+          ],
+          [
+            's10',
+            '友達と電車で行きました。',
+            'ともだちと でんしゃで いきました。',
+            'I went by train with a friend.',
+          ],
+        ];
+        var OPUS_SAMPLE =
+          'data:audio/ogg;codecs=opus;base64,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';
+
+        var $ = function (id) {
+          return document.getElementById(id);
+        };
+        var synth = window.speechSynthesis;
+        var jaVoices = [];
+        var opusOk = 'not tested';
+
+        function esc(s) {
+          return String(s).replace(/[&<>"]/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+          });
+        }
+        function store(k, v) {
+          try {
+            localStorage.setItem('ttsSpike.' + k, v);
+          } catch (e) {
+            /* storage may be blocked */
+          }
+        }
+        function load(k) {
+          try {
+            return localStorage.getItem('ttsSpike.' + k) || '';
+          } catch (e) {
+            return '';
+          }
+        }
+
+        // 1. Environment and codec support
+        $('env').textContent = navigator.userAgent;
+        var a = document.createElement('audio');
+        var types = {
+          'Ogg Opus': 'audio/ogg; codecs="opus"',
+          'WebM Opus': 'audio/webm; codecs="opus"',
+          MP3: 'audio/mpeg',
+        };
+        var sup = [];
+        Object.keys(types).forEach(function (k) {
+          var r = a.canPlayType ? a.canPlayType(types[k]) : '';
+          sup.push(k + ': <span class="' + (r ? 'ok' : 'bad') + '">' + (r || 'no') + '</span>');
+        });
+        sup.push(
+          'speechSynthesis: <span class="' +
+            (synth ? 'ok' : 'bad') +
+            '">' +
+            (synth ? 'yes' : 'no') +
+            '</span>',
+        );
+        $('support').innerHTML = '<p>' + sup.join(' &middot; ') + '</p>';
+
+        // 2. Voices (they load asynchronously on most browsers)
+        function refreshVoices() {
+          if (!synth) {
+            $('voiceSummary').innerHTML = '<p class="bad">This browser has no speechSynthesis.</p>';
+            renderMd();
+            return;
+          }
+          var all = synth.getVoices();
+          jaVoices = all.filter(function (v) {
+            return /^ja([-_]|$)/i.test(v.lang);
+          });
+          $('voiceSummary').innerHTML =
+            '<p>' +
+            all.length +
+            ' voices in total, <span class="' +
+            (jaVoices.length ? 'ok' : 'bad') +
+            '">' +
+            jaVoices.length +
+            ' Japanese</span>.</p>';
+          $('voiceTable').innerHTML = jaVoices.length
+            ? '<tr><th>Name</th><th>Lang</th><th>On device</th><th>Default</th></tr>' +
+              jaVoices
+                .map(function (v) {
+                  return (
+                    '<tr><td>' +
+                    esc(v.name) +
+                    '</td><td>' +
+                    esc(v.lang) +
+                    '</td><td>' +
+                    (v.localService ? 'yes' : 'no (network)') +
+                    '</td><td>' +
+                    (v.default ? 'yes' : '') +
+                    '</td></tr>'
+                  );
+                })
+                .join('')
+            : '';
+          var prev = load('voice');
+          $('voiceSel').innerHTML = jaVoices.length
+            ? jaVoices
+                .map(function (v, i) {
+                  return (
+                    '<option value="' +
+                    i +
+                    '"' +
+                    (v.name === prev ? ' selected' : '') +
+                    '>' +
+                    esc(v.name) +
+                    '</option>'
+                  );
+                })
+                .join('')
+            : '<option>(no Japanese voice; the browser default will be tried with lang ja-JP)</option>';
+          renderMd();
+        }
+        if (synth) {
+          refreshVoices();
+          synth.onvoiceschanged = refreshVoices;
+          setTimeout(refreshVoices, 1000);
+        } else {
+          refreshVoices();
+        }
+
+        $('rate').oninput = function () {
+          $('rateVal').textContent = this.value;
+        };
+        $('voiceSel').onchange = function () {
+          var v = jaVoices[+this.value];
+          if (v) store('voice', v.name);
+          renderMd();
+        };
+
+        function inputMode() {
+          return document.querySelector('input[name=inp]:checked').value;
+        }
+        function speak(s, onend) {
+          if (!synth) return;
+          var u = new SpeechSynthesisUtterance(inputMode() === 'kana' ? s[2] : s[1]);
+          u.lang = 'ja-JP';
+          var v = jaVoices[+$('voiceSel').value];
+          if (v) u.voice = v;
+          u.rate = +$('rate').value;
+          if (onend) {
+            u.onend = onend;
+            u.onerror = onend;
+          }
+          synth.speak(u);
+        }
+
+        // 3. Samples
+        $('samples').innerHTML = SAMPLES.map(function (s, i) {
+          return (
+            '<tr><td class="jp">' +
+            esc(s[1]) +
+            '<br><span class="muted">' +
+            esc(s[2]) +
+            '</span></td><td class="muted">' +
+            esc(s[3]) +
+            '</td><td class="btns"><button data-i="' +
+            i +
+            '">Play</button></td></tr>'
+          );
+        }).join('');
+        $('samples').onclick = function (e) {
+          var i = e.target.getAttribute && e.target.getAttribute('data-i');
+          if (i !== null && i !== undefined) {
+            synth && synth.cancel();
+            speak(SAMPLES[+i]);
+          }
+        };
+        function playList(prefix) {
+          if (!synth) return;
+          synth.cancel();
+          SAMPLES.filter(function (s) {
+            return s[0][0] === prefix;
+          }).forEach(function (s) {
+            speak(s);
+          });
+        }
+        $('playAllWords').onclick = function () {
+          playList('w');
+        };
+        $('playAllSent').onclick = function () {
+          playList('s');
+        };
+        $('stop').onclick = function () {
+          synth && synth.cancel();
+        };
+
+        // 4. Opus
+        $('playOpus').onclick = function () {
+          var au = new Audio(OPUS_SAMPLE);
+          au.play()
+            .then(function () {
+              opusOk = 'plays';
+              $('opusResult').innerHTML = '<span class="ok">Playing. Did you hear it?</span>';
+              renderMd();
+            })
+            .catch(function (err) {
+              opusOk = 'fails (' + err.name + ')';
+              $('opusResult').innerHTML =
+                '<span class="bad">Could not play: ' + esc(err.name) + '</span>';
+              renderMd();
+            });
+        };
+
+        // 5. Notes -> Markdown row matching the table in docs/spikes/tts.md
+        ['device', 'browser', 'quality', 'notes'].forEach(function (id) {
+          $(id).value = load(id);
+          $(id).oninput = $(id).onchange = function () {
+            store(id, this.value);
+            renderMd();
+          };
+        });
+        function cell(s) {
+          return (
+            String(s || '')
+              .replace(/\|/g, '/')
+              .replace(/\n+/g, ' ')
+              .trim() || '-'
+          );
+        }
+        function renderMd() {
+          var v = jaVoices[+$('voiceSel').value];
+          var ogg = a.canPlayType ? a.canPlayType(types['Ogg Opus']) || 'no' : 'no';
+          var row =
+            '| ' +
+            [
+              cell($('device').value),
+              cell($('browser').value),
+              jaVoices.length
+                ? jaVoices.length +
+                  ': ' +
+                  jaVoices
+                    .map(function (x) {
+                      return x.name + (x.localService ? '' : ' (network)');
+                    })
+                    .join(', ')
+                : 'none',
+              cell(v ? v.name : ''),
+              cell($('quality').value),
+              'canPlayType ' + ogg + ', ' + opusOk,
+              cell($('notes').value),
+            ].join(' | ') +
+            ' |';
+          $('md').textContent = row;
+        }
+        $('copy').onclick = function () {
+          renderMd();
+          var t = $('md').textContent;
+          var done = function () {
+            $('copied').textContent = 'Copied.';
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText)
+            navigator.clipboard.writeText(t).then(done, function () {
+              $('copied').textContent = 'Copy failed: select the text below.';
+            });
+          else $('copied').textContent = 'Select the text below and copy it.';
+        };
+        renderMd();
+      })();
+    </script>
+  </body>
+</html>
