@@ -15,7 +15,7 @@ describe('loadConfig', () => {
       mediaDir: './media',
       webDistDir: '',
       logLevel: 'silent',
-      trustProxy: true,
+      trustProxy: 1,
     });
   });
 
@@ -45,6 +45,9 @@ describe('loadConfig', () => {
 
   it.each([
     ['true', true],
+    ['1', 1],
+    ['2', 2],
+    ['loopback, uniquelocal', ['loopback', 'uniquelocal']],
     ['false', false],
     ['172.18.0.0/16', ['172.18.0.0/16']],
     ['10.0.0.2, ::1', ['10.0.0.2', '::1']],

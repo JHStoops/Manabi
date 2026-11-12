@@ -22,7 +22,7 @@ Manabi runs with Docker Compose inside a Proxmox LXC, behind your existing Nginx
 
 Add a Proxy Host: domain = your `PUBLIC_URL` host, forward to the LXC's IP on `APP_PORT` (default 3000), scheme http, enable WebSocket support and request an SSL certificate. Turn on Force SSL: the app sends HSTS and requires an `https://` `PUBLIC_URL` in production.
 
-The app trusts the proxy's `X-Forwarded-*` headers (`TRUST_PROXY`, default `true`). If other machines on the LAN can reach `APP_PORT`, set `TRUST_PROXY` to the proxy's IP address so they cannot spoof them. Point an uptime monitor at `GET /api/v1/healthz`: 200 when the API and database are up, 503 when the database is unreachable.
+The app trusts the proxy's `X-Forwarded-*` headers (`TRUST_PROXY`). The default, `1`, trusts one hop (Nginx Proxy Manager), so the client address is the one the proxy saw and clients cannot spoof it. Better: set `TRUST_PROXY` to Nginx Proxy Manager's IP address, so other machines on the LAN that can reach `APP_PORT` cannot fake `X-Forwarded-Proto` or their address either. Point an uptime monitor at `GET /api/v1/healthz`: 200 when the API and database are up, 503 when the database is unreachable. The `app` service's Compose healthcheck uses the same endpoint.
 
 The app refuses to start with an invalid `.env` and names each problem (for example a missing `SESSION_SECRET`).
 

@@ -4,9 +4,13 @@ export type NodeEnv = 'development' | 'test' | 'production';
 
 /**
  * Which proxies may set X-Forwarded-* (IF-08), in Fastify's `trustProxy` form: `true` trusts any
- * peer, `false` none, a list trusts those addresses or CIDR ranges.
+ * peer, `false` none, a number trusts that many hops (the default, 1, is Nginx Proxy Manager
+ * itself), a list trusts those addresses, CIDR ranges or proxy-addr names (loopback, linklocal,
+ * uniquelocal).
  */
-export type TrustProxy = boolean | string[];
+export type TrustProxy = boolean | number | string[];
+
+const PROXY_ADDR_NAMES = new Set(['loopback', 'linklocal', 'uniquelocal']);
 
 export interface Config {
   nodeEnv: NodeEnv;
@@ -40,11 +44,15 @@ const trustProxySchema = z
   .transform((value, ctx): TrustProxy => {
     if (value === 'true') return true;
     if (value === 'false') return false;
+    if (/^\d+$/.test(value)) return Number(value);
     const list = value.split(',').map((s) => s.trim());
-    if (list.some((s) => !/^[0-9a-fA-F:.]+(\/\d{1,3})?$/.test(s))) {
+    const valid = (s: string) => PROXY_ADDR_NAMES.has(s) || /^[0-9a-fA-F:.]+(\/\d{1,3})?$/.test(s);
+    if (!list.every(valid)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Expected true, false, or comma-separated IP addresses/CIDR ranges',
+        message:
+          'Expected true, false, a hop count, or comma-separated IP addresses, CIDR ranges, ' +
+          'loopback, linklocal or uniquelocal',
       });
       return z.NEVER;
     }
@@ -67,9 +75,10 @@ const envSchema = z
     MEDIA_DIR: z.string().min(1).default('./media'),
     WEB_DIST_DIR: optionalText,
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),
-    // IF-08: by default trust X-Forwarded-* from any peer. Only Nginx Proxy Manager reaches the
-    // app port (SDD section 11); set its address here to trust nothing else.
-    TRUST_PROXY: trustProxySchema.default('true'),
+    // IF-08: by default trust one hop, Nginx Proxy Manager, so request.ip is the address it saw
+    // and clients cannot spoof it with their own X-Forwarded-For. Setting NPM's address instead
+    // also stops other LAN peers from faking X-Forwarded-Proto.
+    TRUST_PROXY: trustProxySchema.default('1'),
   })
   .superRefine((env, ctx) => {
     // Tests that need a database get their own URL; everything else needs one to start.

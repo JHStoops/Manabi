@@ -12,7 +12,7 @@ x-app: &app
     PUBLIC_URL: ${PUBLIC_URL}
     DATABASE_URL: ${DATABASE_URL}
     SESSION_SECRET: ${SESSION_SECRET}
-    TRUST_PROXY: ${TRUST_PROXY:-true}
+    TRUST_PROXY: ${TRUST_PROXY:-1}
     LOG_LEVEL: ${LOG_LEVEL:-info}
     MEDIA_DIR: /media
     SMTP_HOST: ${SMTP_HOST:-}
@@ -32,6 +32,19 @@ services:
     <<: *app
     ports:
       - '${APP_PORT:-3000}:3000'
+    # FR-203: 200 when the API and database are up. The image has node but no curl.
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/v1/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
 
   worker:
     <<: *app

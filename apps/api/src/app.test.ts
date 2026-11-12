@@ -286,6 +286,19 @@ describe('behind Nginx Proxy Manager', () => {
     expect(result).toEqual({ protocol: 'https', ip: '203.0.113.9' });
   });
 
+  it('takes the client address Nginx Proxy Manager saw, not one the client prepended', async () => {
+    const result = await seen({ 'x-forwarded-for': '1.2.3.4, 203.0.113.9' });
+    expect(result.ip).toBe('203.0.113.9');
+  });
+
+  it('trusts any number of hops when TRUST_PROXY=true', async () => {
+    const result = await seen(
+      { 'x-forwarded-for': '1.2.3.4, 203.0.113.9' },
+      { TRUST_PROXY: 'true' },
+    );
+    expect(result.ip).toBe('1.2.3.4');
+  });
+
   it('treats a request without forwarded headers as plain http', async () => {
     expect((await seen({})).protocol).toBe('http');
   });
@@ -305,6 +318,24 @@ describe('behind Nginx Proxy Manager', () => {
     expect(response.headers['strict-transport-security']).toMatch(/max-age=\d+/);
     expect(response.headers['x-content-type-options']).toBe('nosniff');
     expect(response.headers['x-frame-options']).toBe('DENY');
+    // Outside production plain http must keep working (troubleshooting at http://<lxc-ip>:3000).
+    expect(csp).not.toContain('upgrade-insecure-requests');
+  });
+
+  it('asks browsers to upgrade insecure requests in production', async () => {
+    const { app } = await start({
+      env: {
+        NODE_ENV: 'production',
+        LOG_LEVEL: 'silent',
+        DATABASE_URL: 'postgres://manabi:manabi@127.0.0.1:1/manabi',
+        SESSION_SECRET: 'x'.repeat(64),
+        PUBLIC_URL: 'https://manabi.example.com',
+      },
+    });
+    const response = await app.inject({ method: 'GET', url: '/api/v1/healthz' });
+    expect(String(response.headers['content-security-policy'])).toContain(
+      'upgrade-insecure-requests',
+    );
   });
 });
 
@@ -320,6 +351,10 @@ describe('logging', () => {
     const { app } = await start({ env: { LOG_LEVEL: 'info' }, logStream });
     app.get('/api/v1/test-log', { schema: { querystring: z.object({}) } }, async (request) => {
       request.log.info({ password: 'hunter2hunter2', user: { token: 'tok-123' } }, 'payload');
+      const dbError = Object.assign(new Error('duplicate key'), {
+        detail: 'Key (email)=(kana@example.com) already exists.',
+      });
+      request.log.error({ err: dbError }, 'insert failed');
       return { ok: true };
     });
     await app.inject({
@@ -338,7 +373,14 @@ describe('logging', () => {
       true,
     );
     const all = lines.join('\n');
-    for (const secret of ['sekrit', 'private-search', '198.51.100.4', 'hunter2', 'tok-123']) {
+    for (const secret of [
+      'sekrit',
+      'private-search',
+      '198.51.100.4',
+      'hunter2',
+      'tok-123',
+      'kana@example.com',
+    ]) {
       expect(all).not.toContain(secret);
     }
   });

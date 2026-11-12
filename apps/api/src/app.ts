@@ -14,7 +14,7 @@ import {
 import type { FastifyPluginAsyncZod, ZodTypeProvider } from 'fastify-type-provider-zod';
 import type { Pool } from 'pg';
 import { emptyQuerySchema } from '@manabi/core';
-import type { Config } from './config';
+import type { Config, TrustProxy } from './config';
 import { apiNotFound, errorHandler } from './errors';
 import { featureModules } from './modules';
 import { API_PREFIX, missingRequestSchemas } from './routeSchemas';
@@ -44,6 +44,8 @@ const REDACT_PATHS = [
   '*.sessionSecret',
   'databaseUrl',
   '*.databaseUrl',
+  // pg's DatabaseError.detail quotes row values, e.g. "Key (email)=(a@b.c) already exists".
+  'err.detail',
 ];
 
 /**
@@ -71,30 +73,46 @@ function loggerOptions(config: Config, stream?: Writable): FastifyServerOptions[
  * app makes no third-party requests, so everything is same-origin. Emotion injects <style> tags
  * at runtime, hence 'unsafe-inline' for styles only.
  */
-const helmetOptions = {
-  contentSecurityPolicy: {
-    useDefaults: false,
-    directives: {
-      defaultSrc: ["'self'"],
-      baseUri: ["'self'"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
-      formAction: ["'self'"],
-      frameAncestors: ["'none'"],
-      imgSrc: ["'self'", 'data:', 'blob:'],
-      manifestSrc: ["'self'"],
-      mediaSrc: ["'self'", 'blob:'],
-      objectSrc: ["'none'"],
-      scriptSrc: ["'self'"],
-      scriptSrcAttr: ["'none'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      workerSrc: ["'self'"],
-      upgradeInsecureRequests: [],
+function helmetOptions(config: Config) {
+  return {
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        manifestSrc: ["'self'"],
+        mediaSrc: ["'self'", 'blob:'],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        scriptSrcAttr: ["'none'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        workerSrc: ["'self'"],
+        // Production is reached over HTTPS through Nginx Proxy Manager. Elsewhere, and for
+        // troubleshooting at http://<lxc-ip>:3000, plain http must keep working.
+        upgradeInsecureRequests: config.nodeEnv === 'production' ? [] : null,
+      },
     },
-  },
-  strictTransportSecurity: { maxAge: 31_536_000, includeSubDomains: true },
-  frameguard: { action: 'deny' as const },
-};
+    strictTransportSecurity: { maxAge: 31_536_000, includeSubDomains: true },
+    frameguard: { action: 'deny' as const },
+  };
+}
+
+/**
+ * IF-08: Fastify's own handling of a numeric trustProxy trusts nothing, so a hop count becomes a
+ * function: the first `hops` addresses (the socket peer, then right-most X-Forwarded-For entries)
+ * are proxies; request.ip is the next one, which a client cannot forge by prepending entries.
+ */
+function fastifyTrustProxy(
+  trust: TrustProxy,
+): boolean | string[] | ((a: string, hop: number) => boolean) {
+  if (typeof trust === 'number') return (_address, hop) => hop < trust;
+  return trust;
+}
 
 /** The OpenAPI document of every API route (IF-05). */
 const openApiRoute: FastifyPluginAsyncZod = async (app) => {
@@ -120,7 +138,7 @@ export async function buildApp({ config, pool, logStream }: AppOptions): Promise
     logger: config.logLevel === 'silent' && !logStream ? false : loggerOptions(config, logStream),
     // IF-08: Nginx Proxy Manager terminates HTTPS and sets X-Forwarded-For/-Proto/-Host, so
     // request.protocol is 'https' and request.ip is the client's for proxied requests.
-    trustProxy: config.trustProxy,
+    trustProxy: fastifyTrustProxy(config.trustProxy),
   }).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
@@ -139,7 +157,7 @@ export async function buildApp({ config, pool, logStream }: AppOptions): Promise
     routes.push({ method: route.method, url: route.url, schema: route.schema });
   });
 
-  await app.register(fastifyHelmet, helmetOptions);
+  await app.register(fastifyHelmet, helmetOptions(config));
   await app.register(fastifySwagger, {
     openapi: {
       openapi: '3.0.3',
