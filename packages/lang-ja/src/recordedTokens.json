@@ -522,5 +522,419 @@
       "baseForm": "。",
       "reading": "。"
     }
+  ],
+  "本を読んだ。": [
+    {
+      "surface": "本",
+      "pos": ["名詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "本",
+      "reading": "ホン"
+    },
+    {
+      "surface": "を",
+      "pos": ["助詞", "格助詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "を",
+      "reading": "ヲ"
+    },
+    {
+      "surface": "読ん",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・マ行",
+      "conjugationForm": "連用タ接続",
+      "baseForm": "読む",
+      "reading": "ヨン"
+    },
+    {
+      "surface": "だ",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・タ",
+      "conjugationForm": "基本形",
+      "baseForm": "だ",
+      "reading": "ダ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "本を読んだら": [
+    {
+      "surface": "本",
+      "pos": ["名詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "本",
+      "reading": "ホン"
+    },
+    {
+      "surface": "を",
+      "pos": ["助詞", "格助詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "を",
+      "reading": "ヲ"
+    },
+    {
+      "surface": "読ん",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・マ行",
+      "conjugationForm": "連用タ接続",
+      "baseForm": "読む",
+      "reading": "ヨン"
+    },
+    {
+      "surface": "だら",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・タ",
+      "conjugationForm": "仮定形",
+      "baseForm": "だ",
+      "reading": "ダラ"
+    }
+  ],
+  "飲んだのです。": [
+    {
+      "surface": "飲ん",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・マ行",
+      "conjugationForm": "連用タ接続",
+      "baseForm": "飲む",
+      "reading": "ノン"
+    },
+    {
+      "surface": "だ",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・タ",
+      "conjugationForm": "基本形",
+      "baseForm": "だ",
+      "reading": "ダ"
+    },
+    {
+      "surface": "の",
+      "pos": ["名詞", "非自立", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "の",
+      "reading": "ノ"
+    },
+    {
+      "surface": "です",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・デス",
+      "conjugationForm": "基本形",
+      "baseForm": "です",
+      "reading": "デス"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "遊んだり": [
+    {
+      "surface": "遊ん",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・バ行",
+      "conjugationForm": "連用タ接続",
+      "baseForm": "遊ぶ",
+      "reading": "アソン"
+    },
+    {
+      "surface": "だり",
+      "pos": ["助詞", "並立助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "だり",
+      "reading": "ダリ"
+    }
+  ],
+  "泳いだ。": [
+    {
+      "surface": "泳い",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・ガ行",
+      "conjugationForm": "連用タ接続",
+      "baseForm": "泳ぐ",
+      "reading": "オヨイ"
+    },
+    {
+      "surface": "だ",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・タ",
+      "conjugationForm": "基本形",
+      "baseForm": "だ",
+      "reading": "ダ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "3時15分": [
+    {
+      "surface": "3",
+      "pos": ["名詞", "数"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": null,
+      "reading": null
+    },
+    {
+      "surface": "時",
+      "pos": ["名詞", "接尾", "助数詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "時",
+      "reading": "ジ"
+    },
+    {
+      "surface": "15",
+      "pos": ["名詞", "数"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": null,
+      "reading": null
+    },
+    {
+      "surface": "分",
+      "pos": ["名詞", "接尾", "助数詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "分",
+      "reading": "フン"
+    }
+  ],
+  "2時間30分": [
+    {
+      "surface": "2",
+      "pos": ["名詞", "数"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": null,
+      "reading": null
+    },
+    {
+      "surface": "時間",
+      "pos": ["名詞", "接尾", "助数詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "時間",
+      "reading": "ジカン"
+    },
+    {
+      "surface": "30",
+      "pos": ["名詞", "数"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": null,
+      "reading": null
+    },
+    {
+      "surface": "分",
+      "pos": ["名詞", "接尾", "助数詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "分",
+      "reading": "フン"
+    }
+  ],
+  "学校ではありません。": [
+    {
+      "surface": "学校",
+      "pos": ["名詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "学校",
+      "reading": "ガッコウ"
+    },
+    {
+      "surface": "で",
+      "pos": ["助詞", "格助詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "で",
+      "reading": "デ"
+    },
+    {
+      "surface": "は",
+      "pos": ["助詞", "係助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "は",
+      "reading": "ハ"
+    },
+    {
+      "surface": "あり",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・ラ行",
+      "conjugationForm": "連用形",
+      "baseForm": "ある",
+      "reading": "アリ"
+    },
+    {
+      "surface": "ませ",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・マス",
+      "conjugationForm": "未然形",
+      "baseForm": "ます",
+      "reading": "マセ"
+    },
+    {
+      "surface": "ん",
+      "pos": ["助動詞"],
+      "conjugationType": "不変化型",
+      "conjugationForm": "基本形",
+      "baseForm": "ん",
+      "reading": "ン"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "静かではない。": [
+    {
+      "surface": "静か",
+      "pos": ["名詞", "形容動詞語幹"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "静か",
+      "reading": "シズカ"
+    },
+    {
+      "surface": "で",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・ダ",
+      "conjugationForm": "連用形",
+      "baseForm": "だ",
+      "reading": "デ"
+    },
+    {
+      "surface": "は",
+      "pos": ["助詞", "係助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "は",
+      "reading": "ハ"
+    },
+    {
+      "surface": "ない",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・ナイ",
+      "conjugationForm": "基本形",
+      "baseForm": "ない",
+      "reading": "ナイ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "静かじゃありません。": [
+    {
+      "surface": "静か",
+      "pos": ["名詞", "形容動詞語幹"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "静か",
+      "reading": "シズカ"
+    },
+    {
+      "surface": "じゃ",
+      "pos": ["助詞", "副助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "じゃ",
+      "reading": "ジャ"
+    },
+    {
+      "surface": "あり",
+      "pos": ["助動詞"],
+      "conjugationType": "五段・ラ行アル",
+      "conjugationForm": "連用形",
+      "baseForm": "ある",
+      "reading": "アリ"
+    },
+    {
+      "surface": "ませ",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・マス",
+      "conjugationForm": "未然形",
+      "baseForm": "ます",
+      "reading": "マセ"
+    },
+    {
+      "surface": "ん",
+      "pos": ["助動詞"],
+      "conjugationType": "不変化型",
+      "conjugationForm": "基本形",
+      "baseForm": "ん",
+      "reading": "ン"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "学生じゃない。": [
+    {
+      "surface": "学生",
+      "pos": ["名詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "学生",
+      "reading": "ガクセイ"
+    },
+    {
+      "surface": "じゃ",
+      "pos": ["助詞", "副助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "じゃ",
+      "reading": "ジャ"
+    },
+    {
+      "surface": "ない",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・ナイ",
+      "conjugationForm": "基本形",
+      "baseForm": "ない",
+      "reading": "ナイ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
   ]
 }

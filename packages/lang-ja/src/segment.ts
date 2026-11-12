@@ -20,7 +20,7 @@ type Draft = { surface: string; base: string; reading: string; kind: Kind; count
 const REQUEST_VERBS = new Set(['ください', '下さい', 'くださる', '下さる']);
 const COPULA = new Set(['だ', 'です']);
 const SEPARATE_AUX = new Set(['べし']);
-const TE_LIKE = new Set(['て', 'で', 'ば', 'たり', 'ながら', 'ちゃ', 'じゃ', 'つつ']);
+const TE_LIKE = new Set(['て', 'で', 'ば', 'たり', 'だり', 'ながら', 'ちゃ', 'じゃ', 'つつ']);
 const VERB_LIKE: Kind[] = ['verb', 'adj'];
 
 const token = (surface: string, pos: string[], baseForm: string, reading: string) => ({
@@ -70,10 +70,17 @@ function splitIdiom(t: AnalyzerToken): AnalyzerToken[] {
 const toHiragana = (text: string): string =>
   text.replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
 
-const isCopulaStart = (t: AnalyzerToken | undefined): boolean =>
+// IPADIC gives the past た after a voiced stem (読んだ, 泳いだ) base form だ too; that is a verb
+// ending. Only a stem in 連用タ接続 form takes it: after 出しすぎ (連用形) だ is still the copula,
+// even when IPADIC tags it 特殊・タ.
+const isCopula = (t: AnalyzerToken | undefined, before: AnalyzerToken | undefined): boolean =>
+  t?.pos[0] === '助動詞' &&
+  COPULA.has(t.baseForm ?? '') &&
+  !(t.conjugationType === '特殊・タ' && before?.conjugationForm === '連用タ接続');
+
+const isCopulaStart = (t: AnalyzerToken | undefined, before: AnalyzerToken): boolean =>
   !!t &&
-  ((t.pos[0] === '助動詞' && COPULA.has(t.baseForm ?? '')) ||
-    (t.pos[0] === '助詞' && (t.surface === 'じゃ' || t.surface === 'では')));
+  (isCopula(t, before) || (t.pos[0] === '助詞' && (t.surface === 'じゃ' || t.surface === 'では')));
 
 const isNaiOrAru = (t: AnalyzerToken | undefined): boolean =>
   t?.baseForm === 'ない' || t?.baseForm === 'ある';
@@ -100,6 +107,11 @@ export function segment(input: readonly AnalyzerToken[]): SegmentedTile[] {
     };
     tiles.push(prev);
   };
+  // A copula tile started from a particle-tagged token (じゃ, では, で) still has base form だ.
+  const pushCopula = (t: AnalyzerToken): void => {
+    push(t, 'copula', false);
+    prev!.base = 'だ';
+  };
   // `joinBase`: the token adds to the word itself (お休み, 電話する), not just inflects it.
   const attach = (t: AnalyzerToken, kind?: Kind, joinBase = false): void => {
     const p = prev!;
@@ -113,6 +125,8 @@ export function segment(input: readonly AnalyzerToken[]): SegmentedTile[] {
     const next = tokens[i + 1];
     const p = prev as Draft | null;
     const [pos, pos1, pos2] = t.pos;
+    // R7: ない/ある after では or じゃ belong to the copula (ではありません, 静かではない).
+    const afterCopulaWa = p?.kind === 'copula' && /(では|じゃ)$/.test(p.surface);
 
     // R0: punctuation is never a tile and breaks merging.
     if (pos === '記号') {
@@ -124,9 +138,12 @@ export function segment(input: readonly AnalyzerToken[]): SegmentedTile[] {
     if (pos === '接頭詞') return push(t, 'prefix');
 
     if (pos === '名詞') {
-      // R2: digits and kanji numerals run together; R3: counters / noun suffixes join the noun.
+      // R2: digits and kanji numerals run together, but not past a counter (3時 | 15分);
+      // R3: counters / noun suffixes join the noun.
       if (pos1 === '数')
-        return p?.kind === 'num' ? attach(t, undefined, true) : push(t, 'num', false);
+        return p?.kind === 'num' && tokens[i - 1]?.pos[1] === '数'
+          ? attach(t, undefined, true)
+          : push(t, 'num', false);
       if (pos1 === '接尾' && (p?.kind === 'num' || p?.kind === 'noun' || p?.kind === 'sahen')) {
         // A number keeps its kind so a counter tile stays uncounted (三人, 一週間後); a name plus a
         // person suffix (ルーシーさん) stays a name; any other suffix makes a word (中国語).
@@ -140,7 +157,7 @@ export function segment(input: readonly AnalyzerToken[]): SegmentedTile[] {
         (t.surface === 'の' || t.surface === 'ん') &&
         p &&
         VERB_LIKE.includes(p.kind) &&
-        isCopulaStart(next)
+        isCopulaStart(next, t)
       )
         return push(t, 'nominalizer', false);
       if (pos1 === 'サ変接続') return push(t, 'sahen');
@@ -148,6 +165,7 @@ export function segment(input: readonly AnalyzerToken[]): SegmentedTile[] {
     }
 
     if (pos === '動詞') {
+      if (afterCopulaWa && isNaiOrAru(t)) return attach(t);
       // R4: する after a サ変 noun makes one verb (電話します).
       if (t.baseForm === 'する' && p?.kind === 'sahen') return attach(t, 'verb', true);
       // R5: subsidiary verbs (いる/てる, くる, しまう, みる, なさい, すぎる, がる, ちゃう) join the verb,
@@ -165,7 +183,7 @@ export function segment(input: readonly AnalyzerToken[]): SegmentedTile[] {
     if (pos === '助動詞') {
       if (SEPARATE_AUX.has(t.baseForm ?? '')) return push(t, 'other', false);
       // R7: the copula is its own tile, with its own endings (でした, だろう, である, ではない).
-      if (COPULA.has(t.baseForm ?? '')) {
+      if (isCopula(t, tokens[i - 1])) {
         if (p?.kind === 'nominalizer') return attach(t, 'copula');
         if (p?.kind === 'copula' && !COPULA.has(p.surface)) return attach(t);
         return push(t, 'copula', false);
@@ -176,19 +194,25 @@ export function segment(input: readonly AnalyzerToken[]): SegmentedTile[] {
     }
 
     if (pos === '助詞') {
-      // R6: て/で/ば/たり/ちゃ join the verb or adjective (食べて, 来なければ).
-      if (pos1 === '接続助詞' && TE_LIKE.has(t.surface) && p && VERB_LIKE.includes(p.kind))
+      // R6: て/で/ば/たり/ちゃ join the verb or adjective (食べて, 来なければ); IPADIC tags たり/だり
+      // as 並立助詞.
+      if (
+        (pos1 === '接続助詞' || pos1 === '並立助詞') &&
+        TE_LIKE.has(t.surface) &&
+        p &&
+        VERB_LIKE.includes(p.kind)
+      )
         return attach(t);
       // R10: ば after a copula joins it (ならば).
       if (pos1 === '接続助詞' && t.surface === 'ば' && p?.kind === 'copula') return attach(t);
       // R7: じゃ/では as copula (んじゃない, じゃない), and the は inside ではない.
       if (t.surface === 'じゃ' || t.surface === 'では') {
         if (p?.kind === 'nominalizer') return attach(t, 'copula');
-        if (isNaiOrAru(next)) return push(t, 'copula', false);
+        if (isNaiOrAru(next)) return pushCopula(t);
       }
       // R7: IPADIC also tags the で of 学生ではない as a case particle.
       if (t.surface === 'で' && next?.surface === 'は' && isNaiOrAru(tokens[i + 2]))
-        return push(t, 'copula', false);
+        return pushCopula(t);
       if (
         t.surface === 'は' &&
         p?.kind === 'copula' &&
@@ -200,7 +224,7 @@ export function segment(input: readonly AnalyzerToken[]): SegmentedTile[] {
       return push(t, 'particle', false);
     }
 
-    if (pos === '形容詞') return push(t, 'adj');
+    if (pos === '形容詞') return afterCopulaWa && isNaiOrAru(t) ? attach(t) : push(t, 'adj');
     return push(t, 'other');
   });
 

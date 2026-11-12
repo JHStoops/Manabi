@@ -62,11 +62,11 @@ describe('segment (FR-238, rules R0 to R10)', () => {
       ],
     ],
     [
-      'R7 ではない is one copula tile',
+      'R7 ではない is one copula tile, base form だ',
       '学生ではない。',
       [
         ['学生', '学生', 'がくせい', true],
-        ['ではない', 'で', 'ではない', false],
+        ['ではない', 'だ', 'ではない', false],
       ],
     ],
     [
@@ -106,6 +106,82 @@ describe('segment (FR-238, rules R0 to R10)', () => {
         ['中国語', '中国語', 'ちゅうごくご', true],
         ['を', 'を', 'を', false],
         ['話す', '話す', 'はなす', true],
+      ],
+    ],
+    [
+      'R6 the past だ after a voiced stem is a verb ending, not the copula',
+      '本を読んだ。',
+      [
+        ['本', '本', 'ほん', true],
+        ['を', 'を', 'を', false],
+        ['読んだ', '読む', 'よんだ', true],
+      ],
+    ],
+    [
+      'R6 だら joins the verb',
+      '本を読んだら',
+      [
+        ['本', '本', 'ほん', true],
+        ['を', 'を', 'を', false],
+        ['読んだら', '読む', 'よんだら', true],
+      ],
+    ],
+    [
+      'R6 だ joins the verb; R8 のです follows it',
+      '飲んだのです。',
+      [
+        ['飲んだ', '飲む', 'のんだ', true],
+        ['のです', 'の', 'のです', false],
+      ],
+    ],
+    ['R6 だり joins the verb', '遊んだり', [['遊んだり', '遊ぶ', 'あそんだり', true]]],
+    ['R6 泳いだ is one verb tile', '泳いだ。', [['泳いだ', '泳ぐ', 'およいだ', true]]],
+    [
+      'R2 a numeral after a counter starts a new tile',
+      '3時15分',
+      [
+        ['3時', '3時', '3じ', false],
+        ['15分', '15分', '15ふん', false],
+      ],
+    ],
+    [
+      'R2 a numeral after a multi-character counter starts a new tile',
+      '2時間30分',
+      [
+        ['2時間', '2時間', '2じかん', false],
+        ['30分', '30分', '30ふん', false],
+      ],
+    ],
+    [
+      'R7 ではありません is one copula tile (ある tagged a verb)',
+      '学校ではありません。',
+      [
+        ['学校', '学校', 'がっこう', true],
+        ['ではありません', 'だ', 'ではありません', false],
+      ],
+    ],
+    [
+      'R7 the copula after a na-adjective',
+      '静かではない。',
+      [
+        ['静か', '静か', 'しずか', true],
+        ['ではない', 'だ', 'ではない', false],
+      ],
+    ],
+    [
+      'R7 じゃありません is one copula tile, base form だ',
+      '静かじゃありません。',
+      [
+        ['静か', '静か', 'しずか', true],
+        ['じゃありません', 'だ', 'じゃありません', false],
+      ],
+    ],
+    [
+      'R7 じゃない is one copula tile, base form だ',
+      '学生じゃない。',
+      [
+        ['学生', '学生', 'がくせい', true],
+        ['じゃない', 'だ', 'じゃない', false],
       ],
     ],
   ])('%s: %s', (_rule, text, want) => {

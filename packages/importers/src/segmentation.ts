@@ -1,6 +1,6 @@
 import path from 'node:path';
 import type { AnalyzerId, AnalyzerToken, LanguagePlugin, SegmentedTile } from '@manabi/core';
-import { builder } from 'kuromoji';
+import type * as Kuromoji from 'kuromoji';
 import type { IpadicFeatures, Tokenizer } from 'kuromoji';
 
 /** A loaded analyzer: text in, tokens out. Adapters hold no language rules (FR-240). */
@@ -13,6 +13,10 @@ const field = (value: string | undefined): string | null =>
 /** kuromoji 0.1.2 with its bundled IPADIC dictionary, read from disk (about 0.2 s). */
 async function loadKuromojiIpadic(): Promise<Analyzer> {
   const dicPath = path.join(path.dirname(require.resolve('kuromoji/package.json')), 'dict');
+  // Imported here so the API, worker and CLI load kuromoji only when they segment.
+  // Native ESM (tsx) exposes a CommonJS module only as `default`; bundles and Jest give both.
+  const mod: typeof Kuromoji & { default?: typeof Kuromoji } = await import('kuromoji');
+  const { builder } = mod.default ?? mod;
   const kuromoji = await new Promise<Tokenizer<IpadicFeatures>>((resolve, reject) =>
     builder({ dicPath }).build((err, t) => (err ? reject(err) : resolve(t))),
   );
