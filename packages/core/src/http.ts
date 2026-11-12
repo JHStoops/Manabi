@@ -7,6 +7,12 @@ import { z } from 'zod';
 export const emptyQuerySchema = z.object({});
 export type EmptyQuery = z.infer<typeof emptyQuerySchema>;
 
+/**
+ * NFR-13: the body schema of a POST that takes no input, such as sign-out. The body may be left
+ * out or be an empty JSON object.
+ */
+export const emptyBodySchema = z.object({}).nullish();
+
 /** FR-203: status of one dependency in the health report. */
 export const healthStatusSchema = z.enum(['ok', 'unavailable']);
 export type HealthStatus = z.infer<typeof healthStatusSchema>;

@@ -66,6 +66,11 @@ export function errorHandler(
 ): FastifyReply {
   if (error instanceof AppError) {
     if (error.statusCode >= 500) request.log.error({ err: error }, 'Request failed');
+    // NFR-12: a rate-limited client learns when to try again.
+    const retryAfter = (error.details as { retryAfterSeconds?: unknown } | null)?.retryAfterSeconds;
+    if (error.code === 'rate_limited' && typeof retryAfter === 'number') {
+      reply.header('retry-after', String(retryAfter));
+    }
     return reply.status(error.statusCode).send(body(error.code, error.message, error.details));
   }
 

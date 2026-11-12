@@ -5,6 +5,7 @@
 // with the same Zod instance.
 export { z } from 'zod';
 export * from './account';
+export * from './auth';
 export * from './apiError';
 export * from './content';
 export * from './exerciseRegistry';

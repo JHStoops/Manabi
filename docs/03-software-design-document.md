@@ -221,7 +221,7 @@ The web app uses only the public REST API under `/api/v1`, so a mobile client ge
 
 | Area | Endpoints (prefix `/api/v1`) |
 | --- | --- |
-| Auth | `POST /auth/login`, `POST /auth/logout`, `POST /auth/accept-invite`, `POST /auth/password-reset`, `GET /me`, `PATCH /me` |
+| Auth | `POST /auth/login`, `POST /auth/logout`, `POST /auth/accept-invite`, `POST /auth/change-password`, `POST /auth/password-reset`, `GET /me`, `PATCH /me`, `GET /me/sessions`, `DELETE /me/sessions/:id` |
 | Courses | `GET /courses`, `POST /courses/:id/enroll`, `GET /courses/:id/path` (sections, units, lessons with the learner's state) |
 | Lessons | `POST /lessons/:id/sessions` (start or resume), `POST /lesson-sessions/:id/complete`, `POST /units/:id/test-out`, `POST /units/:id/challenge` (start or resume a unit challenge) |
 | Reviews | `GET /reviews/summary` (due now, forecast), `POST /reviews/sessions`, `POST /review-sessions/:id/answers` |
