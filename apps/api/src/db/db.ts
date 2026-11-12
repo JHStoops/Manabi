@@ -29,6 +29,17 @@ export async function queryOne<R extends QueryResultRow>(
   return rows[0] ?? null;
 }
 
+/** For INSERT ... RETURNING of a single row: returns that row, or throws if there is none. */
+export async function insertReturning<R extends QueryResultRow>(
+  db: Queryable,
+  sql: string,
+  params: readonly unknown[],
+): Promise<R> {
+  const row = await queryOne<R>(db, sql, params);
+  if (!row) throw new Error('INSERT ... RETURNING returned no row');
+  return row;
+}
+
 /**
  * Runs `fn` inside one transaction on a dedicated client. Commits when `fn` resolves;
  * rolls back and rethrows when it throws. Progress writes go through this (atomic writes).

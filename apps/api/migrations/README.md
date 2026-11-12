@@ -13,6 +13,11 @@ Migrations only go up. There is no down-migration path: files have no `-- Down M
 - `npm run migrate:create -w @manabi/api -- <name>` creates a timestamped template; rename it to the next number and delete its `-- Down Migration` section. Copying the previous file's header works just as well.
 - Use CHECK constraints for closed sets from the docs, foreign keys for references, and indexes for columns that are filtered or joined on.
 - Progress tables: the XP ledger and review log are append-only. Do not add updates or deletes against them. Content pack imports never write to progress tables.
+- Foreign keys from progress to content are `ON DELETE RESTRICT` (content is archived, not deleted); from user-owned rows to `users` they are `ON DELETE CASCADE`, so deleting an account removes its data (DR-07).
+
+## Append-only tables
+
+`review_log` and `xp_events` (migration 0003) have triggers that reject `UPDATE` always, `DELETE` unless the row's user no longer exists (the `ON DELETE CASCADE` of an account deletion), and `TRUNCATE` unless `manabi.allow_truncate` holds the current transaction's id (`SELECT set_config('manabi.allow_truncate', pg_current_xact_id()::text, true)` inside that transaction), so the permission cannot outlive the transaction. Only the test harness sets it, to empty tables between tests. The app connects as the database owner, so the triggers, not grants, enforce the rule.
 
 ## Running
 
@@ -35,3 +40,6 @@ export DATABASE_URL=postgres://manabi:manabi@localhost:5432/manabi_test
 ## Schema
 
 - `0001_content_tables.sql`: content tables from SDD section 5 (courses, sections, units, lessons, items, item_links, lesson_items, sentences, sentence_items, supplementary_words, blocked_words, exercises, audio_assets, stroke_data).
+- `0002_accounts.sql`: users, invites, sessions, password_resets.
+- `0003_progress.sql`: enrollments, lesson_progress, lesson_sessions, item_progress, review_log, xp_events, user_stats, user_notes, boosters; the append-only triggers.
+- `0004_social_admin.sql`: follows, nudges, weekly_results, achievements, user_achievements, answer_reports, import_runs.

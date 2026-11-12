@@ -126,10 +126,10 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 
 | Table | Key columns | Notes |
 | --- | --- | --- |
-| `users` | id, username, email, password_hash, display_name, role (admin or learner), must_change_password, time_zone, settings (JSONB), disabled_at | Settings hold theme, furigana mode, caps, toggles |
-| `invites` | id, token_hash, role, created_by, expires_at, used_by, used_at | Single use |
+| `users` | id, username, email, password_hash, display_name, role (admin or learner), must_change_password, password_expires_at, time_zone, settings (JSONB), disabled_at | Settings hold theme, furigana mode, caps, toggles; password_expires_at is set with an admin's temporary password |
+| `invites` | id, token_hash, email, role, created_by, expires_at, used_by, used_at, revoked_at | Single use; email is null when the link was only copied |
 | `sessions` | id, user_id, token_hash, client_kind, expires_at, last_seen_at | Web or mobile |
-| `password_resets` | id, user_id, token_hash, expires_at, used_at | Email or admin issued |
+| `password_resets` | id, user_id, token_hash, origin, expires_at, used_at | Origin: email or admin issued |
 
 **Progress**
 
@@ -150,11 +150,11 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 | Table | Key columns | Notes |
 | --- | --- | --- |
 | `follows` | follower_id, followee_id, created_at | One-way |
-| `nudges` | id, from_user_id, to_user_id, kind, sent_at, seen_at | One per pair per day |
+| `nudges` | id, from_user_id, to_user_id, kind, sent_at, local_date, seen_at | One per pair per day (the sender's local date) |
 | `weekly_results` | week_start, user_id, xp, rank | Written at rollover; the live board is a query over `xp_events` |
-| `achievements` | key, group, threshold, title | Seeded definitions |
-| `user_achievements` | user_id, achievement_key, earned_at |  |
-| `answer_reports` | id, user_id, exercise_id, given_answer, status, resolved_by | Author inbox |
+| `achievements` | key, group_key, metric, threshold, title | Seeded definitions (`group` is a reserved word in SQL) |
+| `user_achievements` | user_id, achievement_key, earned_at, seen_at | seen_at marks the celebration as shown |
+| `answer_reports` | id, user_id, exercise_id (nullable), item_id (nullable), exercise_type, exercise_payload (JSONB), given_answer, status, resolved_by, resolved_at | Author inbox; keeps a copy of the exercise, since session-generated ones are not stored; points at the stored exercise and/or the item; user_id is nulled when the reporter's account is deleted |
 | `import_runs` | id, importer, started_at, finished_at, status, summary (JSONB) |  |
 
 All timestamps are stored in UTC. `local_date` on `xp_events` is the learner's calendar date at the time, computed from `users.time_zone`, so streaks do not shift if the learner later changes zone.

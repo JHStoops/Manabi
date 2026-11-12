@@ -23,6 +23,8 @@ export function testDatabaseUrl(): string {
 }
 
 // Empties every table except the migration bookkeeping, resetting identity sequences.
+// The append-only tables (review_log, xp_events) reject TRUNCATE unless manabi.allow_truncate
+// holds the current transaction id (migration 0003); the DO block runs as one transaction.
 const TRUNCATE_ALL = `
 DO $$
 DECLARE tables text;
@@ -32,6 +34,7 @@ BEGIN
     FROM pg_tables
    WHERE schemaname = 'public' AND tablename <> 'pgmigrations';
   IF tables IS NOT NULL THEN
+    PERFORM set_config('manabi.allow_truncate', pg_current_xact_id()::text, true);
     EXECUTE 'TRUNCATE ' || tables || ' RESTART IDENTITY CASCADE';
   END IF;
 END $$`;
