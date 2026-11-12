@@ -13,7 +13,8 @@
     "migrate:create": "node-pg-migrate create --migrations-dir migrations --migration-file-language sql",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "jest --passWithNoTests",
-    "test:coverage": "jest --coverage --passWithNoTests"
+    "test:coverage": "jest --coverage --passWithNoTests",
+    "generate:client": "tsx src/generateClient.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.5",
@@ -28,11 +29,14 @@
     "pg": "^8.13.1",
     "pg-boss": "^10.4.2",
     "pino": "^10.4.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@types/pg": "^8.11.10",
     "esbuild": "^0.24.0",
+    "openapi-typescript": "^7.13.0",
+    "prettier": "^3.3.3",
     "tsx": "^4.19.2"
   }
 }

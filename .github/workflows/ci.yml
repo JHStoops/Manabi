@@ -39,6 +39,15 @@ jobs:
         run: npm run format:check
       - name: Type check
         run: npm run typecheck
+      # IF-05: packages/api-client is generated from the routes' OpenAPI document and committed.
+      - name: Check the generated API client is up to date
+        run: |
+          npm run generate:client
+          if [ -n "$(git status --porcelain -- packages/api-client)" ]; then
+            git --no-pager diff -- packages/api-client
+            echo "::error::packages/api-client is out of date: run 'npm run generate:client' and commit the result"
+            exit 1
+          fi
       - name: Check PostgreSQL is reachable
         run: psql "$DATABASE_URL" -c 'select 1'
       - name: Test with coverage

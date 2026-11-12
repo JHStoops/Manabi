@@ -2,7 +2,7 @@
   "name": "@manabi/api-client",
   "version": "0.0.0",
   "private": true,
-  "description": "Typed API client (to be generated from the OpenAPI document).",
+  "description": "Typed fetch client for the Manabi API, generated from its OpenAPI document.",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
@@ -12,6 +12,8 @@
     "test:coverage": "jest --coverage --passWithNoTests"
   },
   "dependencies": {
-    "@manabi/core": "*"
+    "@manabi/core": "*",
+    "openapi-fetch": "^0.17.0",
+    "openapi-typescript-helpers": "^0.1.0"
   }
 }
