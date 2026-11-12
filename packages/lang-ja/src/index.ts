@@ -1,4 +1,7 @@
 import type { LanguagePlugin } from '@manabi/core';
+import { itemSchemas } from './itemSchemas';
+
+export * from './itemSchemas';
 
 // STUB: every behavioral method throws until the Japanese plugin is implemented.
 function notImplemented(method: string): never {
@@ -15,7 +18,7 @@ export const japanese: LanguagePlugin = {
     readingAnnotations: false,
     inputConversion: false,
   },
-  itemSchemas: {},
+  itemSchemas,
   normalizeAnswer: () => notImplemented('normalizeAnswer'),
   checkAnswer: () => notImplemented('checkAnswer'),
   convertInput: () => notImplemented('convertInput'),

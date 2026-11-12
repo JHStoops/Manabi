@@ -1,0 +1,82 @@
+import { z } from '@manabi/core';
+
+/**
+ * DR-06: Japanese item `data` schemas, keyed by item type. The item envelope (key, type, level,
+ * overrides, source) is language-neutral and lives in @manabi/core; these are the
+ * language-specific fields inside `items.data`. Fields come from Product Spec sections 5 and 6
+ * and the datasets in SDD section 10 (KANJIDIC2, JMdict); the importer issues may add fields.
+ */
+
+const text = z.string().min(1);
+const hiragana = /^[ぁ-ゟー]+$/u;
+const katakana = /^[゠-ヿ]+$/u;
+/** Kana, plus '.' marking okurigana and '-' marking a prefix or suffix (KANJIDIC2 style). */
+const kanaReading = /^[-.ぁ-ゟ゠-ヿ]+$/u;
+
+/** One hiragana or katakana character (or digraph such as きゃ) and its romaji. */
+export const kanaDataSchema = z
+  .object({
+    character: text.max(3),
+    script: z.enum(['hiragana', 'katakana']),
+    romaji: z.string().regex(/^[a-z-]+$/),
+  })
+  .strict()
+  .refine((kana) => (kana.script === 'hiragana' ? hiragana : katakana).test(kana.character), {
+    message: 'Character does not match its script',
+    path: ['character'],
+  });
+export type KanaData = z.infer<typeof kanaDataSchema>;
+
+/** A kanji: meanings (primary first), on and kun readings, stroke count and components. */
+export const kanjiDataSchema = z
+  .object({
+    character: z.string().refine((value) => [...value].length === 1, 'Expected one kanji'),
+    meanings: z.array(text).min(1),
+    onReadings: z.array(z.string().regex(kanaReading)),
+    kunReadings: z.array(z.string().regex(kanaReading)),
+    strokeCount: z.number().int().min(1),
+    /** Radical and component characters (each also a kanji item when in the course). */
+    components: z.array(text).default([]),
+  })
+  .strict();
+export type KanjiData = z.infer<typeof kanjiDataSchema>;
+
+/** A word: written form, kana reading, meanings (primary first) and parts of speech. */
+export const wordDataSchema = z
+  .object({
+    written: text,
+    reading: z.string().regex(kanaReading),
+    meanings: z.array(text).min(1),
+    partsOfSpeech: z.array(text).default([]),
+  })
+  .strict();
+export type WordData = z.infer<typeof wordDataSchema>;
+
+/** One formation row: a word type, its form and a worked example (Product Spec section 6). */
+export const formationRowSchema = z.object({ wordType: text, form: text, example: text }).strict();
+
+/**
+ * A grammar point. A stub has only its pattern (and level, on the item envelope) until its page is
+ * written (SDD section 4), so every other field is optional.
+ */
+export const grammarDataSchema = z
+  .object({
+    pattern: text,
+    meaning: text.optional(),
+    /** Grammar reference themes such as 'particles' or 'verb forms'. */
+    themes: z.array(text).default([]),
+    formation: z.array(formationRowSchema).default([]),
+    /** Markdown body: explanation paragraphs. */
+    explanation: text.optional(),
+    // PLACEHOLDER: detection patterns over analyzer tokens are defined with detectGrammar.
+    detection: z.array(z.unknown()).default([]),
+  })
+  .strict();
+export type GrammarData = z.infer<typeof grammarDataSchema>;
+
+export const itemSchemas = {
+  kana: kanaDataSchema,
+  kanji: kanjiDataSchema,
+  word: wordDataSchema,
+  grammar: grammarDataSchema,
+};
