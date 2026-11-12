@@ -25,8 +25,8 @@ describeWithDb('auth API', () => {
     current = undefined;
   });
 
-  async function start(): Promise<FastifyInstance> {
-    current = await testApp({ pool: pool() });
+  async function start(env: NodeJS.ProcessEnv = {}): Promise<FastifyInstance> {
+    current = await testApp({ pool: pool(), env });
     return current.app;
   }
 
@@ -240,6 +240,43 @@ describeWithDb('auth API', () => {
       expect(sessionCookie(response)).toMatchObject({ httpOnly: true, secure: true });
     });
 
+    it('marks the cookie Secure in production even without X-Forwarded-Proto (NFR-11)', async () => {
+      await user();
+      const app = await start({
+        NODE_ENV: 'production',
+        DATABASE_URL: 'postgres://unused/x',
+        PUBLIC_URL: 'https://manabi.example.com',
+        SESSION_SECRET: 's'.repeat(32),
+        LOG_LEVEL: 'silent',
+      });
+      const response = await login(app, { identifier: 'learner', password: PASSWORD });
+      expect(response.statusCode).toBe(200);
+      expect(sessionCookie(response)).toMatchObject({ httpOnly: true, secure: true });
+    });
+
+    it('leaves Secure off for plain http outside production, for local development', async () => {
+      await user();
+      const app = await start();
+      const response = await login(app, { identifier: 'learner', password: PASSWORD });
+      expect(sessionCookie(response)!.secure).toBeFalsy();
+      expect(String(response.headers['set-cookie'])).not.toMatch(/Secure/);
+    });
+
+    it('replaces the session of a browser that signs in again', async () => {
+      await user();
+      const app = await start();
+      const first = await cookieFor(app, 'learner');
+      const again = await login(
+        app,
+        { identifier: 'learner', password: PASSWORD },
+        { cookie: `${SESSION_COOKIE}=${first}`, origin: ORIGIN },
+      );
+      expect(again.statusCode).toBe(200);
+      expect(await query(pool(), `SELECT 1 FROM sessions`)).toHaveLength(1);
+      await expectError(await me(app, withCookie(first)), 401, 'unauthenticated');
+      expect((await me(app, withCookie(sessionCookie(again)!.value))).statusCode).toBe(200);
+    });
+
     it('gives the same answer for a wrong password and an unknown account', async () => {
       await user();
       const app = await start();
@@ -306,7 +343,7 @@ describeWithDb('auth API', () => {
     });
 
     it.each([
-      ['an existing account, by username and email', 'learner', 'LEARNER@example.com'],
+      ['an existing username, in any case', 'learner', 'LEARNER'],
       ['an unknown username', 'ghost', 'GHOST'],
     ])(
       'rejects the 11th attempt within 15 minutes for %s from many IPs (NFR-12)',
@@ -330,6 +367,54 @@ describeWithDb('auth API', () => {
         await expectError(blocked, 429, 'rate_limited');
       },
     );
+
+    it('counts a username and its email separately, so counts do not link them', async () => {
+      await user();
+      const app = await start();
+      for (let i = 0; i < 10; i++) {
+        await login(
+          app,
+          { identifier: 'learner', password: 'wrong password' },
+          { 'x-forwarded-for': `203.0.113.${i + 10}` },
+        );
+      }
+      const byName = await login(
+        app,
+        { identifier: 'learner', password: PASSWORD },
+        { 'x-forwarded-for': '203.0.113.99' },
+      );
+      await expectError(byName, 429, 'rate_limited');
+      const byEmail = await login(
+        app,
+        { identifier: 'learner@example.com', password: PASSWORD },
+        { 'x-forwarded-for': '203.0.113.99' },
+      );
+      expect(byEmail.statusCode).toBe(200);
+    });
+
+    it('counts IPv6 clients by their /64 prefix', async () => {
+      const app = await start();
+      for (let i = 0; i < 10; i++) {
+        const r = await login(
+          app,
+          { identifier: `user${i}`, password: 'x' },
+          { 'x-forwarded-for': `2001:db8:1:2::${i + 1}` },
+        );
+        expect(r.statusCode).toBe(401);
+      }
+      const sameNet = await login(
+        app,
+        { identifier: 'user10', password: 'x' },
+        { 'x-forwarded-for': '2001:db8:1:2:ffff::1' },
+      );
+      await expectError(sameNet, 429, 'rate_limited');
+      const otherNet = await login(
+        app,
+        { identifier: 'user10', password: 'x' },
+        { 'x-forwarded-for': '2001:db8:1:3::1' },
+      );
+      expect(otherNet.statusCode).toBe(401);
+    });
   });
 
   describe('sessions (IF-06, FR-004)', () => {

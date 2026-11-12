@@ -7,12 +7,14 @@ import {
   emptyBodySchema,
   emptyQuerySchema,
   loginRequestSchema,
+  opaqueTokenSchema,
   sessionListSchema,
   sessionParamsSchema,
   userSchema,
   z,
 } from '@manabi/core';
-import { clearSessionCookie, deliverSession, requireAuth } from './guard';
+import { clearSessionCookie, deliverSession, requireAuth, SESSION_COOKIE } from './guard';
+import { prepareDummyHash } from './passwords';
 import * as auth from './service';
 
 /** 204 responses have no body. */
@@ -32,6 +34,9 @@ const errors = {
  * (guard.ts, registered by buildApp) runs before these handlers.
  */
 export const authRoutes: FastifyPluginAsyncZod = async (app) => {
+  // Stable timing for unknown names from the first sign-in on.
+  await prepareDummyHash();
+
   // FR-003, NFR-12
   app.post(
     '/auth/login',
@@ -46,7 +51,15 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => {
-      const issued = await auth.login(app.db, app.attemptLimiter, request.ip, request.body);
+      const cookie = request.cookies[SESSION_COOKIE];
+      const previous = opaqueTokenSchema.safeParse(cookie).success ? cookie : undefined;
+      const issued = await auth.login(
+        app.db,
+        app.attemptLimiter,
+        request.ip,
+        request.body,
+        previous,
+      );
       return deliverSession(request, reply, issued);
     },
   );

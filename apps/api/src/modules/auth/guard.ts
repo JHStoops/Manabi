@@ -65,13 +65,15 @@ function checkOrigin(request: FastifyRequest, config: Config, via: 'bearer' | 'c
   if (!allowed.has(origin)) throw new AppError('forbidden', 'Cross-origin request refused');
 }
 
-/** NFR-11: HttpOnly, SameSite=Lax, Secure whenever the client reached us over HTTPS. */
+/** NFR-11: HttpOnly, SameSite=Lax and Secure. */
 function cookieOptions(request: FastifyRequest, maxAgeSeconds: number) {
   return {
     path: API_PREFIX,
     httpOnly: true,
     sameSite: 'lax' as const,
-    secure: request.protocol === 'https',
+    // Always in production (NFR-11), even if a proxy forgot X-Forwarded-Proto; elsewhere only
+    // over HTTPS, so http://localhost development keeps working.
+    secure: request.server.config.nodeEnv === 'production' || request.protocol === 'https',
     maxAge: maxAgeSeconds,
   };
 }

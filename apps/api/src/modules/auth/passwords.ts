@@ -37,12 +37,20 @@ export function needsRehash(hash: string): boolean {
 let dummyHash: Promise<string> | undefined;
 
 /**
+ * Makes the dummy hash for `verifyDummyPassword`. Called when the auth routes are registered,
+ * so the first sign-in for an unknown name does not also pay for a hash and stand out.
+ */
+export function prepareDummyHash(): Promise<string> {
+  dummyHash ??= hashPassword(randomBytes(32).toString('base64url'));
+  return dummyHash;
+}
+
+/**
  * Spends the same time as checking a real password, so a sign-in for an unknown username takes
  * as long as one with a wrong password and does not reveal which usernames exist.
  */
 export async function verifyDummyPassword(password: string): Promise<false> {
-  dummyHash ??= hashPassword(randomBytes(32).toString('base64url'));
-  await verifyPassword(await dummyHash, password);
+  await verifyPassword(await prepareDummyHash(), password);
   return false;
 }
 

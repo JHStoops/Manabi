@@ -1,6 +1,7 @@
 import type { FastifySchema, HTTPMethods } from 'fastify';
 import type { Pool } from 'pg';
 import type { Role } from '@manabi/core';
+import type { Config } from './config';
 import type { JobQueue } from './jobs/queue';
 import type { AuthContext } from './modules/auth/service';
 import type { AttemptLimiter } from './rateLimit';
@@ -14,6 +15,8 @@ export interface RegisteredRoute {
 
 declare module 'fastify' {
   interface FastifyInstance {
+    /** The configuration the app was built with. */
+    config: Config;
     /** The shared pg pool. Only `queries.ts` files run SQL on it. */
     db: Pool;
     /** Enqueues background jobs for the worker; never throws or blocks a request for long. */

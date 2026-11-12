@@ -13,6 +13,7 @@ import type { Queryable } from '../../db/db';
 import { withTransaction } from '../../db/db';
 import { AppError } from '../../errors';
 import type { AttemptLimiter } from '../../rateLimit';
+import { ipKey } from '../../rateLimit';
 import {
   passwordProblem,
   hashPassword,
@@ -133,11 +134,13 @@ export async function login(
   limiter: AttemptLimiter,
   ip: string,
   body: LoginRequest,
+  previousToken?: string,
 ): Promise<IssuedSession> {
+  // NFR-12: per IP and per name as typed, ignoring case. Not per resolved account: keying by
+  // account would let a caller discover which email belongs to which username by watching
+  // their counts move together.
+  limit(limiter, [`login:ip:${ipKey(ip)}`, `login:name:${body.identifier.toLowerCase()}`]);
   const user = await q.findUserByLogin(db, body.identifier);
-  // NFR-12: per IP and per account; an unknown name is keyed by the name itself.
-  const accountKey = user ? `user:${user.id}` : `name:${body.identifier.toLowerCase()}`;
-  limit(limiter, [`login:ip:${ip}`, `login:${accountKey}`]);
 
   const ok = user
     ? await verifyPassword(user.password_hash, body.password)
@@ -157,6 +160,8 @@ export async function login(
     await q.updatePasswordHash(db, user.id, await hashPassword(body.password));
   }
   const token = await issueSession(db, user.id, body.clientKind);
+  // Signing in again from a browser that still holds a session replaces that session.
+  if (previousToken) await q.deleteSessionByTokenHash(db, hashToken(previousToken));
   return { user: toUser(user), token, clientKind: body.clientKind };
 }
 
@@ -185,7 +190,7 @@ export async function acceptInvite(
   ip: string,
   body: AcceptInviteRequest,
 ): Promise<IssuedSession> {
-  limit(limiter, [`invite:ip:${ip}`, `invite:name:${body.username.toLowerCase()}`]);
+  limit(limiter, [`invite:ip:${ipKey(ip)}`, `invite:name:${body.username.toLowerCase()}`]);
   checkNewPassword(body.password, body.username, 'password');
   // Hashing takes tens of milliseconds; do it before the transaction locks the invite.
   const passwordHash = await hashPassword(body.password);
@@ -282,7 +287,7 @@ export async function changePassword(
   auth: AuthContext,
   body: ChangePasswordRequest,
 ): Promise<IssuedSession> {
-  limit(limiter, [`password:ip:${ip}`, `password:user:${auth.userId}`]);
+  limit(limiter, [`password:ip:${ipKey(ip)}`, `password:user:${auth.userId}`]);
   const current = await q.findUserById(pool, auth.userId);
   if (!current) throw new AppError('unauthenticated', 'Not signed in');
   if (!(await verifyPassword(current.password_hash, body.currentPassword))) {

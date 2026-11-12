@@ -131,6 +131,7 @@ export async function buildApp({ config, pool, logStream }: AppOptions): Promise
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
+  app.decorate('config', config);
   app.decorate('db', pool);
   // NFR-23: jobs go into the pg-boss tables; the API never works them, so it keeps serving
   // whether or not the worker runs. The queue connects on first use and closes with the app.

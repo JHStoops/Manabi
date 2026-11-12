@@ -184,6 +184,11 @@ export async function deleteSession(db: Queryable, userId: number, id: number): 
   return rows.length > 0;
 }
 
+/** Ends the session a token belongs to, if any. */
+export async function deleteSessionByTokenHash(db: Queryable, tokenHash: string): Promise<void> {
+  await query(db, `DELETE FROM sessions WHERE token_hash = $1`, [tokenHash]);
+}
+
 /** SDD section 11: every session of the user ends (password change, disabling, reset). */
 export async function deleteSessionsOfUser(db: Queryable, userId: number): Promise<number> {
   const rows = await query<{ id: number }>(
