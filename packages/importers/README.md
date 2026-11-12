@@ -23,3 +23,12 @@ the fixtures in `fixtures/`.
   or the `import-kanjidic2` worker job with `{ courseKey, file }`. The course must exist first
   (`npm run manabi -- pack import content/ja-en`).
 - Not yet: JMdict, KanjiVG, Tatoeba, JLPT level lists (read from a committed copy, never downloaded).
+
+## Sentence segmentation
+
+`segmentText(plugin, text)` (FR-238) runs the plugin's declared analyzer adapter, then the
+plugin's `segment`. The only adapter is `kuromoji-ipadic` (kuromoji 0.1.2, dictionary read from
+`node_modules/kuromoji/dict`, so the API bundle keeps kuromoji external). Adapters hold no language
+rules: lint rejects Japanese text in this package's source and kuromoji imports anywhere else.
+Store only the Tile part of each result; `counted` is for the coverage check. The gold tests run
+against `fixtures/word-boundaries/` (the spike's 100 gold sentences and 40 held-out ones).

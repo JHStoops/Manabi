@@ -1,8 +1,10 @@
 import type { LanguagePlugin } from '@manabi/core';
 import { itemSchemas } from './itemSchemas';
+import { segment } from './segment';
 import { readingOf, tokenize } from './tokenize';
 
 export * from './itemSchemas';
+export { segment } from './segment';
 export { readingOf, splitByScript, tokenize } from './tokenize';
 
 /** Thrown by plugin members whose behavior lands in a later issue. */
@@ -57,7 +59,7 @@ export const japanese: LanguagePlugin = {
   readingOf,
   // FR-238: kuromoji 0.1.2 with its IPADIC dictionary, run by the adapter in packages/importers.
   analyzer: 'kuromoji-ipadic',
-  segment: () => notImplemented('segment', 109),
+  segment,
   detectGrammar: () => notImplemented('detectGrammar', 110),
 };
 

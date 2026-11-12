@@ -58,7 +58,6 @@ describe('japanese language plugin', () => {
       () => japanese.annotate([{ surface: '日本語', base: '日本語', reading: 'にほんご' }], []),
     ],
     ['reviewFacets', 48, () => japanese.reviewFacets('word')],
-    ['segment', 109, () => japanese.segment([])],
     ['detectGrammar', 110, () => japanese.detectGrammar([], [])],
   ])('throws from stubbed %s', (member, issue, call) => {
     expect(call).toThrow(NotImplementedError);
