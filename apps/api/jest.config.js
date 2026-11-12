@@ -16,4 +16,13 @@ module.exports = {
     ],
   },
   transformIgnorePatterns: [`/node_modules/(?!(${esmOnlyPackages.join('|')})/)`],
+  // Integration tests: a fresh, migrated database per run and per worker (src/test/).
+  globalSetup: '<rootDir>/src/test/globalSetup.ts',
+  globalTeardown: '<rootDir>/src/test/globalTeardown.ts',
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.test.ts',
+    '!src/test/**',
+    '!src/{server,worker,migrate}.ts',
+  ],
 };

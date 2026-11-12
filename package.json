@@ -19,6 +19,7 @@
     "test:coverage": "npm run test:coverage --workspaces --if-present",
     "dev:web": "npm run dev --workspace @manabi/web",
     "dev:api": "npm run dev --workspace @manabi/api",
+    "migrate": "npm run migrate --workspace @manabi/api",
     "format": "prettier --write ."
   },
   "devDependencies": {

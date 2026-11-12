@@ -56,7 +56,9 @@ CI (`.github/workflows/ci.yml`) runs these on every pull request and on every pu
 
 Run one workspace with `npm test --workspace @manabi/core` (or `npm run test:coverage --workspace @manabi/lang-ja`).
 
-In CI the job also starts a PostgreSQL 17 service container and exports `DATABASE_URL` for API integration tests, and prints an `npm audit` report that does not fail the build. To run database-backed tests locally, point `DATABASE_URL` at a scratch database.
+In CI the job also starts a PostgreSQL 17 service container and exports `DATABASE_URL` for API integration tests, and prints an `npm audit` report that does not fail the build. To run database-backed tests locally, point `DATABASE_URL` at a scratch PostgreSQL server: the test harness creates and drops its own databases there (see `apps/api/migrations/README.md`); without it those tests are skipped.
+
+Apply database migrations with `npm run migrate` (needs `DATABASE_URL`). Migrations are forward-only; the API also applies them on start.
 
 `docs/` and `spikes/` are not linted, format-checked, type-checked or tested.
 
