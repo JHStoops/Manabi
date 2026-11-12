@@ -87,6 +87,10 @@ Manabi is a self-contained system: one server deployment used through web browse
 | FR-053 | Re-grade submitted responses on the server using the same rules as the client | PR-4 | M1 |
 | FR-054 | Let a learner report an answer they believe should be accepted | PR-4 | M2 |
 | FR-055 | Let a learner replay a completed lesson for reduced XP | PR-60 | M1 |
+| FR-056 | Draw the sentences of a lesson in a section of level L only from sentences whose vocabulary level and grammar level are both at or below L and that an author has not marked challenging (FR-236) | PR-3 | M1 |
+| FR-057 | Offer an optional unit challenge once a unit is completed: a session of 10 to 15 exercises built from the unit's challenging sentences, meaning sentences whose words are all taught by the end of the unit, at least one of them in the unit, and whose grammar level is exactly one level above the unit's section level (or that an author marked challenging); do not offer it when the unit has fewer than 5 such sentences; it is never required to complete or unlock anything | PR-8 | M2 |
+| FR-058 | Run a unit challenge with the same exercise types, grading, feedback, second attempt and retry round as a lesson; award XP as for a lesson (new-lesson XP and accuracy bonus on first completion, replay XP after), and count answers on learned items that are due as review answers under FR-112, logged per FR-117 | PR-8 | M2 |
+| FR-059 | Show each sentence's grammar level and challenge status in the sentence editor and let an author override the challenge status either way | PR-74 | M2 |
 
 ### 3.4 Kanji and strokes
 
@@ -209,7 +213,7 @@ Manabi is a self-contained system: one server deployment used through web browse
 | FR-233 | Import the JLPT level lists from a parsed copy committed in the repository with its credit, making no request to the lists' source site | PR-75 | M0 |
 | FR-234 | Keep a supplementary common-words list per level, seeded with the missing words that block the most imported sentences and editable by an admin, and treat its words as level-list words in vocabulary import and sentence filtering | PR-74, PR-75 | M0 |
 | FR-235 | Import a Tatoeba sentence only if it has a direct English translation, contains no Latin letters, is at most 15 characters long excluding spaces and punctuation, uses only content words at or below its level (level lists plus supplementary words), and its owner declares the sentence's language as native in Tatoeba's user languages export; store it as unreviewed | PR-75 | M0 |
-| FR-236 | Detect the course's grammar points in each imported sentence from each point's detection patterns, matched by the language plugin over the analyzer's tokens; drop a sentence that uses a grammar point two or more levels above its own or more than one point from the next level up, and flag a kept sentence that uses one next-level point for author review | PR-75 | M0 |
+| FR-236 | Detect the course's grammar points in each imported sentence from each point's detection patterns, matched by the language plugin over the analyzer's tokens; store the sentence's grammar level as the highest level among its detected points (none when no point is detected); never drop or flag a sentence because of its grammar. A sentence whose grammar level is above its vocabulary level (the highest level among its content words) is challenging, unless an author has overridden that status | PR-75 | M0 |
 | FR-237 | Keep a word blocklist per language, empty at start and editable by an admin; skip imported sentences containing a blocked word, and report blocked words in authored sentences and exercises in pack validation and in the editors | PR-74, PR-75 | M0 |
 | FR-238 | Split each imported sentence, and the answer text of authored exercises when a pack is imported or an author saves them, into word tiles in Node with the language plugin's segmentation rules over a morphological analyzer (for Japanese, kuromoji plus merge rules), storing each tile's base form and reading; let authors edit the tiles and never overwrite tiles an author has edited or reviewed | PR-23, PR-74, PR-75 | M0 |
 | FR-239 | Show a source credit (source id, owner and licence, linked to the source) next to every imported sentence and its translation wherever they are shown | PR-75 | v1.0 |
@@ -293,6 +297,7 @@ Performance targets assume the minimum server in section 2 and 10 learners activ
 | DR-10 | A learner's export shall include profile, settings, lesson progress, item stages, XP history and notes in documented JSON |
 | DR-11 | Each imported sentence and its translation shall store, separately, the source sentence id, the owner's username (or none), the source URL, the licence, the dataset version and whether Manabi has edited it; an author edit to the text or translation shall set that flag |
 | DR-12 | A sentence's tiles shall be stored with it, each with surface text, base form, reading and linked item id where known, together with a review status (unreviewed, flagged or reviewed) and any grammar points detected at import. Authored exercise answer text shall store its tiles, in the same tile shape, in the exercise payload |
+| DR-13 | Each sentence shall store its grammar level (`grammar_level_code`: the highest level among its detected grammar points, none when none is detected) and an optional author override of its challenge status (`challenge_override`: none means the status is derived by comparing vocabulary level and grammar level) |
 
 ## 7. Verification and v1 acceptance
 
@@ -328,11 +333,12 @@ Every PRD requirement maps to at least one requirement here.
 | --- | --- | --- |
 | PR-1 | Path of units and lessons | FR-020, FR-021, FR-050 |
 | PR-2 | Lesson types | FR-040 |
-| PR-3 | Mixed exercise types | FR-041, FR-042, FR-048 |
+| PR-3 | Mixed exercise types | FR-041, FR-042, FR-048, FR-056 |
 | PR-4 | Immediate feedback, retry | FR-046, FR-047, FR-053, FR-054 |
 | PR-5 | Unit test-out | FR-024 |
 | PR-6 | Furigana and romaji display | FR-140, FR-141 |
 | PR-7 | Typing Japanese | FR-142, FR-143, FR-144 |
+| PR-8 | Unit challenges | FR-057, FR-058 |
 | PR-10 | Kanji detail page | FR-070 |
 | PR-11 | Kanji lessons | FR-040, FR-043, FR-049 |
 | PR-12 | Stroke animation | FR-071, FR-077 |
@@ -364,8 +370,8 @@ Every PRD requirement maps to at least one requirement here.
 | PR-71 | Sign-in and reset | FR-003, FR-004, FR-005, IF-10 |
 | PR-72 | Roles | FR-006 |
 | PR-73 | Admin console | FR-200, FR-201, FR-202 |
-| PR-74 | Content editor | FR-022, FR-049, FR-220 to FR-225, FR-228, FR-229, FR-234, FR-237, FR-238 |
-| PR-75 | Dataset importer | FR-226, FR-230, FR-233 to FR-239, DR-11, DR-12, NFR-62 |
+| PR-74 | Content editor | FR-022, FR-049, FR-220 to FR-225, FR-228, FR-229, FR-234, FR-237, FR-238, FR-059 |
+| PR-75 | Dataset importer | FR-226, FR-230, FR-233 to FR-239, DR-11, DR-12, DR-13, NFR-62 |
 | PR-76 | Export and delete | FR-008, DR-07, DR-10 |
 | PR-80 | Languages as packs and plugins | FR-023, FR-227, FR-240, FR-242, FR-244 |
 | PR-81 | Script features per language | FR-241 |
