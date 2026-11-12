@@ -18,6 +18,8 @@ async function main(): Promise<void> {
   process.once('SIGINT', () => void stop());
 
   await app.listen({ host: config.host, port: config.port });
+  // Connect the job queue now rather than on the first enqueue; failure is logged, not fatal.
+  void app.jobs.start();
 }
 
 main().catch((err: unknown) => {

@@ -1,23 +1,41 @@
-import PgBoss from 'pg-boss';
-import { loadConfig } from './config';
+import { ConfigError, loadConfig } from './config';
+import { allJobs } from './jobs';
+import { startWorker } from './jobs/worker';
+import type { RunningWorker } from './jobs/worker';
+import { createLogger } from './logger';
 
-// PLACEHOLDER: starts pg-boss only; no job handlers are registered yet.
+/**
+ * The `worker` service (SDD section 12): same image and config as the API, runs background and
+ * scheduled jobs with pg-boss. Logs structured JSON to stdout; exits 0 on SIGTERM or SIGINT
+ * once running jobs have finished or timed out.
+ */
 async function main(): Promise<void> {
   const config = loadConfig();
-  const boss = new PgBoss(config.databaseUrl);
-  boss.on('error', (err: Error) => console.error(err));
-  await boss.start();
-  console.log('worker started (no jobs registered)');
+  const log = createLogger(config, { service: 'worker' });
+  let worker: RunningWorker;
+  try {
+    worker = await startWorker({ databaseUrl: config.databaseUrl, jobs: allJobs, log });
+  } catch (err) {
+    log.error({ err }, 'worker failed to start');
+    process.exit(1);
+  }
 
-  const stop = async (): Promise<void> => {
-    await boss.stop();
-    process.exit(0);
+  const stop = (signal: NodeJS.Signals): void => {
+    log.info({ signal }, 'worker stopping');
+    worker.stop().then(
+      () => process.exit(0),
+      (err: unknown) => {
+        log.error({ err }, 'worker did not stop cleanly');
+        process.exit(1);
+      },
+    );
   };
-  process.on('SIGTERM', () => void stop());
-  process.on('SIGINT', () => void stop());
+  process.once('SIGTERM', stop);
+  process.once('SIGINT', stop);
 }
 
 main().catch((err: unknown) => {
-  console.error(err);
+  // A configuration error is already a clear, value-free message; no stack trace needed.
+  console.error(err instanceof ConfigError ? err.message : err);
   process.exit(1);
 });

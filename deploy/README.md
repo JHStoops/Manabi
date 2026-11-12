@@ -5,7 +5,7 @@ Manabi runs with Docker Compose inside a Proxmox LXC, behind your existing Nginx
 ## Services
 
 - `app`: API, serves the built web app, runs database migrations on start.
-- `worker`: same image, runs background jobs (pg-boss).
+- `worker`: same image, runs background and scheduled jobs with pg-boss, whose queue lives in the `pgboss` schema of the same database (pg-boss creates and upgrades it; our migrations never touch it). Its first job purges expired sessions, invites, reset links and lesson sessions nightly at 03:30 in `TZ`. The app keeps working while the worker is stopped; jobs sent meanwhile wait in the queue.
 - `db`: official `postgres` image with a named volume.
 - `tts`: optional (`--profile tts`); placeholder until a TTS engine is chosen.
 - `backup`: nightly `pg_dump` into `DUMPS_DIR`, keeping 14 days.

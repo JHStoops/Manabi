@@ -23,11 +23,11 @@ Migrations only go up. There is no down-migration path: files have no `-- Down M
 
 - `npm run migrate` (repo root) or `npm run migrate -w @manabi/api` applies pending migrations to `DATABASE_URL`. A second run is a no-op.
 - The API server applies pending migrations on start, before it listens, so the `app` container migrates on every deploy. In the image, `node dist/migrate.js` applies them without starting the server.
-- Applied migrations are recorded in the `pgmigrations` table.
+- Applied migrations are recorded in the `pgmigrations` table. pg-boss keeps its own tables and version in the `pgboss` schema, separate from these migrations.
 
 ## Tests
 
-API integration tests (`npm test -w @manabi/api` with `DATABASE_URL` set) run against a real PostgreSQL. Jest global setup creates a fresh template database for the run, applies every migration to it, and clones one database per Jest worker; each test starts from empty tables, and global teardown drops the run's databases. Without `DATABASE_URL`, database tests are skipped locally (CI requires it).
+API integration tests (`npm test -w @manabi/api` with `DATABASE_URL` set) run against a real PostgreSQL. Jest global setup creates a fresh template database for the run, applies every migration to it, and clones one database per Jest worker; each test starts from empty tables in `public` (the `pgboss` schema, created by pg-boss when a test starts it, is not truncated), and global teardown drops the run's databases. Without `DATABASE_URL`, database tests are skipped locally (CI requires it).
 
 Locally, a throwaway server:
 
