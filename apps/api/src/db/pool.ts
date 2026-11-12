@@ -43,11 +43,17 @@ const typeParsers = {
 export function createPool(
   databaseUrl: string,
   logError: (message: string, err: Error) => void = console.error,
+  options: { max?: number; applicationName?: string } = {},
 ): Pool {
   if (!databaseUrl) {
     throw new Error('DATABASE_URL is not set');
   }
-  const pool = new Pool({ connectionString: databaseUrl, types: typeParsers });
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    types: typeParsers,
+    ...(options.max ? { max: options.max } : {}),
+    ...(options.applicationName ? { application_name: options.applicationName } : {}),
+  });
   pool.on('error', (err) => logError('Idle database client error', err));
   return pool;
 }

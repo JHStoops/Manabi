@@ -6,6 +6,3 @@ import { purgeExpiredJob } from './purgeExpired';
  * their issues land. Audio is not a job: the API generates a clip on first play.
  */
 export const allJobs: readonly AnyJobDefinition[] = [purgeExpiredJob];
-
-/** Queue names the API may enqueue to. */
-export const jobNames: readonly string[] = allJobs.map((job) => job.name);

@@ -1,6 +1,8 @@
 import type PgBoss from 'pg-boss';
 import type { Logger } from '../logger';
 import { createBoss } from './boss';
+import { queueOptions } from './define';
+import type { QueueSpec } from './define';
 
 /** How long `enqueue` waits for the database before giving up, so a request never hangs on it. */
 export const ENQUEUE_TIMEOUT_MS = 2000;
@@ -25,8 +27,11 @@ export interface JobQueue {
 export interface JobQueueOptions {
   /** Empty: enqueuing is disabled and always returns null (tests without a database). */
   databaseUrl: string;
-  /** Queues to create on start, so sends to them never hit a missing queue. */
-  queueNames: readonly string[];
+  /**
+   * Jobs whose queues to create on start, with their retry and timeout options, so sends never
+   * hit a missing queue and a queue created here first already has the right options.
+   */
+  jobs: readonly QueueSpec[];
   log: Logger;
   timeoutMs?: number;
 }
@@ -38,7 +43,7 @@ export interface JobQueueOptions {
  */
 export function createJobQueue({
   databaseUrl,
-  queueNames,
+  jobs,
   log,
   timeoutMs = ENQUEUE_TIMEOUT_MS,
 }: JobQueueOptions): JobQueue {
@@ -51,7 +56,7 @@ export function createJobQueue({
       boss.on('error', (err: Error) => log.warn({ err }, 'job queue error'));
       const attempt = (async (): Promise<PgBoss> => {
         await boss.start();
-        for (const name of queueNames) await boss.createQueue(name);
+        for (const job of jobs) await boss.createQueue(job.name, queueOptions(job));
         return boss;
       })();
       ready = attempt;

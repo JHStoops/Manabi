@@ -16,7 +16,7 @@ import type { Pool } from 'pg';
 import { emptyQuerySchema } from '@manabi/core';
 import type { Config, TrustProxy } from './config';
 import { apiNotFound, errorHandler } from './errors';
-import { jobNames } from './jobs';
+import { allJobs } from './jobs';
 import { createJobQueue } from './jobs/queue';
 import { REDACT_PATHS } from './logger';
 import { featureModules } from './modules';
@@ -132,7 +132,7 @@ export async function buildApp({ config, pool, logStream }: AppOptions): Promise
   // whether or not the worker runs. The queue connects on first use and closes with the app.
   const jobs = createJobQueue({
     databaseUrl: config.databaseUrl,
-    queueNames: jobNames,
+    jobs: allJobs,
     log: app.log,
   });
   app.decorate('jobs', jobs);

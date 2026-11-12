@@ -27,6 +27,14 @@ export interface JobDefinition<T extends object = object> {
   queue?: JobQueueOptions;
 }
 
+/** A queue's name and options: what the API needs to create a job's queue. */
+export type QueueSpec = Pick<JobDefinition, 'name' | 'queue'>;
+
+/** pg-boss queue options for a job, the same whichever process creates the queue first. */
+export function queueOptions(job: QueueSpec): PgBoss.Queue {
+  return { name: job.name, ...job.queue };
+}
+
 /** Any job definition, whatever its data type (for lists of jobs). */
 export type AnyJobDefinition = JobDefinition<never>;
 
@@ -58,7 +66,10 @@ export async function registerJobs(
   { context, timeZone, pollingIntervalSeconds }: RegisterOptions,
 ): Promise<void> {
   for (const job of jobs) {
-    await boss.createQueue(job.name, { name: job.name, ...job.queue });
+    // create_queue does nothing if the queue exists (for example the API created it first), so
+    // the options are applied again to keep them in step with the definition.
+    await boss.createQueue(job.name, queueOptions(job));
+    await boss.updateQueue(job.name, queueOptions(job));
     await boss.work<object>(job.name, { batchSize: 1, pollingIntervalSeconds }, async ([item]) => {
       if (!item) return undefined;
       const log = context.log;

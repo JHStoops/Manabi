@@ -7,7 +7,7 @@ import { describeWithDb, testDatabaseUrl, useTestDatabase } from '../test/db';
 import { seedUser, tokenHash } from '../test/fixtures';
 import { BOSS_SCHEMA } from './boss';
 import { defineJob } from './define';
-import { allJobs, jobNames } from './index';
+import { allJobs } from './index';
 import { purgeExpiredJob } from './purgeExpired';
 import { createJobQueue } from './queue';
 import type { JobQueue } from './queue';
@@ -35,8 +35,9 @@ describe('defineJob', () => {
   });
 
   it('lists every job once', () => {
-    expect(new Set(jobNames).size).toBe(allJobs.length);
-    expect(jobNames).toContain(purgeExpiredJob.name);
+    const names = allJobs.map((job) => job.name);
+    expect(new Set(names).size).toBe(allJobs.length);
+    expect(names).toContain(purgeExpiredJob.name);
   });
 });
 
@@ -44,7 +45,7 @@ describe('defineJob', () => {
 describe('createJobQueue without a database', () => {
   it('returns null when no database is configured', async () => {
     const log = testLogger();
-    const queue = createJobQueue({ databaseUrl: '', queueNames: [], log });
+    const queue = createJobQueue({ databaseUrl: '', jobs: [], log });
     await expect(queue.start()).resolves.toBe(false);
     await expect(queue.enqueue('purge-expired')).resolves.toBeNull();
     expect(log.warn).toHaveBeenCalled();
@@ -53,7 +54,7 @@ describe('createJobQueue without a database', () => {
 
   it('returns null when the database is unreachable, and keeps trying later', async () => {
     const log = testLogger();
-    const queue = createJobQueue({ databaseUrl: DEAD_DATABASE_URL, queueNames: [], log });
+    const queue = createJobQueue({ databaseUrl: DEAD_DATABASE_URL, jobs: [], log });
     await expect(queue.start()).resolves.toBe(false);
     await expect(queue.enqueue('purge-expired')).resolves.toBeNull();
     await expect(queue.enqueue('purge-expired')).resolves.toBeNull();
@@ -71,7 +72,7 @@ describe('createJobQueue without a database', () => {
       const log = testLogger();
       const queue = createJobQueue({
         databaseUrl: `postgres://manabi:manabi@127.0.0.1:${port}/manabi`,
-        queueNames: [],
+        jobs: [],
         log,
         timeoutMs: 200,
       });
@@ -115,7 +116,7 @@ describeWithDb('jobs with a database', () => {
     });
     queue = createJobQueue({
       databaseUrl: testDatabaseUrl(),
-      queueNames: [echo.name],
+      jobs: [echo],
       log: testLogger(),
     });
 
@@ -136,7 +137,7 @@ describeWithDb('jobs with a database', () => {
 
   it('returns null for a queue that does not exist', async () => {
     const log = testLogger();
-    queue = createJobQueue({ databaseUrl: testDatabaseUrl(), queueNames: [], log });
+    queue = createJobQueue({ databaseUrl: testDatabaseUrl(), jobs: [], log });
     await expect(queue.enqueue('no-such-job')).resolves.toBeNull();
     expect(log.warn).toHaveBeenCalledWith({ job: 'no-such-job' }, expect.any(String));
   });
@@ -145,7 +146,7 @@ describeWithDb('jobs with a database', () => {
     let attempts = 0;
     const flaky = defineJob({
       name: 'test-flaky',
-      queue: { retryLimit: 1, retryDelay: 0 },
+      queue: { retryLimit: 1, retryDelay: 0, retryBackoff: false },
       handler: async () => {
         attempts += 1;
         if (attempts === 1) throw new Error('first attempt fails');
@@ -153,7 +154,7 @@ describeWithDb('jobs with a database', () => {
     });
     queue = createJobQueue({
       databaseUrl: testDatabaseUrl(),
-      queueNames: [flaky.name],
+      jobs: [flaky],
       log: testLogger(),
     });
     const log = testLogger();
@@ -198,7 +199,7 @@ describeWithDb('jobs with a database', () => {
 
     queue = createJobQueue({
       databaseUrl: testDatabaseUrl(),
-      queueNames: jobNames,
+      jobs: allJobs,
       log: testLogger(),
     });
     await queue.enqueue(purgeExpiredJob.name);
@@ -206,6 +207,47 @@ describeWithDb('jobs with a database', () => {
       const rows = await query(pool(), 'SELECT id FROM sessions');
       return rows.length === 0;
     });
+  });
+
+  it('keeps the defined queue options when the API created the queue first', async () => {
+    queue = createJobQueue({ databaseUrl: testDatabaseUrl(), jobs: allJobs, log: testLogger() });
+    await expect(queue.start()).resolves.toBe(true);
+    // Simulate an older definition: options differ from the current one.
+    await query(
+      pool(),
+      `UPDATE ${BOSS_SCHEMA}.queue SET retry_limit = 0, retry_delay = 0, expire_seconds = 60
+        WHERE name = $1`,
+      [purgeExpiredJob.name],
+    );
+
+    worker = await startWorker({
+      databaseUrl: testDatabaseUrl(),
+      jobs: allJobs,
+      log: testLogger(),
+    });
+
+    const [row] = await query<{ retry_limit: number; retry_delay: number; expire_seconds: number }>(
+      pool(),
+      `SELECT retry_limit, retry_delay, expire_seconds FROM ${BOSS_SCHEMA}.queue WHERE name = $1`,
+      [purgeExpiredJob.name],
+    );
+    expect(row).toEqual({ retry_limit: 3, retry_delay: 300, expire_seconds: 900 });
+  });
+
+  it('creates queues from the API with the defined options', async () => {
+    const job = defineJob({
+      name: 'test-options',
+      queue: { retryLimit: 5, retryDelay: 7, expireInSeconds: 120 },
+      handler: async () => undefined,
+    });
+    queue = createJobQueue({ databaseUrl: testDatabaseUrl(), jobs: [job], log: testLogger() });
+    await queue.start();
+    const [row] = await query<{ retry_limit: number; retry_delay: number; expire_seconds: number }>(
+      pool(),
+      `SELECT retry_limit, retry_delay, expire_seconds FROM ${BOSS_SCHEMA}.queue WHERE name = $1`,
+      [job.name],
+    );
+    expect(row).toEqual({ retry_limit: 5, retry_delay: 7, expire_seconds: 120 });
   });
 
   it('lets a running job finish when the worker stops', async () => {
@@ -221,7 +263,7 @@ describeWithDb('jobs with a database', () => {
     });
     queue = createJobQueue({
       databaseUrl: testDatabaseUrl(),
-      queueNames: [slow.name],
+      jobs: [slow],
       log: testLogger(),
     });
     const log = testLogger();
@@ -236,12 +278,19 @@ describeWithDb('jobs with a database', () => {
 
     await worker.stop();
     expect(finished).toBe(true);
+    // Both the pg-boss pool and the job handlers' pool are closed.
+    const open = await query(
+      pool(),
+      `SELECT pid FROM pg_stat_activity
+        WHERE datname = current_database() AND application_name LIKE 'manabi-worker%'`,
+    );
+    expect(open).toEqual([]);
     expect(log.info).toHaveBeenLastCalledWith('worker stopped');
     // A second stop is a no-op.
     await worker.stop();
   });
 
-  it('fails to start, without leaking connections, when the database is unreachable', async () => {
+  it('fails to start when the database is unreachable', async () => {
     await expect(
       startWorker({ databaseUrl: DEAD_DATABASE_URL, jobs: allJobs, log: testLogger() }),
     ).rejects.toThrow();

@@ -34,7 +34,11 @@ export async function startWorker({
   // Below Docker's default 10 s stop grace period, so the worker closes before SIGKILL.
   stopTimeoutMs = 8000,
 }: WorkerOptions): Promise<RunningWorker> {
-  const pool = createPool(databaseUrl, (message, err) => log.error({ err }, message));
+  // Jobs run one at a time per queue, so a few connections are plenty.
+  const pool = createPool(databaseUrl, (message, err) => log.error({ err }, message), {
+    max: 3,
+    applicationName: 'manabi-worker-jobs',
+  });
   const boss = createBoss(databaseUrl, 'worker');
   boss.on('error', (err: Error) => log.error({ err }, 'pg-boss error'));
 
