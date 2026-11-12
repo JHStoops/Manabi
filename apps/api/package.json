@@ -6,10 +6,10 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "dev:worker": "tsx watch src/worker.ts",
-    "build": "esbuild src/server.ts src/worker.ts --bundle --platform=node --target=node24 --format=cjs --outdir=dist --external:fastify --external:@fastify/static --external:pg --external:pg-boss --external:pg-native",
+    "build": "esbuild src/server.ts src/worker.ts src/migrate.ts --bundle --platform=node --target=node24 --format=cjs --outdir=dist --external:fastify --external:@fastify/static --external:pg --external:node-pg-migrate --external:pg-boss --external:pg-native",
     "start": "node dist/server.js",
     "start:worker": "node dist/worker.js",
-    "migrate": "node-pg-migrate up --migrations-dir migrations --database-url-var DATABASE_URL --ignore-pattern \"(^\\.|\\.md$)\"",
+    "migrate": "tsx src/migrate.ts",
     "migrate:create": "node-pg-migrate create --migrations-dir migrations --migration-file-language sql",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "jest --passWithNoTests",

@@ -33,5 +33,6 @@ ENV WEB_DIST_DIR=/app/apps/web/dist
 ENV PATH=/app/node_modules/.bin:$PATH
 WORKDIR /app/apps/api
 EXPOSE 3000
-# Run migrations, then start the API. The worker service overrides this command.
-CMD ["sh", "-c", "node-pg-migrate up --migrations-dir migrations --database-url-var DATABASE_URL --ignore-pattern '(^\\.|\\.md$)' && node dist/server.js"]
+# The API applies pending migrations on start (NFR-52), then listens. The worker service
+# overrides this command. `node dist/migrate.js` applies migrations without starting the API.
+CMD ["node", "dist/server.js"]
