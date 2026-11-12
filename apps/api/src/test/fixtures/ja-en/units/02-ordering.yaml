@@ -1,0 +1,12 @@
+key: ja-en:n5:ordering
+section: ja-en:n5
+title: Ordering
+lessons:
+  - key: ja-en:n5:ordering:words
+    type: vocabulary
+    title: Drinks
+    items: [ja:word:水:みず]
+  - key: ja-en:n5:ordering:please
+    type: grammar
+    title: Asking for things
+    items: [ja:grammar:wo-kudasai]

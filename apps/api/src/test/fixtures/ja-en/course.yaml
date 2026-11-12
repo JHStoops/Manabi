@@ -1,0 +1,14 @@
+# Minimal content pack for the pack import/export tests (FR-227).
+key: ja-en
+targetLang: ja
+baseLang: en
+plugin: ja
+title: Japanese for English speakers
+status: published
+sections:
+  - key: ja-en:kana
+    title: Kana
+    level: kana
+  - key: ja-en:n5
+    title: N5
+    level: N5

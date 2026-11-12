@@ -20,6 +20,7 @@
     "dev:web": "npm run dev --workspace @manabi/web",
     "dev:api": "npm run dev --workspace @manabi/api",
     "migrate": "npm run migrate --workspace @manabi/api",
+    "manabi": "npm run manabi --workspace @manabi/api --",
     "format": "prettier --write .",
     "generate:client": "npm run generate:client --workspace @manabi/api"
   },
