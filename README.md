@@ -21,7 +21,7 @@ apps/web/           React + Vite frontend
 apps/api/           Fastify API, worker, SQL migrations
 packages/core/      Shared types, Zod schemas, LanguagePlugin interface
 packages/lang-ja/   Japanese language plugin (stub)
-packages/api-client/ Typed client (to be generated from OpenAPI)
+packages/api-client/ Typed fetch client generated from the OpenAPI document
 packages/importers/ Content importers (KANJIDIC2, JMdict, ...)
 content/ja-en/      Japanese-from-English content pack
 deploy/             Dockerfile, Compose, backup script
@@ -46,15 +46,18 @@ npm run dev:web    # Vite on :5173, proxies /api to :3000
 
 CI (`.github/workflows/ci.yml`) runs these on every pull request and on every push to `main`. Run them from the repo root before opening a pull request:
 
-| Script                  | What it does                                                                                             |
-| ----------------------- | -------------------------------------------------------------------------------------------------------- |
-| `npm run lint`          | ESLint over the whole repo (`eslint.config.mjs`)                                                         |
-| `npm run format:check`  | Prettier check; fails on unformatted files. Fix them with `npm run format`                               |
-| `npm run typecheck`     | `tsc --noEmit` in strict mode in every workspace                                                         |
-| `npm test`              | Jest (ts-jest) in every workspace                                                                        |
-| `npm run test:coverage` | Jest with coverage; fails if `packages/core` or `packages/lang-ja` drop below 85% line coverage (NFR-51) |
+| Script                    | What it does                                                                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run lint`            | ESLint over the whole repo (`eslint.config.mjs`)                                                                                           |
+| `npm run format:check`    | Prettier check; fails on unformatted files. Fix them with `npm run format`                                                                 |
+| `npm run typecheck`       | `tsc --noEmit` in strict mode in every workspace                                                                                           |
+| `npm test`                | Jest (ts-jest) in every workspace                                                                                                          |
+| `npm run test:coverage`   | Jest with coverage; fails if `packages/core` or `packages/lang-ja` drop below 85% line coverage (NFR-51)                                   |
+| `npm run generate:client` | Rewrites `packages/api-client/openapi.json` and its generated types from the API routes. CI fails when the committed output is out of date |
 
 Run one workspace with `npm test --workspace @manabi/core` (or `npm run test:coverage --workspace @manabi/lang-ja`).
+
+After changing an API route or a shared schema it uses, run `npm run generate:client` and commit the result: the web app (and later a mobile app) calls the API through `createApiClient` from `@manabi/api-client`, typed from that output.
 
 In CI the job also starts a PostgreSQL 17 service container and exports `DATABASE_URL` for API integration tests, and prints an `npm audit` report that does not fail the build. To run database-backed tests locally, point `DATABASE_URL` at a scratch PostgreSQL server: the test harness creates and drops its own databases there (see `apps/api/migrations/README.md`); without it those tests are skipped.
 

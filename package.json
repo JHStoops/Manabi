@@ -20,7 +20,8 @@
     "dev:web": "npm run dev --workspace @manabi/web",
     "dev:api": "npm run dev --workspace @manabi/api",
     "migrate": "npm run migrate --workspace @manabi/api",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "generate:client": "npm run generate:client --workspace @manabi/api"
   },
   "devDependencies": {
     "@eslint/js": "^9.14.0",
