@@ -16,6 +16,9 @@ function command([group, name, arg, file]: string[]): ((pool: Pool) => Promise<u
   if (!arg) return null;
   // npm scripts run in the workspace folder; INIT_CWD is where the command was typed.
   const cwd = process.env.INIT_CWD ?? process.cwd();
+  if (group === 'import' && name === 'kanjidic2' && file) {
+    return (pool) => importKanjidic2(pool, { courseKey: arg, file: resolve(cwd, file) });
+  }
   const dir = resolve(cwd, arg);
   if (group === 'pack' && name === 'import') {
     return async (pool) => {
@@ -28,9 +31,6 @@ function command([group, name, arg, file]: string[]): ((pool: Pool) => Promise<u
       await writePack(dir, await exportPack(pool, basename(dir)));
       return `Exported to ${dir}`;
     };
-  }
-  if (group === 'import' && name === 'kanjidic2' && file) {
-    return (pool) => importKanjidic2(pool, { courseKey: arg, file: resolve(cwd, file) });
   }
   return null;
 }

@@ -52,12 +52,15 @@ async function importItems(
     const course = await findCourseByKey(db, courseKey);
     if (!course) throw new Error(`No course ${courseKey}: import its content pack first`);
     const plugin = languagePlugins.get(course.plugin);
-    for (const item of parsed.items) parseItemData(plugin, item.type, item.data);
+    const items = parsed.items.map((item) => ({
+      ...item,
+      data: parseItemData(plugin, item.type, item.data) as object,
+    }));
     const counts = await upsertImportedItems(db, {
       courseId: course.id,
       source,
       datasetVersion: parsed.datasetVersion,
-      items: parsed.items,
+      items,
     });
     const { licence, attribution } = datasets[source];
     return {

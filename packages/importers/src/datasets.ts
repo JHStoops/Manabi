@@ -18,12 +18,13 @@ export const datasets = {
     licence: 'CC BY-SA 4.0',
     attribution: 'KANJIDIC2, Electronic Dictionary Research and Development Group (EDRDG)',
     homepage: 'https://www.edrdg.org/wiki/index.php/KANJIDIC_Project',
-    urls: ['http://www.edrdg.org/kanjidic/kanjidic2.xml.gz'],
+    urls: ['https://www.edrdg.org/kanjidic/kanjidic2.xml.gz'],
   },
   jmdict: {
     licence: 'CC BY-SA 4.0',
     attribution: 'JMdict, Electronic Dictionary Research and Development Group (EDRDG)',
     homepage: 'https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project',
+    // http: https://ftp.edrdg.org fails the TLS handshake.
     urls: ['http://ftp.edrdg.org/pub/Nihongo/JMdict_e.gz'],
   },
   kanjivg: {
