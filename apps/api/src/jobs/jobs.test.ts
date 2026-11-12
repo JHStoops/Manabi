@@ -278,13 +278,16 @@ describeWithDb('jobs with a database', () => {
 
     await worker.stop();
     expect(finished).toBe(true);
-    // Both the pg-boss pool and the job handlers' pool are closed.
-    const open = await query(
-      pool(),
-      `SELECT pid FROM pg_stat_activity
-        WHERE datname = current_database() AND application_name LIKE 'manabi-worker%'`,
-    );
-    expect(open).toEqual([]);
+    // Both the pg-boss pool and the job handlers' pool are closed. A backend leaves
+    // pg_stat_activity a moment after its client disconnects, hence the wait.
+    await waitFor(async () => {
+      const open = await query(
+        pool(),
+        `SELECT pid FROM pg_stat_activity
+          WHERE datname = current_database() AND application_name LIKE 'manabi-worker%'`,
+      );
+      return open.length === 0;
+    }, 5000);
     expect(log.info).toHaveBeenLastCalledWith('worker stopped');
     // A second stop is a no-op.
     await worker.stop();
