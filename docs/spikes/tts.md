@@ -6,17 +6,17 @@ Status: **decided 2026-11-11** (Kokoro, voice `jf_alpha`, always sent the kana r
 
 ## Summary
 
-| | VOICEVOX | Kokoro |
-| --- | --- | --- |
-| What it is | Japanese-only TTS engine with ~44 character voice libraries | Small (82M) multi-language model; 5 Japanese voices |
-| Japanese readings of kanji | Correct for all 40 samples when sent the written form, with dictionary pitch accent | Misreads some kanji (上手 → uwate, 明日 → asu, 川 → gawa); fine when sent kana |
-| Pitch accent | Modelled from the OpenJTalk dictionary; editable per accent phrase | Not modelled explicitly; the model guesses it from phonemes |
-| Isolated words recognised by Whisper | 24–25 of 30 | 17–21 of 30 |
-| Speed at 4 vCPU (threads tuned) | 0.67 s per word, 1.04 s per sentence | 0.20 s per word, 0.36 s per sentence |
-| Memory | ~0.3 GB with one voice loaded (+~0.15–0.25 GB per extra voice) | ~1.35 GB |
-| Clip size (Opus 24 kbps) | ~1.7 kB per word, ~4.3–5.5 kB per sentence | ~1.9 kB per word, ~4.5 kB per sentence |
-| Licence | Engine LGPL-3.0; each voice has its own terms; **credit required** (`VOICEVOX:キャラ名`) | Apache-2.0 (weights and server); no credit required |
-| Author's own quality grade | n/a | C+ (jf_alpha) down to C- (jm_kumo, jf_nezumi) |
+|                                      | VOICEVOX                                                                                 | Kokoro                                                                         |
+| ------------------------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| What it is                           | Japanese-only TTS engine with ~44 character voice libraries                              | Small (82M) multi-language model; 5 Japanese voices                            |
+| Japanese readings of kanji           | Correct for all 40 samples when sent the written form, with dictionary pitch accent      | Misreads some kanji (上手 → uwate, 明日 → asu, 川 → gawa); fine when sent kana |
+| Pitch accent                         | Modelled from the OpenJTalk dictionary; editable per accent phrase                       | Not modelled explicitly; the model guesses it from phonemes                    |
+| Isolated words recognised by Whisper | 24–25 of 30                                                                              | 17–21 of 30                                                                    |
+| Speed at 4 vCPU (threads tuned)      | 0.67 s per word, 1.04 s per sentence                                                     | 0.20 s per word, 0.36 s per sentence                                           |
+| Memory                               | ~0.3 GB with one voice loaded (+~0.15–0.25 GB per extra voice)                           | ~1.35 GB                                                                       |
+| Clip size (Opus 24 kbps)             | ~1.7 kB per word, ~4.3–5.5 kB per sentence                                               | ~1.9 kB per word, ~4.5 kB per sentence                                         |
+| Licence                              | Engine LGPL-3.0; each voice has its own terms; **credit required** (`VOICEVOX:キャラ名`) | Apache-2.0 (weights and server); no credit required                            |
+| Author's own quality grade           | n/a                                                                                      | C+ (jf_alpha) down to C- (jm_kumo, jf_nezumi)                                  |
 
 **Decision (2026-11-11): Kokoro** (Kokoro-FastAPI), voice `jf_alpha`, always sent the kana reading because Kokoro misreads kanji. VOICEVOX is not used. Details in [Recommendation](#recommendation) and [Owner decision](#owner-decision).
 
@@ -30,7 +30,7 @@ Status: **decided 2026-11-11** (Kokoro, voice `jf_alpha`, always sent the kana r
 - Samples: 30 N5 words and 10 short sentences in [tts-samples/samples.json](tts-samples/samples.json), each with written form and kana reading.
 - Voices: VOICEVOX 四国めたん ノーマル (id 2), 玄野武宏 ノーマル (11), 冥鳴ひまり ノーマル (14); Kokoro `jf_alpha`, `jf_tebukuro`, `jm_kumo`.
 - Each clip was requested once, sequentially, after one warm-up request. CPU time is the container cgroup's `cpu.stat usage_usec` delta per request; memory is the cgroup's `memory.peak` and `memory.stat anon`.
-- Conversion (what the worker would do, per NFR-07):
+- Conversion (what the API does on a cache miss, per NFR-07):
 
   ```sh
   ffmpeg -i in.wav \
@@ -44,14 +44,14 @@ Status: **decided 2026-11-11** (Kokoro, voice `jf_alpha`, always sent the kana r
 
 Average per clip, sequential requests, first voice of each engine (VOICEVOX 四国めたん, Kokoro jf_alpha) with kana input. "CPU" is CPU-seconds summed over all cores.
 
-| Run | Engine | Word: wall / CPU | Sentence: wall / CPU | First request (loads voice) | Peak memory (cgroup) | Resident (anon) after run |
-| --- | --- | --- | --- | --- | --- | --- |
-| Unlimited (20 cores) | VOICEVOX | 0.33 s / 6.5 s | 0.57 s / 10.6 s | 1.1 s | 325 MiB | 250 MiB |
-| Unlimited (20 cores) | Kokoro | 0.21 s / 1.2 s | 0.36 s / 2.1 s | 0.36 s | 1366 MiB | 1329 MiB |
-| 4 CPU / 6 GB, default threads | VOICEVOX | 1.73 s / 6.9 s | 2.66 s / 10.6 s | 4.4 s | 324 MiB | 250 MiB |
-| 4 CPU / 6 GB, default threads | Kokoro | 0.32 s / 1.3 s | 0.54 s / 2.1 s | 0.46 s | 1336 MiB | 1300 MiB |
-| **4 CPU / 6 GB, threads = 4** | **VOICEVOX** | **0.67 s / 2.7 s** | **1.04 s / 4.2 s** | 1.8 s | 322 MiB | 235 MiB |
-| **4 CPU / 6 GB, threads = 4** | **Kokoro** | **0.20 s / 0.8 s** | **0.36 s / 1.4 s** | 0.34 s | 1347 MiB | 1319 MiB |
+| Run                           | Engine       | Word: wall / CPU   | Sentence: wall / CPU | First request (loads voice) | Peak memory (cgroup) | Resident (anon) after run |
+| ----------------------------- | ------------ | ------------------ | -------------------- | --------------------------- | -------------------- | ------------------------- |
+| Unlimited (20 cores)          | VOICEVOX     | 0.33 s / 6.5 s     | 0.57 s / 10.6 s      | 1.1 s                       | 325 MiB              | 250 MiB                   |
+| Unlimited (20 cores)          | Kokoro       | 0.21 s / 1.2 s     | 0.36 s / 2.1 s       | 0.36 s                      | 1366 MiB             | 1329 MiB                  |
+| 4 CPU / 6 GB, default threads | VOICEVOX     | 1.73 s / 6.9 s     | 2.66 s / 10.6 s      | 4.4 s                       | 324 MiB              | 250 MiB                   |
+| 4 CPU / 6 GB, default threads | Kokoro       | 0.32 s / 1.3 s     | 0.54 s / 2.1 s       | 0.46 s                      | 1336 MiB             | 1300 MiB                  |
+| **4 CPU / 6 GB, threads = 4** | **VOICEVOX** | **0.67 s / 2.7 s** | **1.04 s / 4.2 s**   | 1.8 s                       | 322 MiB              | 235 MiB                   |
+| **4 CPU / 6 GB, threads = 4** | **Kokoro**   | **0.20 s / 0.8 s** | **0.36 s / 1.4 s**   | 0.34 s                      | 1347 MiB             | 1319 MiB                  |
 
 Notes:
 
@@ -59,15 +59,15 @@ Notes:
 - **VOICEVOX memory grows per voice used**: idle 85 MiB, ~320 MiB after the first voice, ~470 MiB after a second, ~650–700 MiB after a third. Using one voice keeps it near 0.3 GB.
 - **Kokoro holds ~1.2 GB as soon as it starts** (all languages' pipelines share one model) and peaks near 1.35 GB.
 - Startup: VOICEVOX answers within ~1 s; Kokoro needs ~6–7 s to load.
-- Whole-course estimate (assume ~3,750 words and ~3,000 sentences for N5–N3, from scratch, at 4 vCPU with tuned threads): VOICEVOX ~1.6 hours, Kokoro ~0.5 hours. Both are fine for a background job that runs once and then only for new or changed items; the TTS container can be stopped afterwards (SDD 12, `tts` Compose profile).
+- Whole-course estimate (assume ~3,750 words and ~3,000 sentences for N5–N3, from scratch, at 4 vCPU with tuned threads): VOICEVOX ~1.6 hours, Kokoro ~0.5 hours. Not needed in the end: clips are generated on first play (see [Generation policy](#recommendation)), so there is no bulk job.
 
 Idle CPU, measured in 10-second windows after a burst of requests (4 CPU, threads = 4):
 
-| Window after the last request | VOICEVOX | Kokoro |
-| --- | --- | --- |
-| 0–10 s | 2.8% of one core | 0.3% |
-| 20–30 s | 0.1% | 0.2% |
-| 60–70 s and 120–130 s | 0.1% | 0.1% |
+| Window after the last request | VOICEVOX         | Kokoro |
+| ----------------------------- | ---------------- | ------ |
+| 0–10 s                        | 2.8% of one core | 0.3%   |
+| 20–30 s                       | 0.1%             | 0.2%   |
+| 60–70 s and 120–130 s         | 0.1%             | 0.1%   |
 
 Both engines are effectively idle when not generating, so leaving the container running costs memory only.
 
@@ -75,16 +75,16 @@ Both engines are effectively idle when not generating, so leaving the container 
 
 After trimming and conversion to mono Opus 24 kbps. Same numbers in every run (output is deterministic).
 
-| Set | Words: avg duration / avg size | Sentences: avg duration / avg size | All 40 clips |
-| --- | --- | --- | --- |
-| VOICEVOX 四国めたん, written form | 0.54 s / 1.77 kB | 1.39 s / 4.3 kB | 94 kB |
-| VOICEVOX 四国めたん, kana | 0.53 s / 1.75 kB | 1.88 s / 5.6 kB | 106 kB |
-| VOICEVOX 冥鳴ひまり, kana | 0.48 s / 1.60 kB | 1.94 s / 5.5 kB | 101 kB |
-| VOICEVOX 玄野武宏, kana | 0.45 s / 1.46 kB | 1.87 s / 5.3 kB | 94 kB |
-| Kokoro jf_alpha, kana | 0.59 s / 1.89 kB | 1.45 s / 4.5 kB | 100 kB |
-| Kokoro jf_alpha, written form | 0.58 s / 1.88 kB | 1.44 s / 4.6 kB | 99 kB |
-| Kokoro jf_tebukuro, kana | 0.64 s / 2.04 kB | 1.39 s / 4.3 kB | 102 kB |
-| Kokoro jm_kumo, kana | 0.66 s / 2.18 kB | 1.46 s / 4.6 kB | 109 kB |
+| Set                               | Words: avg duration / avg size | Sentences: avg duration / avg size | All 40 clips |
+| --------------------------------- | ------------------------------ | ---------------------------------- | ------------ |
+| VOICEVOX 四国めたん, written form | 0.54 s / 1.77 kB               | 1.39 s / 4.3 kB                    | 94 kB        |
+| VOICEVOX 四国めたん, kana         | 0.53 s / 1.75 kB               | 1.88 s / 5.6 kB                    | 106 kB       |
+| VOICEVOX 冥鳴ひまり, kana         | 0.48 s / 1.60 kB               | 1.94 s / 5.5 kB                    | 101 kB       |
+| VOICEVOX 玄野武宏, kana           | 0.45 s / 1.46 kB               | 1.87 s / 5.3 kB                    | 94 kB        |
+| Kokoro jf_alpha, kana             | 0.59 s / 1.89 kB               | 1.45 s / 4.5 kB                    | 100 kB       |
+| Kokoro jf_alpha, written form     | 0.58 s / 1.88 kB               | 1.44 s / 4.6 kB                    | 99 kB        |
+| Kokoro jf_tebukuro, kana          | 0.64 s / 2.04 kB               | 1.39 s / 4.3 kB                    | 102 kB       |
+| Kokoro jm_kumo, kana              | 0.66 s / 2.18 kB               | 1.46 s / 4.6 kB                    | 109 kB       |
 
 - Effective bitrate is 23–27 kbps (Ogg container overhead on very short clips), inside NFR-07's 32 kbps limit. SDD's estimate of ~3 kB per second of speech holds.
 - Whole-course storage at these sizes: roughly 3,750 × 1.8 kB + 3,000 × 5 kB ≈ 22 MB. Far under the SDD's 1 GB budget.
@@ -104,19 +104,19 @@ Things to listen for: natural pitch accent on single words (水, 雨, 先生, �
 
 What each engine would say, from VOICEVOX's `audio_query` `kana` field (`'` marks the accent, `_` a devoiced vowel) and Kokoro's `/dev/phonemize`. Only rows where the two inputs differ in a way that matters:
 
-| Sample | Expected | VOICEVOX, written form | VOICEVOX, kana | Kokoro, written form | Kokoro, kana |
-| --- | --- | --- | --- | --- | --- |
-| 水 | みず (heiban) | ミズ' (correct) | ミ'ズ (wrong accent) | mʲizɨ | mʲizɨ |
-| 雨 | あめ (head-high) | ア'メ (correct) | アメ' (wrong accent: 飴) | ame | ame |
-| 行く | いく (heiban) | イク' (correct) | イ'ク (wrong accent) | ikɯ | ikɯ |
-| 切手 | きって (heiban) | キッテ' (correct) | キ'ッテ (wrong accent) | kʲiʔte | kʲiʔte |
-| 先生 | せんせい (accent on せ) | センセ'エ (correct) | センセイ' (wrong accent) | seɴseː | seɴseː |
-| 川 | かわ | カワ' | カワ' | **ɡaβa (wrong: rendaku)** | kaβa |
-| 明日 | あした | ア_シタ' | ア_シタ' | **asɨ (あす, not the taught reading)** | aɕita |
-| 上手 | じょうず | ジョオズ' | ジョオズ' | **ɯβate (wrong: うわて)** | ʥoːzɨ |
-| 日本語 | にほんご | ニホンゴ' | ニホンゴ' | ɲiʔpoŋɡo (にっぽんご) | ɲihoŋɡo |
-| 私は学生です | わたしは… | ワタシワ'… | ワタシワ'… | **βatakɯɕi (わたくし)** | βataɕi |
-| 時計 | とけい | トケエ' | トケイ' | tokeː | toke i (split vowel) |
+| Sample       | Expected                | VOICEVOX, written form | VOICEVOX, kana           | Kokoro, written form                   | Kokoro, kana         |
+| ------------ | ----------------------- | ---------------------- | ------------------------ | -------------------------------------- | -------------------- |
+| 水           | みず (heiban)           | ミズ' (correct)        | ミ'ズ (wrong accent)     | mʲizɨ                                  | mʲizɨ                |
+| 雨           | あめ (head-high)        | ア'メ (correct)        | アメ' (wrong accent: 飴) | ame                                    | ame                  |
+| 行く         | いく (heiban)           | イク' (correct)        | イ'ク (wrong accent)     | ikɯ                                    | ikɯ                  |
+| 切手         | きって (heiban)         | キッテ' (correct)      | キ'ッテ (wrong accent)   | kʲiʔte                                 | kʲiʔte               |
+| 先生         | せんせい (accent on せ) | センセ'エ (correct)    | センセイ' (wrong accent) | seɴseː                                 | seɴseː               |
+| 川           | かわ                    | カワ'                  | カワ'                    | **ɡaβa (wrong: rendaku)**              | kaβa                 |
+| 明日         | あした                  | ア_シタ'               | ア_シタ'                 | **asɨ (あす, not the taught reading)** | aɕita                |
+| 上手         | じょうず                | ジョオズ'              | ジョオズ'                | **ɯβate (wrong: うわて)**              | ʥoːzɨ                |
+| 日本語       | にほんご                | ニホンゴ'              | ニホンゴ'                | ɲiʔpoŋɡo (にっぽんご)                  | ɲihoŋɡo              |
+| 私は学生です | わたしは…               | ワタシワ'…             | ワタシワ'…               | **βatakɯɕi (わたくし)**                | βataɕi               |
+| 時計         | とけい                  | トケエ'                | トケイ'                  | tokeː                                  | toke i (split vowel) |
 
 What this means for "send the kana reading where the engine allows" (SDD 10):
 
@@ -127,16 +127,16 @@ What this means for "send the kana reading where the engine allows" (SDD 10):
 
 As a rough, objective stand-in for listening, every Opus clip was transcribed by Whisper (`medium`, faster-whisper, language forced to Japanese, in the `onerahmet/openai-whisper-asr-webservice` container) and counted as a match when the transcript equals the sample's written form or kana (after normalising script and punctuation).
 
-| Set | Words recognised | Sentences recognised |
-| --- | --- | --- |
-| VOICEVOX 四国めたん, written form | 24/30 | 10/10 |
-| VOICEVOX 四国めたん, kana | 24/30 | 9/10 |
-| VOICEVOX 冥鳴ひまり, kana | 24/30 | 9/10 |
-| VOICEVOX 玄野武宏, kana | 25/30 | 10/10 |
-| Kokoro jf_alpha, kana | 21/30 | 10/10 |
-| Kokoro jf_alpha, written form | 17/30 | 10/10 |
-| Kokoro jf_tebukuro, kana | 19/30 | 9/10 |
-| Kokoro jm_kumo, kana | 18/30 | 10/10 |
+| Set                               | Words recognised | Sentences recognised |
+| --------------------------------- | ---------------- | -------------------- |
+| VOICEVOX 四国めたん, written form | 24/30            | 10/10                |
+| VOICEVOX 四国めたん, kana         | 24/30            | 9/10                 |
+| VOICEVOX 冥鳴ひまり, kana         | 24/30            | 9/10                 |
+| VOICEVOX 玄野武宏, kana           | 25/30            | 10/10                |
+| Kokoro jf_alpha, kana             | 21/30            | 10/10                |
+| Kokoro jf_alpha, written form     | 17/30            | 10/10                |
+| Kokoro jf_tebukuro, kana          | 19/30            | 9/10                 |
+| Kokoro jm_kumo, kana              | 18/30            | 10/10                |
 
 How to read this:
 
@@ -154,18 +154,18 @@ Checked 2026-11-11 against official sources. Not legal advice. Manabi is self-ho
 - **Engine source** ([voicevox_engine](https://github.com/VOICEVOX/voicevox_engine)): dual-licensed LGPL-3.0, or a separate licence from the author that does not require publishing source. Running the unmodified official container is fine under LGPL.
 - **Voices**: each character has its own terms. The engine serves the summary at `GET /speaker_info?speaker_uuid=…` (`policy` field); quoted below from engine 0.26.1 and the linked official pages.
 
-| Voice | Credit text (exact) | Commercial | Extra conditions | Official terms |
-| --- | --- | --- | --- | --- |
-| 四国めたん | `VOICEVOX:四国めたん` | Yes | Common rules for the Tohoku/Shikoku family: no political or religious use, no deceptive content, no adult entertainment business, no use by antisocial forces. In apps, credit goes on an intro screen or somewhere easy to find. Use without credit needs a paid contract (¥400,000 + tax per character). | [zunko.jp](https://zunko.jp/con_ongen_kiyaku.html) |
-| ずんだもん | `VOICEVOX:ずんだもん` | Yes | Same as 四国めたん | [zunko.jp](https://zunko.jp/con_ongen_kiyaku.html) |
-| 冥鳴ひまり | `VOICEVOX:冥鳴ひまり` | Yes | No public-order violations, no harm to third parties, nothing tied to specific ideologies, nothing the rights holder deems inappropriate | [meimeihimari.com](https://www.meimeihimari.com/terms-of-use) |
-| 玄野武宏, 白上虎太郎 | `VOICEVOX:玄野武宏` / `VOICEVOX:白上虎太郎` | Yes | VirVox terms: no using output to train other voice models; no political/religious promotion; no harm to the character's image; credit removal needs permission | [virvoxproject.com](https://www.virvoxproject.com/voicevoxの利用規約) |
-| 青山龍星 | `VOICEVOX:青山龍星` | Yes, for individuals | Same VirVox terms; use involving a company needs prior approval; credit cannot be removed | [virvoxproject.com](https://www.virvoxproject.com/voicevoxの利用規約) |
-| 春日部つむぎ | `VOICEVOX:春日部つむぎ` | Yes | See official page (site was unreachable from here; summary from the engine) | [tsumugi-official.studio.site](https://tsumugi-official.studio.site/rule) |
-| 雨晴はう | `VOICEVOX:雨晴はう` | Yes | See official page | [amehau.com](https://amehau.com/?page_id=225) |
-| 波音リツ | `VOICEVOX:波音リツ` | Yes | See official page | [canon-voice.com](http://canon-voice.com/kiyaku.html) |
-| No.7 | `VOICEVOX:No.7` | **Non-commercial only** without prior approval | | [voiceseven.com](https://voiceseven.com/#j0200) |
-| もち子さん | `VOICEVOX:もち子(cv 明日葉よもぎ)` | Yes, except voice works, voice material, games | Company involvement needs approval | [mochizora](https://vtubermochio.wixsite.com/mochizora/利用規約) |
+| Voice                | Credit text (exact)                         | Commercial                                     | Extra conditions                                                                                                                                                                                                                                                                                           | Official terms                                                            |
+| -------------------- | ------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 四国めたん           | `VOICEVOX:四国めたん`                       | Yes                                            | Common rules for the Tohoku/Shikoku family: no political or religious use, no deceptive content, no adult entertainment business, no use by antisocial forces. In apps, credit goes on an intro screen or somewhere easy to find. Use without credit needs a paid contract (¥400,000 + tax per character). | [zunko.jp](https://zunko.jp/con_ongen_kiyaku.html)                        |
+| ずんだもん           | `VOICEVOX:ずんだもん`                       | Yes                                            | Same as 四国めたん                                                                                                                                                                                                                                                                                         | [zunko.jp](https://zunko.jp/con_ongen_kiyaku.html)                        |
+| 冥鳴ひまり           | `VOICEVOX:冥鳴ひまり`                       | Yes                                            | No public-order violations, no harm to third parties, nothing tied to specific ideologies, nothing the rights holder deems inappropriate                                                                                                                                                                   | [meimeihimari.com](https://www.meimeihimari.com/terms-of-use)             |
+| 玄野武宏, 白上虎太郎 | `VOICEVOX:玄野武宏` / `VOICEVOX:白上虎太郎` | Yes                                            | VirVox terms: no using output to train other voice models; no political/religious promotion; no harm to the character's image; credit removal needs permission                                                                                                                                             | [virvoxproject.com](https://www.virvoxproject.com/voicevoxの利用規約)     |
+| 青山龍星             | `VOICEVOX:青山龍星`                         | Yes, for individuals                           | Same VirVox terms; use involving a company needs prior approval; credit cannot be removed                                                                                                                                                                                                                  | [virvoxproject.com](https://www.virvoxproject.com/voicevoxの利用規約)     |
+| 春日部つむぎ         | `VOICEVOX:春日部つむぎ`                     | Yes                                            | See official page (site was unreachable from here; summary from the engine)                                                                                                                                                                                                                                | [tsumugi-official.studio.site](https://tsumugi-official.studio.site/rule) |
+| 雨晴はう             | `VOICEVOX:雨晴はう`                         | Yes                                            | See official page                                                                                                                                                                                                                                                                                          | [amehau.com](https://amehau.com/?page_id=225)                             |
+| 波音リツ             | `VOICEVOX:波音リツ`                         | Yes                                            | See official page                                                                                                                                                                                                                                                                                          | [canon-voice.com](http://canon-voice.com/kiyaku.html)                     |
+| No.7                 | `VOICEVOX:No.7`                             | **Non-commercial only** without prior approval |                                                                                                                                                                                                                                                                                                            | [voiceseven.com](https://voiceseven.com/#j0200)                           |
+| もち子さん           | `VOICEVOX:もち子(cv 明日葉よもぎ)`          | Yes, except voice works, voice material, games | Company involvement needs approval                                                                                                                                                                                                                                                                         | [mochizora](https://vtubermochio.wixsite.com/mochizora/利用規約)          |
 
 What Manabi must do if VOICEVOX is chosen:
 
@@ -198,9 +198,9 @@ Checked on this machine with headless Chromium only: the page loads without erro
 
 Device voices are only a fallback for when the TTS service is unavailable (FR-135). Owner results, 2026-11-11:
 
-| Device | Browser | Japanese voices | Voice used | Quality (1-5) | Opus | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| Linux desktop | Brave | None ("No Japanese") | n/a | n/a | not recorded | Expected: Brave on Linux ships no speech voices, so `speechSynthesis` offers none. The fallback is therefore unavailable on this setup. |
+| Device        | Browser | Japanese voices      | Voice used | Quality (1-5) | Opus         | Notes                                                                                                                                   |
+| ------------- | ------- | -------------------- | ---------- | ------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Linux desktop | Brave   | None ("No Japanese") | n/a        | n/a           | not recorded | Expected: Brave on Linux ships no speech voices, so `speechSynthesis` offers none. The fallback is therefore unavailable on this setup. |
 
 Testing phones (iOS Safari, Android Chrome) is deferred and low priority, since device voices are only the fallback. Ogg Opus support on the family's iPhones should be checked when the first real clips are played in the app; SDD 10 keeps an MP3 copy as the fallback only if a browser needs it.
 
@@ -210,7 +210,7 @@ Testing phones (iOS Safari, Android Chrome) is deferred and low priority, since 
 
 Why:
 
-1. **The owner's ear.** The owner listened to the samples and disliked `jf_tebukuro` and `jm_kumo`; `jf_alpha` was the preferred Kokoro voice. VOICEVOX is dropped.
+1. **The owner's ear.** The owner listened to the samples and preferred Kokoro `jf_alpha` over the VOICEVOX voices, and disliked Kokoro `jf_tebukuro` and `jm_kumo`. VOICEVOX is dropped.
 2. **No credit and a permissive licence.** Apache-2.0 weights and server; nothing to display for generated audio.
 3. **Fast.** 0.20 s per word and 0.36 s per sentence at 4 vCPU with tuned threads (measured 0.2-0.4 s per clip), so clips can be generated when first played.
 4. **One engine for future languages.** Kokoro also covers English, Spanish, French, Hindi, Italian, Portuguese and Chinese.
@@ -228,56 +228,53 @@ Generation policy:
 
 Deployment requirements for the real implementation (separate issue):
 
-- Compose service under the optional `tts` profile, internal network only (IF-09), no published port. Pin the image by version or digest, not `latest`.
+- Compose service `tts` that stays running alongside the API (clips are generated on first play), internal network only (IF-09), no published port. Pin the image by version or digest, not `latest`.
 - **Set `OMP_NUM_THREADS` to the LXC's vCPU count.** Measured: without it, Kokoro used about 40% more CPU under a 4-CPU quota, which directly affects first-play latency.
 - Allow about 1.35 GB of memory for the container (peak 1.35 GB measured; about 1.2 GB resident as soon as it starts). It needs 6-7 s to start.
 - Optionally list "Kokoro-82M (Apache-2.0)" on the About page as a courtesy.
 
-Not used, kept as findings: VOICEVOX read all 40 written forms correctly with dictionary pitch accent and used about 0.3 GB, but is slower (0.67 s per word, 1.04 s per sentence at 4 vCPU), needs a `VOICEVOX:<character>` credit, and was not preferred by ear.
+Not used, kept as findings: VOICEVOX read all 40 written forms correctly with dictionary pitch accent and used about 0.3 GB, but is slower (0.67 s per word, 1.04 s per sentence at 4 vCPU), needs a `VOICEVOX:<character>` credit, and its voices were not preferred over `jf_alpha` by ear.
 
 ## TtsProvider request shape
 
-SDD 10 sketches `synthesize(text, voice)`. With Kokoro this fits almost directly: `text` is what is spoken, and for Japanese it is always the kana reading. The caller (not the provider) chooses the reading, so the provider stays engine-neutral and has no language logic.
+The provider takes `synthesize({ text, reading, voice, speed })`, as in SDD 10 and issue #65. `reading` is what is spoken: for Japanese it is always the kana reading, because Kokoro misreads kanji. `text` is the written form, kept for logging and the cache key only; it is never sent to Kokoro. The caller (not the provider) chooses the reading, so the provider stays engine-neutral and has no language logic.
 
 ```ts
 // packages/core: engine-neutral types.
 export type TtsVoice = {
-  locale: string;   // 'ja-JP'
+  locale: string; // 'ja-JP'
   provider: string; // 'kokoro'
-  voice: string;    // Kokoro voice id, e.g. 'jf_alpha'
+  voice: string; // Kokoro voice id, e.g. 'jf_alpha'
 };
 
 export type TtsRequest = {
-  text: string;     // what to speak. For Japanese: the kana reading, e.g. 'みずを のみます'
+  text: string; // written form, for logging and the cache key, e.g. '水を 飲みます'
+  reading: string; // what is sent to Kokoro. For Japanese: the kana reading, e.g. 'みずを のみます'
   voice: TtsVoice;
-  speed?: number;   // 1.0 default; Kokoro speed
-};
-
-export type TtsResult = {
-  audio: Uint8Array;      // WAV from the engine; the worker trims and converts to Opus
-  mimeType: 'audio/wav';
+  speed?: number; // 1.0 default; Kokoro speed
 };
 
 export interface TtsProvider {
-  synthesize(req: TtsRequest): Promise<TtsResult>;
+  // Returns WAV bytes from the engine; the API trims silence and converts to Opus.
+  synthesize(req: TtsRequest): Promise<Uint8Array>;
 }
 ```
 
-Where the text comes from:
+Where the reading comes from:
 
 - Words: the item's kana reading.
-- Sentences: the kana reading built from the kuromoji segmentation step (spike #4), joined from the per-token readings stored with the sentence. Producing it is language-specific, so it belongs behind the `LanguagePlugin` interface / importers, not in the provider or the audio worker.
+- Sentences: the kana reading joined from the per-tile readings stored with the sentence (kuromoji segmentation at import, spike #4). Producing it is language-specific, so it belongs behind the `LanguagePlugin` interface, not in the provider or the API's audio code.
 
-Kokoro provider, one call: `POST /v1/audio/speech` with `{ "model": "kokoro", "input": text, "voice": "jf_alpha", "lang_code": "j", "response_format": "wav", "speed": 1.0 }`. The worker then trims silence and encodes mono Opus (see [Setup](#setup)) and caches the file; the endpoint serving a clip generates it on a cache miss.
+Kokoro provider, one call: `POST /v1/audio/speech` with `{ "model": "kokoro", "input": reading, "voice": "jf_alpha", "lang_code": "j", "response_format": "wav", "speed": 1.0 }`. On the first request for a clip, the API calls the provider, trims silence and encodes mono Opus (see [Setup](#setup)), stores the file and serves it; later requests are served from the cache.
 
-Not carried over from the VOICEVOX design: the `reading` field next to the written form, `input`/`engineReading` result fields, the credit field, and the two-call `audio_query` check. Those were VOICEVOX-specific; see the findings above if VOICEVOX is ever reconsidered.
+Not carried over from the VOICEVOX design: `input`/`engineReading` result fields, the credit field, and the two-call `audio_query` check. Those were VOICEVOX-specific; see the findings above if VOICEVOX is ever reconsidered.
 
 ## Owner decision
 
 **Decided 2026-11-11 by the owner.**
 
 - Engine: **Kokoro** (Kokoro-FastAPI), voice **`jf_alpha`**, always sent the kana reading (Kokoro misreads kanji).
-- VOICEVOX is **not used**. The owner disliked `jf_tebukuro` and `jm_kumo`; `jf_alpha` was the preferred Kokoro voice. The VOICEVOX measurements stay in this document as findings.
+- VOICEVOX is **not used**. The owner preferred Kokoro `jf_alpha` over the VOICEVOX voices, and disliked Kokoro `jf_tebukuro` and `jm_kumo`. The VOICEVOX measurements stay in this document as findings.
 - Clips are **generated on request when first played** (the owner accepts a wait of about 1 s; Kokoro measured 0.2-0.4 s per clip at 4 CPUs), then cached. No bulk pre-generation.
 - `OMP_NUM_THREADS` must be set to the vCPU count (deployment requirement); budget about 1.35 GB of memory.
 - Sentence kana readings come from the kuromoji segmentation step (spike #4).
