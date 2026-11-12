@@ -45,7 +45,7 @@ A course is a path of sections, units and lessons built from reusable learning i
 - Updating a course's content (for example adding N4 units to a course that had kana and N5) never resets or changes progress: completed lessons and units stay completed, review stages, XP, level and streak are untouched, and a lesson later added inside a finished unit appears as new without re-locking anything.
 - Completed lessons can be replayed for practice at reduced XP.
 - Lessons use only sentences whose words and grammar are at or below the section's level. Sentences whose words fit but whose grammar is one level higher are "challenge" sentences.
-- A completed unit offers an optional **Challenge**: one extra lesson-style session built from the unit's challenge sentences, with the same exercises and feedback, XP as for a lesson (replay XP after the first time), and answers counting toward due reviews. It is not offered when the unit has fewer than 5 challenge sentences, and nothing waits on it.
+- A completed unit offers an optional **Challenge**: one extra lesson-style session built from the unit's challenge sentences, with the same exercises and feedback, 50% more XP than a lesson (replay XP after the first time), and answers counting toward due reviews. It is not offered when the unit has fewer than 5 challenge sentences, and nothing waits on it.
 - Every exercise uses only items already taught in this or an earlier lesson, plus the lesson's new items.
 
 ## 4. Lesson flow and exercise types
@@ -219,6 +219,7 @@ XP is the single currency: it feeds the daily goal, the level, the weekly leader
 | Each review item answered correctly | 1 |
 | Complete a unit review | 20 |
 | Pass a unit test-out | 30 |
+| Complete a unit challenge (first time / replay) | 15 (+8 accuracy bonus) / 8 |
 | Reference-page practice drill | 5 |
 
 **XP boosters** (PR-67)
