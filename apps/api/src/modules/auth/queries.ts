@@ -1,6 +1,7 @@
 import type { Queryable } from '../../db/db';
 import { insertReturning, query } from '../../db/db';
-import type { Role, UserRow } from './rows';
+import type { Role } from '@manabi/core';
+import type { UserRow } from './rows';
 
 // Hand-written, parameterized SQL for the account tables. Sign-in, invite and session queries
 // are added by the issues that need them.

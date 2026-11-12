@@ -3,8 +3,8 @@
  * pg returns: int8 as number, timestamptz as Date, jsonb parsed.
  */
 
-/** FR-006: the only two account types. */
-export type Role = 'admin' | 'learner';
+import type { Role } from '@manabi/core';
+
 export type ClientKind = 'web' | 'mobile';
 export type PasswordResetOrigin = 'email' | 'admin';
 

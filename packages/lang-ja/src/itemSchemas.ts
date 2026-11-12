@@ -35,7 +35,10 @@ export const kanjiDataSchema = z
     onReadings: z.array(z.string().regex(kanaReading)),
     kunReadings: z.array(z.string().regex(kanaReading)),
     strokeCount: z.number().int().min(1),
-    /** Radical and component characters (each also a kanji item when in the course). */
+    /**
+     * Radical and component characters as imported (raw list). The `item_links` rows of kind
+     * `component` are authoritative for links between course items.
+     */
     components: z.array(text).default([]),
   })
   .strict();

@@ -10,7 +10,7 @@ import {
   setItemOverrides,
 } from './queries';
 import type { NewItem, NewSentence } from './queries';
-import type { SentenceAttribution } from './rows';
+import type { SentenceAttribution } from '@manabi/core';
 
 // Integration tests for migration 0001 (content tables). Raw SQL here exercises constraints
 // directly; application code keeps its SQL in queries.ts files.

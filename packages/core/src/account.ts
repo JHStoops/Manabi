@@ -25,7 +25,10 @@ export const timeZoneSchema = z.string().refine((zone) => {
   }
 }, 'Expected an IANA time zone name');
 
-/** A user as the API returns it (`users` row without the password hash). */
+/**
+ * A user as returned to that user or an admin (GET /me, admin console); leaderboard and friend
+ * views need a narrower shape. The `users` row without the password hash.
+ */
 export const userSchema = z.object({
   id: idSchema,
   username: usernameSchema,

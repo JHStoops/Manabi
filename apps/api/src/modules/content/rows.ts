@@ -5,11 +5,16 @@
  * plugin on write (DR-06), so here they are typed loosely.
  */
 
-export type PublishStatus = 'draft' | 'published';
-export type LessonType = 'kana' | 'vocabulary' | 'kanji' | 'grammar' | 'listening' | 'unit_review';
-export type ReviewStatus = 'unreviewed' | 'flagged' | 'reviewed';
-export type ItemLinkKind = 'contains' | 'related' | 'component';
-export type ExerciseOrigin = 'authored' | 'generated' | 'pinned';
+import type {
+  ExerciseOrigin,
+  ItemLinkKind,
+  LessonType,
+  PublishStatus,
+  ReviewStatus,
+  SentenceAttribution,
+  Tile,
+} from '@manabi/core';
+
 export type AudioOwnerType = 'item' | 'sentence';
 export type AudioOrigin = 'generated' | 'uploaded';
 
@@ -92,33 +97,12 @@ export interface LessonItemRow {
   position: number;
 }
 
-/** DR-12 tile shape, shared by sentences and authored exercise answer text. */
-export interface StoredTile {
-  surface: string;
-  base: string;
-  reading: string;
-  itemId?: number | null;
-}
-
-/** DR-11: attribution for one side (sentence or translation) of an imported pair. */
-export interface AttributionPart {
-  sourceId: string;
-  owner: string | null;
-  url: string;
-  licence: string;
-  datasetVersion: string;
-}
-
-export interface SentenceAttribution {
-  sentence: AttributionPart;
-  translation: AttributionPart;
-}
-
 export interface SentenceRow {
   id: number;
   course_id: number;
   text: string;
-  tokens: StoredTile[];
+  /** DR-12 tiles. */
+  tokens: Tile[];
   translation: string;
   source: string | null;
   source_id: string | null;

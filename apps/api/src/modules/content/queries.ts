@@ -1,13 +1,7 @@
 import type { Queryable } from '../../db/db';
 import { insertReturning, query, queryOne } from '../../db/db';
-import type {
-  CourseRow,
-  ItemRow,
-  JsonObject,
-  SentenceAttribution,
-  SentenceRow,
-  StoredTile,
-} from './rows';
+import type { CourseRow, ItemRow, JsonObject, SentenceRow } from './rows';
+import type { SentenceAttribution, Tile } from '@manabi/core';
 
 // Hand-written, parameterized SQL for the content tables. Importer and editor queries are
 // added by the issues that need them.
@@ -74,7 +68,7 @@ export function listItemsByCourse(db: Queryable, courseId: number): Promise<Item
 export interface NewSentence {
   courseId: number;
   text: string;
-  tokens: StoredTile[];
+  tokens: Tile[];
   translation: string;
   source: string | null;
   sourceId: string | null;
