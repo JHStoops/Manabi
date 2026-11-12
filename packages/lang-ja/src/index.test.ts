@@ -52,7 +52,11 @@ describe('japanese language plugin', () => {
     ['normalizeAnswer', 27, () => japanese.normalizeAnswer('にほんご', { exercise })],
     ['checkAnswer', 27, () => japanese.checkAnswer('にほんご', exercise)],
     ['convertInput', 28, () => japanese.convertInput('nihongo', 'romaji')],
-    ['annotate', 57, () => japanese.annotate('日本語', [])],
+    [
+      'annotate',
+      57,
+      () => japanese.annotate([{ surface: '日本語', base: '日本語', reading: 'にほんご' }], []),
+    ],
     ['reviewFacets', 48, () => japanese.reviewFacets('word')],
     ['segment', 109, () => japanese.segment([])],
     ['detectGrammar', 110, () => japanese.detectGrammar([], [])],

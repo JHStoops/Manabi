@@ -237,7 +237,7 @@ Not used, kept as findings: VOICEVOX read all 40 written forms correctly with di
 
 ## TtsProvider request shape
 
-The provider takes `synthesize({ text, reading, voice, speed })`, as in SDD 10 and issue #65. `reading` is what is spoken: for Japanese it is always the kana reading, because Kokoro misreads kanji. `text` is the written form, kept for logging and the cache key only; it is never sent to Kokoro. The caller (not the provider) chooses the reading, so the provider stays engine-neutral and has no language logic.
+The provider takes `synthesize({ text, reading, voice, language, speed })`, as in SDD 10 and issue #65. `language` is the plugin's `ttsVoice.providerLanguage` (Kokoro's `lang_code`, `j` for Japanese). `reading` is what is spoken: for Japanese it is always the kana reading, because Kokoro misreads kanji. `text` is the written form, kept for logging and the cache key only; it is never sent to Kokoro. The caller (not the provider) chooses the reading, so the provider stays engine-neutral and has no language logic.
 
 ```ts
 // packages/core: engine-neutral types.
@@ -249,8 +249,9 @@ export type TtsVoice = {
 
 export type TtsRequest = {
   text: string; // written form, for logging and the cache key, e.g. '水を 飲みます'
-  reading: string; // what is sent to Kokoro. For Japanese: the kana reading, e.g. 'みずを のみます'
+  reading: string; // what is sent to Kokoro. For Japanese: the kana reading, e.g. 'みずをのみます'
   voice: TtsVoice;
+  language?: string; // the plugin's ttsVoice.providerLanguage; sent as Kokoro's lang_code, e.g. 'j'
   speed?: number; // 1.0 default; Kokoro speed
 };
 
@@ -263,9 +264,9 @@ export interface TtsProvider {
 Where the reading comes from:
 
 - Words: the item's kana reading.
-- Sentences: the kana reading joined from the per-tile readings stored with the sentence (kuromoji segmentation at import, spike #4). Producing it is language-specific, so it belongs behind the `LanguagePlugin` interface, not in the provider or the API's audio code.
+- Sentences: the kana reading joined from the per-tile readings stored with the sentence (kuromoji segmentation at import, spike #4), joined with no spaces by the plugin's `readingOf`. Producing it is language-specific, so it belongs behind the `LanguagePlugin` interface, not in the provider or the API's audio code.
 
-Kokoro provider, one call: `POST /v1/audio/speech` with `{ "model": "kokoro", "input": reading, "voice": "jf_alpha", "lang_code": "j", "response_format": "wav", "speed": 1.0 }`. On the first request for a clip, the API calls the provider, trims silence and encodes mono Opus (see [Setup](#setup)), stores the file and serves it; later requests are served from the cache.
+Kokoro provider, one call: `POST /v1/audio/speech` with `{ "model": "kokoro", "input": reading, "voice": "jf_alpha", "lang_code": language, "response_format": "wav", "speed": 1.0 }`. On the first request for a clip, the API calls the provider, trims silence and encodes mono Opus (see [Setup](#setup)), stores the file and serves it; later requests are served from the cache.
 
 Not carried over from the VOICEVOX design: `input`/`engineReading` result fields, the credit field, and the two-call `audio_query` check. Those were VOICEVOX-specific; see the findings above if VOICEVOX is ever reconsidered.
 

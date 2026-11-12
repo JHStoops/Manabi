@@ -20,7 +20,10 @@ export type ReviewFacet = string;
 /** How raw keyboard input should be converted (e.g. romaji to kana). */
 export type InputMode = string;
 
-/** Placeholder for an annotation attached to a span of a sentence (e.g. furigana). */
+/**
+ * Placeholder for an annotation attached to a span of a sentence (e.g. furigana). `start` and
+ * `end` are UTF-16 code-unit offsets into the tiles' surfaces joined (end exclusive).
+ */
 export type Annotation = { start: number; end: number; kind: string; value: string };
 
 /** Result of checking an answer. */
@@ -72,7 +75,8 @@ export type AnalyzerId = string;
  * One token from a morphological analyzer, in a language-neutral shape (FR-238). The analyzer
  * adapter (packages/importers) maps its native output to this; for kuromoji-ipadic:
  * `surface_form`, `pos` plus `pos_detail_1..3`, `conjugated_type`, `conjugated_form`,
- * `basic_form`, `reading`. Fields the analyzer leaves empty (kuromoji's "*") become null.
+ * `basic_form`, `reading`. Fields the analyzer leaves empty (kuromoji's "*") become null, and
+ * kuromoji's "*" POS details are left out, so `pos` may have fewer than 4 tags.
  */
 export interface AnalyzerToken {
   /** The text exactly as it appears in the input. */
@@ -98,6 +102,13 @@ export interface GrammarPointPatterns {
   // PLACEHOLDER: the pattern shape over analyzer tokens is defined with detectGrammar (#110).
   detection: readonly unknown[];
 }
+
+/**
+ * A tile from `segment`. Only the Tile part is stored; `counted` says whether the tile counts
+ * toward the sentence's vocabulary level in the coverage check (FR-235: particles, auxiliaries,
+ * numbers, counters and names do not). Deciding that is language knowledge (FR-240).
+ */
+export type SegmentedTile = Tile & { counted: boolean };
 
 /** Text whose tiles `tokenize` returns: a sentence, or authored answer text, and its stored tiles. */
 export interface TokenizeInput {
@@ -129,25 +140,35 @@ export interface LanguagePlugin {
   /** Converts raw input for the given input mode (e.g. romaji to kana). */
   convertInput(text: string, mode: InputMode): string;
   /**
-   * The tappable words and word-bank tiles of a sentence or answer text: its stored tiles. Only
-   * when none are stored, a simple fallback split (SDD section 4).
+   * The tappable words and word-bank tiles of a sentence or answer text: its stored tiles,
+   * unchanged. Only when none are stored, a simple fallback split (SDD section 4) whose base form
+   * and reading are just the surface, so fallback tiles are never used for audio or furigana.
    */
   tokenize(input: TokenizeInput): Tile[];
-  /** Annotates a sentence, taking the learner's learned items into account. */
-  annotate(sentence: string, learnedItems: Item[]): Annotation[];
+  /**
+   * Reading annotations (furigana) for a sentence's stored tiles, taking the learner's learned
+   * items into account. Offsets are into the tiles' surfaces joined.
+   */
+  annotate(tiles: readonly Tile[], learnedItems: Item[]): Annotation[];
   /** Exercise generators keyed by exercise type. */
   generators: Record<string, ExerciseGenerator>;
   /** The review facets scheduled independently for an item type. */
   reviewFacets(itemType: string): ReviewFacet[];
   /** Text-to-speech provider, voice and which text to send (FR-136). */
   ttsVoice: TtsVoice;
+  /** FR-136: the reading sent to TTS for these tiles (Japanese: readings joined, no spaces). */
+  readingOf(tiles: readonly Tile[]): string;
   /**
-   * FR-238: the Node-only analyzer adapter `segment` and `detectGrammar` consume, or null for
-   * languages split on spaces. The plugin never imports the analyzer itself.
+   * FR-238: the Node-only analyzer adapter whose tokens `segment` and `detectGrammar` consume.
+   * null: the importers' generic whitespace adapter supplies tokens (pos empty, baseForm/reading
+   * null). The plugin never imports the analyzer itself.
    */
   analyzer: AnalyzerId | null;
-  /** FR-238: pure function from analyzer tokens to tiles (surface, base form, reading). */
-  segment(tokens: readonly AnalyzerToken[]): Tile[];
+  /**
+   * FR-238: pure function from analyzer tokens to tiles (surface, base form, reading), each marked
+   * whether it counts toward the vocabulary level (FR-235).
+   */
+  segment(tokens: readonly AnalyzerToken[]): SegmentedTile[];
   /** FR-236: keys of the given grammar points whose detection patterns match the tokens. */
   detectGrammar(
     tokens: readonly AnalyzerToken[],

@@ -1,7 +1,7 @@
 import type { Tile } from '@manabi/core';
 import { tileSchema } from '@manabi/core';
 import japanese from './index';
-import { splitByScript, tokenize } from './tokenize';
+import { readingOf, splitByScript, tokenize } from './tokenize';
 
 const stored: Tile[] = [
   { surface: '私', base: '私', reading: 'わたし', itemId: 42 },
@@ -48,6 +48,10 @@ describe('splitByScript', () => {
     ['a prolonged mark with nothing before it', 'ーあ', ['ー', 'あ']],
     ['halfwidth katakana with voicing marks', 'ｺｰﾋﾞｰ', ['ｺｰﾋﾞｰ']],
     ['the kanji iteration mark', '人々が', ['人々', 'が']],
+    ['〆 as a kanji', '〆切です', ['〆切', 'です']],
+    ['a fullwidth number with a thousands separator', '１，０００円', ['１，０００', '円']],
+    ['a decimal number', '3.5km', ['3.5', 'km']],
+    ['a separator not between digits', '3,あ. 4.', ['3', 'あ', '4']],
     ['an astral kanji', '𠮷野家', ['𠮷野家']],
     ['Latin letters and digits', 'Tシャツ3枚', ['T', 'シャツ', '3', '枚']],
     ['fullwidth Latin and digits', 'ＡＢＣ１２３', ['ＡＢＣ', '１２３']],
@@ -67,5 +71,19 @@ describe('splitByScript', () => {
       { surface: 'です', base: 'です', reading: 'です' },
     ]);
     tiles.forEach((tile) => expect(tileSchema.parse(tile)).toEqual(tile));
+  });
+});
+
+describe('readingOf', () => {
+  it('is the plugin member', () => {
+    expect(japanese.readingOf).toBe(readingOf);
+  });
+
+  it.each<[string, Tile[], string]>([
+    ['the stored tiles', stored, 'わたしはみずをのみました'],
+    ['a single tile', [{ surface: '水', base: '水', reading: 'みず' }], 'みず'],
+    ['no tiles', [], ''],
+  ])('joins the readings of %s with no spaces', (_label, tiles, reading) => {
+    expect(readingOf(tiles)).toBe(reading);
   });
 });

@@ -71,8 +71,9 @@ export default tseslint.config(
               message: 'Language plugins are pure TypeScript: no Node built-ins.',
             },
             {
-              group: ['@manabi/*', '!@manabi/core'],
-              message: 'Language plugins depend only on @manabi/core.',
+              // Allowlist: @manabi/core and the package's own files (./x, ../x; not ../../).
+              regex: '^(?!@manabi/core$|\\./|\\.\\./(?!\\.\\./)).*',
+              message: 'Language plugins import only @manabi/core and their own files.',
             },
           ],
         },

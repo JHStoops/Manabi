@@ -1,9 +1,9 @@
 import type { LanguagePlugin } from '@manabi/core';
 import { itemSchemas } from './itemSchemas';
-import { tokenize } from './tokenize';
+import { readingOf, tokenize } from './tokenize';
 
 export * from './itemSchemas';
-export { splitByScript, tokenize } from './tokenize';
+export { readingOf, splitByScript, tokenize } from './tokenize';
 
 /** Thrown by plugin members whose behavior lands in a later issue. */
 export class NotImplementedError extends Error {
@@ -54,6 +54,7 @@ export const japanese: LanguagePlugin = {
     locale: 'ja-JP',
     input: 'reading',
   },
+  readingOf,
   // FR-238: kuromoji 0.1.2 with its IPADIC dictionary, run by the adapter in packages/importers.
   analyzer: 'kuromoji-ipadic',
   segment: () => notImplemented('segment', 109),

@@ -12,8 +12,8 @@ function classify(char: string): CharClass {
   if (extendMarks.has(char)) return 'extend';
   if (/\p{Script=Hiragana}/u.test(char)) return 'hiragana';
   if (/\p{Script=Katakana}/u.test(char)) return 'katakana';
-  // Han includes the iteration mark 々 and 〆.
-  if (/\p{Script=Han}/u.test(char)) return 'kanji';
+  // Han includes the iteration mark 々; 〆 is Common script but reads as a kanji.
+  if (/[\p{Script=Han}〆]/u.test(char)) return 'kanji';
   if (/\p{Nd}/u.test(char)) return 'digit';
   if (/\p{Script=Latin}/u.test(char)) return 'latin';
   // Whitespace, punctuation, symbols and controls separate runs; punctuation is not a tile (DR-12).
@@ -21,11 +21,13 @@ function classify(char: string): CharClass {
   return 'other';
 }
 
+/** Separators that stay inside a number when they sit between two digits (1,000 or 3.5). */
+const numberSeparators = new Set([',', '.', '，', '．']);
+
 /**
  * Last-resort split for text with no stored tiles: one tile per run of the same script
  * (hiragana, katakana, kanji, Latin, digits, anything else), dropping whitespace, punctuation and
- * symbols. There is no dictionary here, so each tile's base form and reading are its surface:
- * a kanji run's "reading" is not kana. Real tiles come from `segment` at import (FR-238).
+ * symbols. Real tiles come from `segment` at import (FR-238).
  */
 export function splitByScript(text: string): Tile[] {
   const tiles: Tile[] = [];
@@ -36,17 +38,28 @@ export function splitByScript(text: string): Tile[] {
     surface = '';
     current = null;
   };
-  for (const char of text) {
+  const chars = [...text];
+  chars.forEach((char, i) => {
+    const next = chars[i + 1];
+    if (
+      current === 'digit' &&
+      numberSeparators.has(char) &&
+      next !== undefined &&
+      classify(next) === 'digit'
+    ) {
+      surface += char;
+      return;
+    }
     let cls = classify(char);
     if (cls === 'extend') cls = current ?? 'katakana';
     if (cls === 'gap') {
       flush();
-      continue;
+      return;
     }
     if (cls !== current) flush();
     current = cls;
     surface += char;
-  }
+  });
   flush();
   return tiles;
 }
@@ -57,4 +70,9 @@ export function splitByScript(text: string): Tile[] {
  */
 export function tokenize({ text, tiles }: TokenizeInput): Tile[] {
   return tiles && tiles.length > 0 ? [...tiles] : splitByScript(text);
+}
+
+/** FR-136: the kana reading sent to TTS for a sentence or answer: its tiles' readings joined. */
+export function readingOf(tiles: readonly Tile[]): string {
+  return tiles.map((tile) => tile.reading).join('');
 }
