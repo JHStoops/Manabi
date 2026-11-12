@@ -218,7 +218,7 @@ The JLPT publishes no official lists, so these counts follow widely used communi
 | JMdict (EDRDG) | Vocabulary, readings, parts of speech | CC BY-SA 4.0 | Attribution; share-alike |
 | KanjiVG | Stroke order paths for animation and drawing checks | CC BY-SA 3.0 | Attribution; share-alike |
 | Tatoeba | Example sentences with English translations | CC BY 2.0 FR | Attribution per sentence source |
-| JLPT Resources lists by Jonathan Waller (tanos.co.uk) | Assigning kanji, vocab and grammar to N5 to N3 | CC BY | Attribution |
+| JLPT Resources lists by Jonathan Waller (tanos.co.uk) | Assigning kanji, vocab and grammar to N5 to N3; the site is offline, so a parsed copy is kept in the repository | CC BY | Attribution |
 
 The app needs an About page crediting these sources. A private family deployment is low risk, but share-alike matters if the content packs are ever published.
 
@@ -229,9 +229,9 @@ The app needs an About page crediting these sources. A private family deployment
 | Authoring roughly 385 grammar points is the largest effort in the project | Content lags the platform | Ship N5 first; make the editor fast; write the authoring guide (PR-77) so Claude can draft later levels for review |
 | Scope creep from chasing Duolingo parity | v1 never ships | Milestones above; everything else goes to the backlog |
 | Free-text answer checking is hard for Japanese (kana vs kanji, multiple valid translations) | Correct answers marked wrong | Accept lists per exercise, kana normalization, prefer word-bank and choice exercises for translation, "my answer was right" report button |
-| Tatoeba sentence quality varies | Confusing examples | Import only sentences whose words are in the course; author review flag |
+| Tatoeba sentence quality varies | Confusing examples | Import only short sentences by native-speaker contributors whose words are in the course and whose grammar is at most slightly above the level; word blocklist; author review flag |
 | Internet exposure of a home server | Account or server compromise | Invite-only, rate limiting, Nginx Proxy Manager in front, regular updates, backups |
-| Text-to-speech quality for Japanese pitch and readings | Wrong or robotic audio | Pre-generate and cache audio; allow an author to replace any clip |
+| Text-to-speech quality for Japanese pitch and readings | Wrong or robotic audio | Send the engine the kana reading, never the written form; cache each clip after its first play; allow an author to replace any clip |
 
 ## 7. Feature ideas backlog
 
