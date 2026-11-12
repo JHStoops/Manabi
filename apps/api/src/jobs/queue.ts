@@ -49,18 +49,17 @@ export function createJobQueue({
     if (!ready) {
       const boss = createBoss(databaseUrl, 'producer');
       boss.on('error', (err: Error) => log.warn({ err }, 'job queue error'));
-      const attempt: Promise<PgBoss> = (async () => {
-        try {
-          await boss.start();
-          for (const name of queueNames) await boss.createQueue(name);
-          return boss;
-        } catch (err) {
-          if (ready === attempt) ready = null;
-          await boss.stop({ graceful: false }).catch(() => undefined);
-          throw err;
-        }
+      const attempt = (async (): Promise<PgBoss> => {
+        await boss.start();
+        for (const name of queueNames) await boss.createQueue(name);
+        return boss;
       })();
       ready = attempt;
+      // A failed attempt is forgotten, so the next call tries again.
+      attempt.catch(async () => {
+        if (ready === attempt) ready = null;
+        await boss.stop({ graceful: false }).catch(() => undefined);
+      });
     }
     return ready;
   };
