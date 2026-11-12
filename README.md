@@ -42,6 +42,24 @@ npm run dev:api    # Fastify on :3000 (needs no database yet)
 npm run dev:web    # Vite on :5173, proxies /api to :3000
 ```
 
+## Running checks locally
+
+CI (`.github/workflows/ci.yml`) runs these on every pull request and on every push to `main`. Run them from the repo root before opening a pull request:
+
+| Script                  | What it does                                                                                             |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| `npm run lint`          | ESLint over the whole repo (`eslint.config.mjs`)                                                         |
+| `npm run format:check`  | Prettier check; fails on unformatted files. Fix them with `npm run format`                               |
+| `npm run typecheck`     | `tsc --noEmit` in strict mode in every workspace                                                         |
+| `npm test`              | Jest (ts-jest) in every workspace                                                                        |
+| `npm run test:coverage` | Jest with coverage; fails if `packages/core` or `packages/lang-ja` drop below 85% line coverage (NFR-51) |
+
+Run one workspace with `npm test --workspace @manabi/core` (or `npm run test:coverage --workspace @manabi/lang-ja`).
+
+In CI the job also starts a PostgreSQL 17 service container and exports `DATABASE_URL` for API integration tests, and prints an `npm audit` report that does not fail the build. To run database-backed tests locally, point `DATABASE_URL` at a scratch database.
+
+`docs/` and `spikes/` are not linted, format-checked, type-checked or tested.
+
 ## Docs
 
 Planning documents (PRD, Product Spec, SDD, SRS) are indexed in [docs/README.md](docs/README.md). Deployment is described in [deploy/README.md](deploy/README.md). Coding agents: read [CLAUDE.md](CLAUDE.md).

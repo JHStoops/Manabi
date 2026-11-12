@@ -29,11 +29,11 @@ services:
   app:
     <<: *app
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - '${APP_PORT:-3000}:3000'
 
   worker:
     <<: *app
-    command: ["node", "dist/worker.js"]
+    command: ['node', 'dist/worker.js']
 
   db:
     image: postgres:17
@@ -46,31 +46,31 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U manabi -d manabi"]
+      test: ['CMD-SHELL', 'pg_isready -U manabi -d manabi']
       interval: 5s
       timeout: 5s
       retries: 10
 
   # Optional text-to-speech service: docker compose --profile tts up -d
   tts:
-    profiles: ["tts"]
+    profiles: ['tts']
     # PLACEHOLDER: the TTS engine has not been chosen yet. Replace this image with the real one.
     image: busybox:stable
-    command: ["sleep", "infinity"]
+    command: ['sleep', 'infinity']
     restart: unless-stopped
 
   # Nightly pg_dump into DUMPS_DIR, keeping 14 days. Back that folder up with Backrest/restic.
   backup:
     image: postgres:17
     restart: unless-stopped
-    entrypoint: ["/bin/bash", "/dump.sh", "--loop"]
+    entrypoint: ['/bin/bash', '/dump.sh', '--loop']
     environment:
       PGHOST: db
       PGUSER: manabi
       PGPASSWORD: ${POSTGRES_PASSWORD}
       PGDATABASE: manabi
       DUMP_DIR: /dumps
-      KEEP_DAYS: "14"
+      KEEP_DAYS: '14'
       TZ: ${TZ:-UTC}
     volumes:
       - ./backup/dump.sh:/dump.sh:ro
