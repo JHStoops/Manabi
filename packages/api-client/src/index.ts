@@ -35,8 +35,6 @@ export interface ApiClientOptions {
    * `Authorization: Bearer <token>`. Browsers leave it unset and use the session cookie.
    */
   token?: TokenSource;
-  /** Cookie handling. Default 'include', so the web app's session cookie rides along. */
-  credentials?: 'include' | 'same-origin' | 'omit';
   /** A `fetch` to use instead of the global one (tests, React Native polyfills). */
   fetch?: (input: Request) => Promise<Response>;
 }
@@ -122,19 +120,11 @@ async function currentToken(source: TokenSource | undefined): Promise<string | n
   return typeof source === 'function' ? source() : source;
 }
 
-function withHeader(headers: unknown, idempotencyKey: string): unknown {
-  if (headers instanceof Headers) {
-    const copy = new Headers(headers);
-    copy.set(IDEMPOTENCY_KEY_HEADER, idempotencyKey);
-    return copy;
-  }
-  return { ...(headers as object | undefined), [IDEMPOTENCY_KEY_HEADER]: idempotencyKey };
-}
-
 export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   const client = createClient<paths>({
     baseUrl: options.baseUrl ?? '',
-    credentials: options.credentials ?? 'include',
+    // The web app's session cookie rides along (IF-06).
+    credentials: 'include',
     ...(options.fetch ? { fetch: options.fetch } : {}),
   });
   client.use({
@@ -153,7 +143,9 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   const method = (call: Untyped) =>
     async function (path: string, init?: Record<string, unknown> & MutationOptions) {
       const { idempotencyKey, ...rest } = init ?? {};
-      if (idempotencyKey !== undefined) rest.headers = withHeader(rest.headers, idempotencyKey);
+      if (idempotencyKey !== undefined) {
+        rest.headers = { ...(rest.headers as object), [IDEMPOTENCY_KEY_HEADER]: idempotencyKey };
+      }
       const { data, error, response } = await call(path, rest);
       if (!response.ok) throw ApiRequestError.fromResponse(response.status, error);
       return data;

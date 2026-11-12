@@ -190,13 +190,6 @@ describe('credentials', () => {
     expect(requests[0]?.headers.has('Authorization')).toBe(false);
     expect(requests[1]?.headers.get('Authorization')).toBe('Bearer after-sign-in');
   });
-
-  it('honour another credentials mode', async () => {
-    const { fetch, requests } = mockFetch(() => json(200, user));
-    await createApiClient({ baseUrl: BASE_URL, fetch, credentials: 'omit' }).GET('/api/v1/me');
-
-    expect(requests[0]?.credentials).toBe('omit');
-  });
 });
 
 // FR-052
@@ -213,17 +206,10 @@ describe('idempotency keys', () => {
       idempotencyKey: 'key-2',
       headers: { 'X-Extra': 'kept' },
     });
-    await api.POST('/api/v1/auth/login', {
-      body,
-      idempotencyKey: 'key-3',
-      headers: new Headers({ 'X-Extra': 'kept' }),
-    });
 
     expect(requests[0]?.headers.get(IDEMPOTENCY_KEY_HEADER)).toBe('key-1');
     expect(requests[1]?.headers.get(IDEMPOTENCY_KEY_HEADER)).toBe('key-2');
     expect(requests[1]?.headers.get('X-Extra')).toBe('kept');
-    expect(requests[2]?.headers.get(IDEMPOTENCY_KEY_HEADER)).toBe('key-3');
-    expect(requests[2]?.headers.get('X-Extra')).toBe('kept');
   });
 
   it('are not sent when not given', async () => {
