@@ -91,7 +91,7 @@ The web app renders script features from the `features` flags: the Kanji area of
 | `units/<nn>-<slug>.yaml` | Unit title, lessons, each lesson's type and item keys, hand-written exercises |
 | `items/words.yaml`, `items/kanji.yaml` | Overrides and additions on top of imported data, keyed by stable item key |
 | `grammar/<key>.md` | One grammar point: front matter (pattern, level, related, detection patterns over segmenter tokens) and Markdown body with marked-up examples. A point may be a stub (pattern, level and detection patterns only) until its page is written, so higher-level points can be detected before they are taught |
-| `sentences.yaml` | Curated and reviewed sentences with tiles (surface, base form, reading, item key), translation, review status and, for imported sentences, attribution |
+| `sentences.yaml` | Curated and reviewed sentences with tiles (surface, base form, reading, item key), translation, review status, any challenge override and, for imported sentences, attribution |
 | `lists/supplementary-words.yaml` | Common words per level that the level lists lack; treated as level-list words |
 | `lists/blocked-words.yaml` | The word blocklist for the course's target language; empty at start |
 | `audio/` | Optional recorded clips that replace generated ones |
@@ -108,18 +108,18 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 | Table | Key columns | Notes |
 | --- | --- | --- |
 | `courses` | id, target_lang, base_lang, plugin, title, status | One row per course |
-| `sections` | id, course_id, position, title, level_code | Kana, N5, N4, N3 |
+| `sections` | id, course_id, position, title, level_code, archived_at | Kana, N5, N4, N3; archived instead of deleted when dropped from a pack |
 | `units` | id, section_id, position, title, status | Draft or published |
 | `lessons` | id, unit_id, position, type, title, status | Type from the Product Spec's lesson types |
 | `items` | id, course_id, key (unique), type, level_code, data (JSONB), overrides (JSONB), source | Kana, kanji, word, grammar point; `overrides` survive re-import |
 | `item_links` | from_item_id, to_item_id, kind | Word contains kanji; grammar related to grammar; kanji has component |
 | `lesson_items` | lesson_id, item_id, position | The new items a lesson teaches |
-| `sentences` | id, course_id, text, tokens (JSONB), translation, source, source_id, attribution (JSONB), review_status, grammar (JSONB), edited | Tokens carry tiles with surface, base form, reading and item id; the sentence reading is the tiles' readings joined. Attribution holds owner, URL, licence and dataset version for the sentence and its translation separately. Review status is unreviewed, flagged or reviewed; grammar lists the points detected at import; edited marks author changes to imported text |
+| `sentences` | id, course_id, text, tokens (JSONB), translation, source, source_id, attribution (JSONB), review_status, grammar (JSONB), vocab_level_code, grammar_level_code, challenge_override, edited | Tokens carry tiles with surface, base form, reading and item id; the sentence reading is the tiles' readings joined. Attribution holds owner, URL, licence and dataset version for the sentence and its translation separately. Review status is unreviewed, flagged or reviewed; grammar lists the points detected at import; `vocab_level_code` is the highest level among the content words, set by the import's coverage check and recomputed when tiles change; `grammar_level_code` (same domain as `level_code`) is the highest level among them, null when none; `challenge_override` is null when the challenge status is derived (`grammar_level_code` above `vocab_level_code`) and true or false when an author has set it; edited marks author changes to imported text |
 | `supplementary_words` | id, course_id, level_code, written, reading, note | Admin-editable; seeded from the words that block the most imported sentences |
 | `blocked_words` | id, lang, word | Admin-editable blocklist per language; empty at start |
 | `sentence_items` | sentence_id, item_id | For "example sentences using this item" |
 | `exercises` | id, lesson_id (nullable), item_id (nullable), type, payload (JSONB), origin | Origin: authored, generated or pinned; item-level exercises feed reviews and drills |
-| `audio_assets` | id, owner_type, owner_id, voice, path, origin, text_hash | Generated on first request or uploaded; hash of the reading sent detects stale audio |
+| `audio_assets` | id, owner_type, owner_id, voice, path, origin, text_hash | Generated on first request or uploaded; hash of the reading sent detects stale audio; voice is null only for uploaded clips |
 | `stroke_data` | item_id, strokes (JSONB) | Hanzi Writer character data converted from KanjiVG: an outline and a median per stroke |
 
 **Accounts**
@@ -137,7 +137,7 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 | --- | --- | --- |
 | `enrollments` | user_id, course_id, started_at, total_xp, level | A learner may enroll in several courses; XP total and level are kept per course here |
 | `lesson_progress` | user_id, lesson_id, completed_at, best_accuracy, times_completed | Drives path unlocking |
-| `lesson_sessions` | id, user_id, lesson_id, state (JSONB), expires_at | Resume within 24 hours |
+| `lesson_sessions` | id, user_id, lesson_id, unit_id, state (JSONB), expires_at | Resume within 24 hours; a unit challenge session has unit_id set and no lesson_id |
 | `item_progress` | user_id, item_id, facet, stage, due_at, last_reviewed_at, correct_count, wrong_count | One row per review facet; index on (user_id, due_at) |
 | `review_log` | id, user_id, item_id, facet, exercise_type, correct, stage_before, stage_after, answered_at | Append-only; feeds stats and future scheduler tuning |
 | `xp_events` | id, user_id, course_id, base_amount, multiplier, amount, reason, ref_id, earned_at, local_date | Append-only ledger; source of truth for XP |
@@ -172,11 +172,13 @@ Each exercise type is one registry entry with four parts, so adding a type touch
 
 **Building a lesson session**
 
-1. The API loads the lesson's items and its stored exercises (authored and pinned).
+1. The API loads the lesson's items and its stored exercises (authored and pinned). Sentences for generated exercises come only from those whose `vocab_level_code` and `grammar_level_code` are at or below the section's level and that are not marked challenging (FR-056).
 2. If the lesson type allows generation, generators fill the session up to its target length, choosing types by a per-lesson-type recipe and drawing distractors from items the learner has already met.
 3. The session (teaching cards, ordered exercises with payloads and accept lists) is saved in `lesson_sessions` and returned to the client in one response.
 4. The client grades each answer locally with the shared grader for instant feedback and records the response. In lessons and reviews a first wrong answer allows one immediate second attempt; the response records both attempts, and the exercise counts as incorrect only if the second also fails.
 5. On completion the client posts all responses; the server re-grades them with the same code, then in one transaction writes `lesson_progress`, creates `item_progress` rows for new items, appends `xp_events`, updates `user_stats` and evaluates achievements.
+
+**Unit challenge** (FR-057, FR-058). A completed unit offers an optional challenge, modelled like the test-out: per unit, not a lesson row, so it never affects unlocking. Its pool is the unit's challenging sentences: every word taught by the end of the unit and at least one taught in it, with `vocab_level_code` at or below the section's level and `grammar_level_code` exactly one level above it, or `challenge_override` true; a sentence with `challenge_override` false is never in the pool. With fewer than 5 sentences the path does not show it. `POST /units/:id/challenge` builds (or resumes) a session of 10 to 15 exercises from the pool with the plugin's sentence generators (choice, word bank, fill the blank, reorder), stored in `lesson_sessions` with `unit_id` set, and completes through the same endpoint and transaction as a lesson. XP uses the lesson rules scaled by 1.5 (a challenge factor in the core rules table) with reason `unit_challenge` and the unit as `ref_id`: each award's `base_amount` is round(lesson amount × 1.5), so the first completion earns 15 plus an 8 accuracy bonus and later ones 8 replay XP, decided from the ledger; an active booster then applies through `multiplier` as for any award. Answers on learned items that are due are applied as review answers (stage change and `review_log` row); items not due are left alone, and the next-level grammar points get no review entries until their own grammar lessons.
 
 Sending accept lists to the client trades cheat resistance for responsiveness and offline tolerance, which is the right trade for an invite-only family app; the server re-grade keeps recorded progress honest.
 
@@ -218,7 +220,7 @@ The web app uses only the public REST API under `/api/v1`, so a mobile client ge
 | --- | --- |
 | Auth | `POST /auth/login`, `POST /auth/logout`, `POST /auth/accept-invite`, `POST /auth/password-reset`, `GET /me`, `PATCH /me` |
 | Courses | `GET /courses`, `POST /courses/:id/enroll`, `GET /courses/:id/path` (sections, units, lessons with the learner's state) |
-| Lessons | `POST /lessons/:id/sessions` (start or resume), `POST /lesson-sessions/:id/complete`, `POST /units/:id/test-out` |
+| Lessons | `POST /lessons/:id/sessions` (start or resume), `POST /lesson-sessions/:id/complete`, `POST /units/:id/test-out`, `POST /units/:id/challenge` (start or resume a unit challenge) |
 | Reviews | `GET /reviews/summary` (due now, forecast), `POST /reviews/sessions`, `POST /review-sessions/:id/answers` |
 | Library | `GET /items` (filter by type, level, stage, search), `GET /items/:key`, `PUT /items/:key/note`, `POST /items/:key/drill`, `PATCH /items/:key/progress` |
 | Media | `GET /media/audio/:ownerType/:ownerId` (the uploaded or cached clip; generated on the first request), `GET /media/strokes/:itemKey` |
@@ -264,7 +266,7 @@ Imports are repeatable background jobs that fill the `items`, `sentences` and `s
 | 2. Levels | JLPT Resources lists (tanos.co.uk, CC BY), from a parsed copy committed in `packages/importers` (the site no longer resolves), plus the per-level supplementary words | `level_code` set on kanji and words; levels above the configured ceiling (N3 for now) are skipped; raising it to N2 or N1 is a setting, not a code change |
 | 3. Vocabulary | JMdict, filtered to the level lists and supplementary words | Word items with reading, meanings, part of speech; `item_links` to their kanji |
 | 4. Strokes | KanjiVG | `stroke_data` for every kanji and kana, converted to Hanzi Writer data: a fixed-width ribbon outline around each KanjiVG centreline plus its median, in Hanzi Writer's 1024-unit y-up space |
-| 5. Sentences | Tatoeba Japanese-English pairs, with Tatoeba's user languages export | Filtered, segmented into tiles, grammar-checked and stored with attribution, flagged "unreviewed" (see the sentence rules below) |
+| 5. Sentences | Tatoeba Japanese-English pairs, with Tatoeba's user languages export | Filtered, segmented into tiles, grammar level recorded and stored with attribution, flagged "unreviewed" (see the sentence rules below) |
 | 6. Course pack | `content/ja-en` | Sections, units, lessons, grammar points, curated sentences, word lists, overrides |
 
 **Import rules**
@@ -279,7 +281,7 @@ Imports are repeatable background jobs that fill the `items`, `sentences` and `s
 - Coverage: every content word, by base form, is at or below the sentence's level in the level lists or the supplementary words; particles, auxiliaries, numbers, counters and person and place names are exempt.
 - Blocklist: a sentence containing a word on the language's blocklist is skipped. The same check reports blocked words in authored sentences and exercises in the pack lint and the editors.
 - Segmentation: each kept sentence is split into tiles by the segmentation path in section 4 (the plugin's declared analyzer, then the plugin's `segment`), storing surface, base form and reading per tile. For Japanese the `kuromoji-ipadic` adapter (kuromoji 0.1.2) runs in `packages/importers` and the merge rules R0 to R10 and a small idiom split list run in `packages/lang-ja`; the spike's `rules.ts` (ported into the plugin) and `gold.tsv` are the starting code and test fixtures. Expect authors to adjust about 1 in 8 N5 sentences.
-- Grammar level: grammar points are detected by the plugin's `detectGrammar` from each point's detection patterns over the analyzer's tokens. A sentence may use at most one grammar point from the next level up; one using more, or any point two or more levels up, is dropped; one using exactly one next-level point is kept and flagged for author review. Only points present in the course are detected, so higher-level points can be added as stubs to make detection complete.
+- Grammar level: grammar points are detected by the plugin's `detectGrammar` from each point's detection patterns over the analyzer's tokens, and the sentence's `grammar_level_code` is the highest level among them. No sentence is dropped or flagged for its grammar. A sentence whose `grammar_level_code` is above its `vocab_level_code` (set by the coverage check) is challenging: normal lessons skip it, the unit challenge of its vocabulary level uses it when its grammar is exactly one level up, and once the course reaches its grammar level it is an ordinary sentence there. Authors see the grammar level and challenge status in the sentence editor and can override the status (`challenge_override`). Only points present in the course are detected, so higher-level points can be added as stubs to make detection complete.
 - Imported sentences start "unreviewed". Tiles an author has edited or reviewed, and authored sentences, are never overwritten on re-import.
 - Each sentence and its translation store source id, owner (or none, shown as "Tatoeba contributors"), source URL, licence, dataset version and an edited flag; wherever an imported sentence is shown, a small credit links to its Tatoeba page.
 

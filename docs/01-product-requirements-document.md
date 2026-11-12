@@ -84,6 +84,7 @@ Each requirement has an ID that the Product Spec, SDD and SRS trace back to. Pri
 | PR-5 | A per-unit "test out" lets learners skip material they know (a placement test is parked in the ideas backlog) | Should |
 | PR-6 | Learners choose how Japanese is displayed: furigana on, off, or only for kanji not yet learned; romaji only in the kana stage | Must |
 | PR-7 | Typed Japanese answers work with a standard IME and with built-in romaji-to-kana conversion | Must |
+| PR-8 | After finishing a unit, learners can take an optional challenge that practices the unit's words in sentences whose grammar is one level ahead; normal lessons use only sentences at or below their level | Should |
 
 ### 4.2 Kanji
 
@@ -229,7 +230,7 @@ The app needs an About page crediting these sources. A private family deployment
 | Authoring roughly 385 grammar points is the largest effort in the project | Content lags the platform | Ship N5 first; make the editor fast; write the authoring guide (PR-77) so Claude can draft later levels for review |
 | Scope creep from chasing Duolingo parity | v1 never ships | Milestones above; everything else goes to the backlog |
 | Free-text answer checking is hard for Japanese (kana vs kanji, multiple valid translations) | Correct answers marked wrong | Accept lists per exercise, kana normalization, prefer word-bank and choice exercises for translation, "my answer was right" report button |
-| Tatoeba sentence quality varies | Confusing examples | Import only short sentences by native-speaker contributors whose words are in the course and whose grammar is at most slightly above the level; word blocklist; author review flag |
+| Tatoeba sentence quality varies | Confusing examples | Import only short sentences by native-speaker contributors whose words are in the course; sentences with grammar above their level are kept out of normal lessons and used in optional unit challenges; word blocklist; author review |
 | Internet exposure of a home server | Account or server compromise | Invite-only, rate limiting, Nginx Proxy Manager in front, regular updates, backups |
 | Text-to-speech quality for Japanese pitch and readings | Wrong or robotic audio | Send the engine the kana reading, never the written form; cache each clip after its first play; allow an author to replace any clip |
 
