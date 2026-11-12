@@ -212,7 +212,7 @@ Manabi is a self-contained system: one server deployment used through web browse
 | FR-236 | Detect the course's grammar points in each imported sentence from each point's detection patterns over the segmenter's tokens; drop a sentence that uses a grammar point two or more levels above its own or more than one point from the next level up, and flag a kept sentence that uses one next-level point for author review | PR-75 | M0 |
 | FR-237 | Keep a word blocklist per language, empty at start and editable by an admin; skip imported sentences containing a blocked word, and report blocked words in authored sentences and exercises in pack validation and in the editors | PR-74, PR-75 | M0 |
 | FR-238 | Split each imported sentence into word tiles at import time with a per-language segmenter (for Japanese, a morphological analyzer plus merge rules), storing each tile's base form and reading; never overwrite tiles an author has edited or reviewed | PR-23, PR-75 | M0 |
-| FR-239 | Show a source credit (source id, owner and licence, linked to the source) next to every imported sentence and its translation wherever they are shown | PR-75 | M2 |
+| FR-239 | Show a source credit (source id, owner and licence, linked to the source) next to every imported sentence and its translation wherever they are shown | PR-75 | v1.0 |
 
 ### 3.14 Language extensibility
 
