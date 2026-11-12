@@ -68,6 +68,11 @@ describeWithDb('db helpers', () => {
     expect(await countCourses()).toBe(1);
   });
 
+  it('returns date columns as YYYY-MM-DD strings, not Dates', async () => {
+    const row = await queryOne<{ d: string }>(pool(), `SELECT '2026-11-09'::date AS d`);
+    expect(row).toEqual({ d: '2026-11-09' });
+  });
+
   it('rejects int8 values outside the safe integer range', async () => {
     await expect(queryOne(pool(), 'SELECT 9007199254740993::bigint AS n')).rejects.toThrow(
       RangeError,

@@ -1,6 +1,5 @@
-import type { QueryResultRow } from 'pg';
 import type { Queryable } from '../../db/db';
-import { query, queryOne } from '../../db/db';
+import { insertReturning, query, queryOne } from '../../db/db';
 import type {
   CourseRow,
   ItemRow,
@@ -12,17 +11,6 @@ import type {
 
 // Hand-written, parameterized SQL for the content tables. Importer and editor queries are
 // added by the issues that need them.
-
-/** INSERT ... RETURNING always yields exactly one row (or throws). */
-async function insertReturning<R extends QueryResultRow>(
-  db: Queryable,
-  sql: string,
-  params: readonly unknown[],
-): Promise<R> {
-  const row = await queryOne<R>(db, sql, params);
-  if (!row) throw new Error('INSERT ... RETURNING returned no row');
-  return row;
-}
 
 export interface NewCourse {
   key: string;
