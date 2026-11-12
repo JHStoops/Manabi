@@ -9,9 +9,12 @@
     "build": "tsc --noEmit -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "jest --passWithNoTests",
-    "test:coverage": "jest --coverage --passWithNoTests"
+    "test:coverage": "jest --coverage --passWithNoTests",
+    "download": "tsx src/download.ts"
   },
   "dependencies": {
-    "@manabi/core": "*"
+    "@manabi/core": "*",
+    "@manabi/lang-ja": "*",
+    "saxes": "^6.0.0"
   }
 }

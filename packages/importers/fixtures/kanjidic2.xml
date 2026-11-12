@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Three KANJIDIC2 entries (EDRDG, CC BY-SA 4.0), trimmed, for tests. -->
+<!DOCTYPE kanjidic2 [
+<!ELEMENT kanjidic2 (header,character*)>
+]>
+<kanjidic2>
+<header>
+<file_version>4</file_version>
+<database_version>2026-316</database_version>
+<date_of_creation>2026-11-12</date_of_creation>
+</header>
+<!-- Entry for Kanji: 水 -->
+<character>
+<literal>水</literal>
+<codepoint>
+<cp_value cp_type="ucs">6c34</cp_value>
+</codepoint>
+<radical>
+<rad_value rad_type="classical">85</rad_value>
+</radical>
+<misc>
+<grade>1</grade>
+<stroke_count>4</stroke_count>
+<jlpt>4</jlpt>
+</misc>
+<reading_meaning>
+<rmgroup>
+<reading r_type="pinyin">shui3</reading>
+<reading r_type="ja_on">スイ</reading>
+<reading r_type="ja_kun">みず</reading>
+<reading r_type="ja_kun">みず-</reading>
+<meaning>water</meaning>
+<meaning m_lang="fr">eau</meaning>
+</rmgroup>
+</reading_meaning>
+</character>
+<!-- Entry for Kanji: 逢 -->
+<character>
+<literal>逢</literal>
+<radical>
+<rad_value rad_type="classical">162</rad_value>
+</radical>
+<misc>
+<grade>9</grade>
+<stroke_count>10</stroke_count>
+<stroke_count>9</stroke_count>
+<stroke_count>11</stroke_count>
+</misc>
+<reading_meaning>
+<rmgroup>
+<reading r_type="ja_on">ホウ</reading>
+<reading r_type="ja_kun">あ.う</reading>
+<reading r_type="ja_kun">むか.える</reading>
+<meaning>meeting</meaning>
+<meaning>tryst</meaning>
+<meaning m_lang="es">encuentro</meaning>
+</rmgroup>
+<nanori>あい</nanori>
+</reading_meaning>
+</character>
+<!-- Entry for Kanji: 乁 (no English meaning, so not imported) -->
+<character>
+<literal>乁</literal>
+<radical>
+<rad_value rad_type="classical">4</rad_value>
+</radical>
+<misc>
+<stroke_count>1</stroke_count>
+</misc>
+<reading_meaning>
+<rmgroup>
+<reading r_type="ja_on">イ</reading>
+<reading r_type="ja_kun">なが.れる</reading>
+</rmgroup>
+</reading_meaning>
+</character>
+</kanjidic2>
