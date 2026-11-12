@@ -22,7 +22,8 @@ export function testDatabaseUrl(): string {
   return withDatabase(adminUrl, workerDatabaseName(base, process.env.JEST_WORKER_ID ?? '1'));
 }
 
-// Empties every table except the migration bookkeeping, resetting identity sequences.
+// Empties every table except the migration bookkeeping, resetting identity sequences. Only the
+// `public` schema: pg-boss's own schema (jobs/boss.ts) is left to pg-boss.
 // The append-only tables (review_log, xp_events) reject TRUNCATE unless manabi.allow_truncate
 // holds the current transaction id (migration 0003); the DO block runs as one transaction.
 const TRUNCATE_ALL = `

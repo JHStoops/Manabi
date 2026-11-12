@@ -46,6 +46,8 @@ services:
       start_period: 30s
       retries: 3
 
+  # Background and scheduled jobs (pg-boss). Study keeps working while it is stopped (NFR-23).
+  # On SIGTERM it lets running jobs finish for up to 8 s, inside Compose's 10 s grace period.
   worker:
     <<: *app
     command: ['node', 'dist/worker.js']

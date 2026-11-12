@@ -16,6 +16,9 @@ import type { Pool } from 'pg';
 import { emptyQuerySchema } from '@manabi/core';
 import type { Config, TrustProxy } from './config';
 import { apiNotFound, errorHandler } from './errors';
+import { allJobs } from './jobs';
+import { createJobQueue } from './jobs/queue';
+import { REDACT_PATHS } from './logger';
 import { featureModules } from './modules';
 import { API_PREFIX, missingRequestSchemas } from './routeSchemas';
 import type { RegisteredRoute } from './types';
@@ -28,25 +31,6 @@ export interface AppOptions {
   /** Where JSON logs go instead of stdout (tests). */
   logStream?: Writable;
 }
-
-/** Log fields that could carry secrets; pino replaces their values. */
-const REDACT_PATHS = [
-  'req.headers.authorization',
-  'req.headers.cookie',
-  'res.headers["set-cookie"]',
-  'password',
-  '*.password',
-  'newPassword',
-  '*.newPassword',
-  'token',
-  '*.token',
-  'sessionSecret',
-  '*.sessionSecret',
-  'databaseUrl',
-  '*.databaseUrl',
-  // pg's DatabaseError.detail quotes row values, e.g. "Key (email)=(a@b.c) already exists".
-  'err.detail',
-];
 
 /**
  * Structured JSON logs to stdout (SDD section 12). Requests are logged by method, path and route
@@ -144,6 +128,15 @@ export async function buildApp({ config, pool, logStream }: AppOptions): Promise
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   app.decorate('db', pool);
+  // NFR-23: jobs go into the pg-boss tables; the API never works them, so it keeps serving
+  // whether or not the worker runs. The queue connects on first use and closes with the app.
+  const jobs = createJobQueue({
+    databaseUrl: config.databaseUrl,
+    jobs: allJobs,
+    log: app.log,
+  });
+  app.decorate('jobs', jobs);
+  app.addHook('onClose', () => jobs.stop());
 
   const routes: RegisteredRoute[] = [];
   app.decorate('registeredRoutes', routes);
