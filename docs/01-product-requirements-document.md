@@ -259,6 +259,7 @@ None of these are in v1; they are parked here to draw from later. Add to the lis
 | Gamification | Cosmetic unlocks (themes, profile badges) bought with earned gems |
 | Social | Activity feed with reactions; parent view of a child's progress |
 | Habit | Email or push reminders; weekly progress email |
+| Security | Progressive delay after failed sign-in attempts, on top of the NFR-12 rate limit (deferred from SDD section 11) |
 | Platform | Native mobile app; offline lessons that sync later |
 | Platform | Single sign-on with the home server's identity provider |
 | Languages | Second course (for example Chinese, Korean or Spanish); base languages other than English |
