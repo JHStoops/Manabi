@@ -1,0 +1,940 @@
+{
+  "お休みの日に電話しました。": [
+    {
+      "surface": "お",
+      "pos": ["接頭詞", "名詞接続"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "お",
+      "reading": "オ"
+    },
+    {
+      "surface": "休み",
+      "pos": ["名詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "休み",
+      "reading": "ヤスミ"
+    },
+    {
+      "surface": "の",
+      "pos": ["助詞", "連体化"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "の",
+      "reading": "ノ"
+    },
+    {
+      "surface": "日",
+      "pos": ["名詞", "非自立", "副詞可能"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "日",
+      "reading": "ヒ"
+    },
+    {
+      "surface": "に",
+      "pos": ["助詞", "格助詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "に",
+      "reading": "ニ"
+    },
+    {
+      "surface": "電話",
+      "pos": ["名詞", "サ変接続"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "電話",
+      "reading": "デンワ"
+    },
+    {
+      "surface": "し",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "サ変・スル",
+      "conjugationForm": "連用形",
+      "baseForm": "する",
+      "reading": "シ"
+    },
+    {
+      "surface": "まし",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・マス",
+      "conjugationForm": "連用形",
+      "baseForm": "ます",
+      "reading": "マシ"
+    },
+    {
+      "surface": "た",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・タ",
+      "conjugationForm": "基本形",
+      "baseForm": "た",
+      "reading": "タ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "三人で見てきました。": [
+    {
+      "surface": "三",
+      "pos": ["名詞", "数"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "三",
+      "reading": "サン"
+    },
+    {
+      "surface": "人",
+      "pos": ["名詞", "接尾", "助数詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "人",
+      "reading": "ニン"
+    },
+    {
+      "surface": "で",
+      "pos": ["助詞", "格助詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "で",
+      "reading": "デ"
+    },
+    {
+      "surface": "見",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "一段",
+      "conjugationForm": "連用形",
+      "baseForm": "見る",
+      "reading": "ミ"
+    },
+    {
+      "surface": "て",
+      "pos": ["助詞", "接続助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "て",
+      "reading": "テ"
+    },
+    {
+      "surface": "き",
+      "pos": ["動詞", "非自立"],
+      "conjugationType": "カ変・クル",
+      "conjugationForm": "連用形",
+      "baseForm": "くる",
+      "reading": "キ"
+    },
+    {
+      "surface": "まし",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・マス",
+      "conjugationForm": "連用形",
+      "baseForm": "ます",
+      "reading": "マシ"
+    },
+    {
+      "surface": "た",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・タ",
+      "conjugationForm": "基本形",
+      "baseForm": "た",
+      "reading": "タ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "入れてください。": [
+    {
+      "surface": "入れ",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "一段",
+      "conjugationForm": "連用形",
+      "baseForm": "入れる",
+      "reading": "イレ"
+    },
+    {
+      "surface": "て",
+      "pos": ["助詞", "接続助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "て",
+      "reading": "テ"
+    },
+    {
+      "surface": "ください",
+      "pos": ["動詞", "非自立"],
+      "conjugationType": "五段・ラ行特殊",
+      "conjugationForm": "命令ｉ",
+      "baseForm": "くださる",
+      "reading": "クダサイ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "来たのですか。": [
+    {
+      "surface": "来",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "カ変・来ル",
+      "conjugationForm": "連用形",
+      "baseForm": "来る",
+      "reading": "キ"
+    },
+    {
+      "surface": "た",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・タ",
+      "conjugationForm": "基本形",
+      "baseForm": "た",
+      "reading": "タ"
+    },
+    {
+      "surface": "の",
+      "pos": ["名詞", "非自立", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "の",
+      "reading": "ノ"
+    },
+    {
+      "surface": "です",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・デス",
+      "conjugationForm": "基本形",
+      "baseForm": "です",
+      "reading": "デス"
+    },
+    {
+      "surface": "か",
+      "pos": ["助詞", "副助詞／並立助詞／終助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "か",
+      "reading": "カ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "雨になっちゃうんじゃないかなあ。": [
+    {
+      "surface": "雨",
+      "pos": ["名詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "雨",
+      "reading": "アメ"
+    },
+    {
+      "surface": "に",
+      "pos": ["助詞", "格助詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "に",
+      "reading": "ニ"
+    },
+    {
+      "surface": "なっ",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・ラ行",
+      "conjugationForm": "連用タ接続",
+      "baseForm": "なる",
+      "reading": "ナッ"
+    },
+    {
+      "surface": "ちゃう",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・ワ行促音便",
+      "conjugationForm": "基本形",
+      "baseForm": "ちゃう",
+      "reading": "チャウ"
+    },
+    {
+      "surface": "ん",
+      "pos": ["名詞", "非自立", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "ん",
+      "reading": "ン"
+    },
+    {
+      "surface": "じゃ",
+      "pos": ["助詞", "副助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "じゃ",
+      "reading": "ジャ"
+    },
+    {
+      "surface": "ない",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・ナイ",
+      "conjugationForm": "基本形",
+      "baseForm": "ない",
+      "reading": "ナイ"
+    },
+    {
+      "surface": "か",
+      "pos": ["助詞", "副助詞／並立助詞／終助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "か",
+      "reading": "カ"
+    },
+    {
+      "surface": "なあ",
+      "pos": ["助詞", "終助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "なあ",
+      "reading": "ナア"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "学生ではない。": [
+    {
+      "surface": "学生",
+      "pos": ["名詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "学生",
+      "reading": "ガクセイ"
+    },
+    {
+      "surface": "で",
+      "pos": ["助詞", "格助詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "で",
+      "reading": "デ"
+    },
+    {
+      "surface": "は",
+      "pos": ["助詞", "係助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "は",
+      "reading": "ハ"
+    },
+    {
+      "surface": "ない",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・ナイ",
+      "conjugationForm": "基本形",
+      "baseForm": "ない",
+      "reading": "ナイ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "パリならばなあ。": [
+    {
+      "surface": "パリ",
+      "pos": ["名詞", "固有名詞", "地域", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "パリ",
+      "reading": "パリ"
+    },
+    {
+      "surface": "なら",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・ダ",
+      "conjugationForm": "仮定形",
+      "baseForm": "だ",
+      "reading": "ナラ"
+    },
+    {
+      "surface": "ば",
+      "pos": ["助詞", "接続助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "ば",
+      "reading": "バ"
+    },
+    {
+      "surface": "なあ",
+      "pos": ["助詞", "終助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "なあ",
+      "reading": "ナア"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "ふと気がついた。": [
+    {
+      "surface": "ふと",
+      "pos": ["副詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "ふと",
+      "reading": "フト"
+    },
+    {
+      "surface": "気がつい",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・カ行イ音便",
+      "conjugationForm": "連用タ接続",
+      "baseForm": "気がつく",
+      "reading": "キガツイ"
+    },
+    {
+      "surface": "た",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・タ",
+      "conjugationForm": "基本形",
+      "baseForm": "た",
+      "reading": "タ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "また後で。": [
+    {
+      "surface": "また",
+      "pos": ["接続詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "また",
+      "reading": "マタ"
+    },
+    {
+      "surface": "後で",
+      "pos": ["副詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "後で",
+      "reading": "アトデ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "ルーシーさんは中国語を話す。": [
+    {
+      "surface": "ルーシー",
+      "pos": ["名詞", "固有名詞", "人名", "名"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "ルーシー",
+      "reading": "ルーシー"
+    },
+    {
+      "surface": "さん",
+      "pos": ["名詞", "接尾", "人名"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "さん",
+      "reading": "サン"
+    },
+    {
+      "surface": "は",
+      "pos": ["助詞", "係助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "は",
+      "reading": "ハ"
+    },
+    {
+      "surface": "中国語",
+      "pos": ["名詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "中国語",
+      "reading": "チュウゴクゴ"
+    },
+    {
+      "surface": "を",
+      "pos": ["助詞", "格助詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "を",
+      "reading": "ヲ"
+    },
+    {
+      "surface": "話す",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・サ行",
+      "conjugationForm": "基本形",
+      "baseForm": "話す",
+      "reading": "ハナス"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "本を読んだ。": [
+    {
+      "surface": "本",
+      "pos": ["名詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "本",
+      "reading": "ホン"
+    },
+    {
+      "surface": "を",
+      "pos": ["助詞", "格助詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "を",
+      "reading": "ヲ"
+    },
+    {
+      "surface": "読ん",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・マ行",
+      "conjugationForm": "連用タ接続",
+      "baseForm": "読む",
+      "reading": "ヨン"
+    },
+    {
+      "surface": "だ",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・タ",
+      "conjugationForm": "基本形",
+      "baseForm": "だ",
+      "reading": "ダ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "本を読んだら": [
+    {
+      "surface": "本",
+      "pos": ["名詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "本",
+      "reading": "ホン"
+    },
+    {
+      "surface": "を",
+      "pos": ["助詞", "格助詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "を",
+      "reading": "ヲ"
+    },
+    {
+      "surface": "読ん",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・マ行",
+      "conjugationForm": "連用タ接続",
+      "baseForm": "読む",
+      "reading": "ヨン"
+    },
+    {
+      "surface": "だら",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・タ",
+      "conjugationForm": "仮定形",
+      "baseForm": "だ",
+      "reading": "ダラ"
+    }
+  ],
+  "飲んだのです。": [
+    {
+      "surface": "飲ん",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・マ行",
+      "conjugationForm": "連用タ接続",
+      "baseForm": "飲む",
+      "reading": "ノン"
+    },
+    {
+      "surface": "だ",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・タ",
+      "conjugationForm": "基本形",
+      "baseForm": "だ",
+      "reading": "ダ"
+    },
+    {
+      "surface": "の",
+      "pos": ["名詞", "非自立", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "の",
+      "reading": "ノ"
+    },
+    {
+      "surface": "です",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・デス",
+      "conjugationForm": "基本形",
+      "baseForm": "です",
+      "reading": "デス"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "遊んだり": [
+    {
+      "surface": "遊ん",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・バ行",
+      "conjugationForm": "連用タ接続",
+      "baseForm": "遊ぶ",
+      "reading": "アソン"
+    },
+    {
+      "surface": "だり",
+      "pos": ["助詞", "並立助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "だり",
+      "reading": "ダリ"
+    }
+  ],
+  "泳いだ。": [
+    {
+      "surface": "泳い",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・ガ行",
+      "conjugationForm": "連用タ接続",
+      "baseForm": "泳ぐ",
+      "reading": "オヨイ"
+    },
+    {
+      "surface": "だ",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・タ",
+      "conjugationForm": "基本形",
+      "baseForm": "だ",
+      "reading": "ダ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "3時15分": [
+    {
+      "surface": "3",
+      "pos": ["名詞", "数"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": null,
+      "reading": null
+    },
+    {
+      "surface": "時",
+      "pos": ["名詞", "接尾", "助数詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "時",
+      "reading": "ジ"
+    },
+    {
+      "surface": "15",
+      "pos": ["名詞", "数"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": null,
+      "reading": null
+    },
+    {
+      "surface": "分",
+      "pos": ["名詞", "接尾", "助数詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "分",
+      "reading": "フン"
+    }
+  ],
+  "2時間30分": [
+    {
+      "surface": "2",
+      "pos": ["名詞", "数"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": null,
+      "reading": null
+    },
+    {
+      "surface": "時間",
+      "pos": ["名詞", "接尾", "助数詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "時間",
+      "reading": "ジカン"
+    },
+    {
+      "surface": "30",
+      "pos": ["名詞", "数"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": null,
+      "reading": null
+    },
+    {
+      "surface": "分",
+      "pos": ["名詞", "接尾", "助数詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "分",
+      "reading": "フン"
+    }
+  ],
+  "学校ではありません。": [
+    {
+      "surface": "学校",
+      "pos": ["名詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "学校",
+      "reading": "ガッコウ"
+    },
+    {
+      "surface": "で",
+      "pos": ["助詞", "格助詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "で",
+      "reading": "デ"
+    },
+    {
+      "surface": "は",
+      "pos": ["助詞", "係助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "は",
+      "reading": "ハ"
+    },
+    {
+      "surface": "あり",
+      "pos": ["動詞", "自立"],
+      "conjugationType": "五段・ラ行",
+      "conjugationForm": "連用形",
+      "baseForm": "ある",
+      "reading": "アリ"
+    },
+    {
+      "surface": "ませ",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・マス",
+      "conjugationForm": "未然形",
+      "baseForm": "ます",
+      "reading": "マセ"
+    },
+    {
+      "surface": "ん",
+      "pos": ["助動詞"],
+      "conjugationType": "不変化型",
+      "conjugationForm": "基本形",
+      "baseForm": "ん",
+      "reading": "ン"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "静かではない。": [
+    {
+      "surface": "静か",
+      "pos": ["名詞", "形容動詞語幹"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "静か",
+      "reading": "シズカ"
+    },
+    {
+      "surface": "で",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・ダ",
+      "conjugationForm": "連用形",
+      "baseForm": "だ",
+      "reading": "デ"
+    },
+    {
+      "surface": "は",
+      "pos": ["助詞", "係助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "は",
+      "reading": "ハ"
+    },
+    {
+      "surface": "ない",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・ナイ",
+      "conjugationForm": "基本形",
+      "baseForm": "ない",
+      "reading": "ナイ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "静かじゃありません。": [
+    {
+      "surface": "静か",
+      "pos": ["名詞", "形容動詞語幹"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "静か",
+      "reading": "シズカ"
+    },
+    {
+      "surface": "じゃ",
+      "pos": ["助詞", "副助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "じゃ",
+      "reading": "ジャ"
+    },
+    {
+      "surface": "あり",
+      "pos": ["助動詞"],
+      "conjugationType": "五段・ラ行アル",
+      "conjugationForm": "連用形",
+      "baseForm": "ある",
+      "reading": "アリ"
+    },
+    {
+      "surface": "ませ",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・マス",
+      "conjugationForm": "未然形",
+      "baseForm": "ます",
+      "reading": "マセ"
+    },
+    {
+      "surface": "ん",
+      "pos": ["助動詞"],
+      "conjugationType": "不変化型",
+      "conjugationForm": "基本形",
+      "baseForm": "ん",
+      "reading": "ン"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ],
+  "学生じゃない。": [
+    {
+      "surface": "学生",
+      "pos": ["名詞", "一般"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "学生",
+      "reading": "ガクセイ"
+    },
+    {
+      "surface": "じゃ",
+      "pos": ["助詞", "副助詞"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "じゃ",
+      "reading": "ジャ"
+    },
+    {
+      "surface": "ない",
+      "pos": ["助動詞"],
+      "conjugationType": "特殊・ナイ",
+      "conjugationForm": "基本形",
+      "baseForm": "ない",
+      "reading": "ナイ"
+    },
+    {
+      "surface": "。",
+      "pos": ["記号", "句点"],
+      "conjugationType": null,
+      "conjugationForm": null,
+      "baseForm": "。",
+      "reading": "。"
+    }
+  ]
+}

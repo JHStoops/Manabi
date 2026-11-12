@@ -55,6 +55,42 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
+  // FR-238, FR-240: the analyzer is Node only and lives in packages/importers as a generic adapter;
+  // the Japanese rules over its tokens live in packages/lang-ja.
+  {
+    files: ['**/*.{ts,tsx}'],
+    ignores: ['packages/importers/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: 'kuromoji', message: 'kuromoji is imported only in packages/importers.' },
+          ],
+          patterns: [
+            { group: ['kuromoji/*'], message: 'kuromoji is imported only in packages/importers.' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Japanese text in importer code means a language rule; it belongs in packages/lang-ja.
+    files: ['packages/importers/src/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...[
+          'Literal[value=/[\\u3040-\\u30ff\\u4e00-\\u9fff]/]',
+          'TemplateElement[value.raw=/[\\u3040-\\u30ff\\u4e00-\\u9fff]/]',
+        ].map((selector) => ({
+          selector,
+          message: 'No Japanese rules in packages/importers: put them in packages/lang-ja.',
+        })),
+      ],
+    },
+  },
   {
     files: ['packages/lang-*/**/*.{ts,tsx}'],
     rules: {
