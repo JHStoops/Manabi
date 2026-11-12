@@ -61,6 +61,7 @@ describe('request validation', () => {
     t.app.withTypeProvider<ZodTypeProvider>().post(
       '/api/v1/test/items/:id',
       {
+        config: { public: true },
         schema: {
           params: z.object({ id: z.coerce.number().int().positive() }),
           querystring: z.object({ limit: z.coerce.number().int().max(5).optional() }),
@@ -163,9 +164,13 @@ describe('error handler', () => {
     ],
   ])('maps %s to the API error shape', async (_label, thrown, status, body) => {
     const { app } = await start();
-    app.get('/api/v1/test-error', { schema: { querystring: z.object({}) } }, async () => {
-      throw thrown;
-    });
+    app.get(
+      '/api/v1/test-error',
+      { config: { public: true }, schema: { querystring: z.object({}) } },
+      async () => {
+        throw thrown;
+      },
+    );
     const response = await app.inject({ method: 'GET', url: '/api/v1/test-error' });
     expect(response.statusCode).toBe(status);
     expect(response.json()).toEqual(body);
@@ -349,14 +354,18 @@ describe('logging', () => {
       },
     });
     const { app } = await start({ env: { LOG_LEVEL: 'info' }, logStream });
-    app.get('/api/v1/test-log', { schema: { querystring: z.object({}) } }, async (request) => {
-      request.log.info({ password: 'hunter2hunter2', user: { token: 'tok-123' } }, 'payload');
-      const dbError = Object.assign(new Error('duplicate key'), {
-        detail: 'Key (email)=(kana@example.com) already exists.',
-      });
-      request.log.error({ err: dbError }, 'insert failed');
-      return { ok: true };
-    });
+    app.get(
+      '/api/v1/test-log',
+      { config: { public: true }, schema: { querystring: z.object({}) } },
+      async (request) => {
+        request.log.info({ password: 'hunter2hunter2', user: { token: 'tok-123' } }, 'payload');
+        const dbError = Object.assign(new Error('duplicate key'), {
+          detail: 'Key (email)=(kana@example.com) already exists.',
+        });
+        request.log.error({ err: dbError }, 'insert failed');
+        return { ok: true };
+      },
+    );
     await app.inject({
       method: 'GET',
       url: '/api/v1/test-log?q=private-search',

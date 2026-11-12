@@ -3,9 +3,8 @@
  * pg returns: int8 as number, timestamptz as Date, jsonb parsed.
  */
 
-import type { Role } from '@manabi/core';
+import type { ClientKind, Role } from '@manabi/core';
 
-export type ClientKind = 'web' | 'mobile';
 export type PasswordResetOrigin = 'email' | 'admin';
 
 /** NFR-61: username, display name, email, time zone and settings are the only personal fields. */

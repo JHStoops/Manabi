@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type { Writable } from 'node:stream';
 import Fastify from 'fastify';
 import type { FastifyInstance, FastifyRequest, FastifyServerOptions } from 'fastify';
+import fastifyCookie from '@fastify/cookie';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyStatic from '@fastify/static';
 import fastifySwagger from '@fastify/swagger';
@@ -20,6 +21,8 @@ import { allJobs } from './jobs';
 import { createJobQueue } from './jobs/queue';
 import { REDACT_PATHS } from './logger';
 import { featureModules } from './modules';
+import { authGuard } from './modules/auth/guard';
+import { AttemptLimiter } from './rateLimit';
 import { API_PREFIX, missingRequestSchemas } from './routeSchemas';
 import type { RegisteredRoute } from './types';
 import './types';
@@ -103,6 +106,7 @@ const openApiRoute: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/openapi.json',
     {
+      config: { public: true },
       schema: {
         summary: 'OpenAPI description of this API',
         tags: ['meta'],
@@ -151,6 +155,14 @@ export async function buildApp({ config, pool, logStream }: AppOptions): Promise
   });
 
   await app.register(fastifyHelmet, helmetOptions(config));
+  await app.register(fastifyCookie);
+
+  // NFR-12: 10 attempts per 15 minutes per IP and per account on the sign-in, invite and
+  // password routes. In memory: the API is one process (SDD section 2).
+  app.decorate('attemptLimiter', new AttemptLimiter({ limit: 10, windowMs: 15 * 60 * 1000 }));
+  // FR-006, IF-06: every /api/v1 route is private unless marked public; see modules/auth/guard.ts.
+  app.decorateRequest('auth', null);
+  app.addHook('onRequest', authGuard(config));
   await app.register(fastifySwagger, {
     openapi: {
       openapi: '3.0.3',

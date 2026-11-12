@@ -1,9 +1,11 @@
 const base = require('../../jest.config.base');
 
-// cookie@2 (pulled in by fastify -> light-my-request, used by app.inject) ships
-// ESM only. Node can require() it, but Jest's CommonJS loader cannot, so
-// transpile that one package to CommonJS with ts-jest.
-const esmOnlyPackages = ['cookie'];
+// cookie@2 (pulled in by fastify -> light-my-request, used by app.inject, and by
+// @fastify/cookie) ships ESM only. Node can require() it, but Jest's CommonJS
+// loader cannot, so transpile it to CommonJS with ts-jest. @fastify/cookie loads
+// it with a dynamic import(), which Jest also refuses without
+// --experimental-vm-modules; transpiling turns that import() into require().
+const esmOnlyPackages = ['cookie', '@fastify/cookie'];
 
 module.exports = {
   ...base,
