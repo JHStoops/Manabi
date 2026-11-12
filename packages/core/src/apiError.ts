@@ -10,3 +10,6 @@ export const apiErrorSchema = z.object({
 });
 
 export type ApiError = z.infer<typeof apiErrorSchema>;
+
+// Deliberate type error to verify that CI fails (reverted in the next commit).
+export const ciCheck: number = 'not a number';
