@@ -8,7 +8,7 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       # Real PostgreSQL for API integration tests (SDD section 13).
       postgres:
@@ -27,8 +27,8 @@ jobs:
     env:
       DATABASE_URL: postgres://manabi:manabi@localhost:5432/manabi_test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm

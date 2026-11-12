@@ -6,5 +6,5 @@ module.exports = {
   ...base,
   displayName: '@manabi/lang-ja',
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.test.{ts,tsx}', '!src/**/*.d.ts'],
-  coverageThreshold: { global: { lines: 85 } },
+  coverageThreshold: { global: { lines: 85 }, './src/**/*.ts': { lines: 85 } },
 };
