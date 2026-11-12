@@ -163,23 +163,27 @@ export async function upsertSection(
   return row?.id ?? null;
 }
 
+/** Null when the key belongs to another course's unit. */
 export async function upsertUnit(
   db: Queryable,
   u: { sectionId: number; key: string; position: number; title: string; status: PublishStatus },
-): Promise<number> {
-  const row = await insertReturning<{ id: number }>(
+): Promise<number | null> {
+  const row = await queryOne<{ id: number }>(
     db,
     `INSERT INTO units (section_id, key, position, title, status)
      VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (key) DO UPDATE SET section_id = EXCLUDED.section_id,
        position = EXCLUDED.position, title = EXCLUDED.title, status = EXCLUDED.status,
        archived_at = NULL, updated_at = now()
+     WHERE (SELECT course_id FROM sections WHERE id = units.section_id)
+         = (SELECT course_id FROM sections WHERE id = EXCLUDED.section_id)
      RETURNING id`,
     [u.sectionId, u.key, u.position, u.title, u.status],
   );
-  return row.id;
+  return row?.id ?? null;
 }
 
+/** Null when the key belongs to another course's lesson. */
 export async function upsertLesson(
   db: Queryable,
   l: {
@@ -190,18 +194,22 @@ export async function upsertLesson(
     title: string;
     status: PublishStatus;
   },
-): Promise<number> {
-  const row = await insertReturning<{ id: number }>(
+): Promise<number | null> {
+  const row = await queryOne<{ id: number }>(
     db,
     `INSERT INTO lessons (unit_id, key, position, type, title, status)
      VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (key) DO UPDATE SET unit_id = EXCLUDED.unit_id, position = EXCLUDED.position,
        type = EXCLUDED.type, title = EXCLUDED.title, status = EXCLUDED.status,
        archived_at = NULL, updated_at = now()
+     WHERE (SELECT s.course_id FROM units u JOIN sections s ON s.id = u.section_id
+            WHERE u.id = lessons.unit_id)
+         = (SELECT s.course_id FROM units u JOIN sections s ON s.id = u.section_id
+            WHERE u.id = EXCLUDED.unit_id)
      RETURNING id`,
     [l.unitId, l.key, l.position, l.type, l.title, l.status],
   );
-  return row.id;
+  return row?.id ?? null;
 }
 
 // Archiving keeps the row (and the progress pointing at it) and moves it after the active rows of
@@ -428,8 +436,9 @@ export function insertPackSentence(
 }
 
 /**
- * Tiles an author has edited or reviewed are never overwritten (DR-12, SDD section 4), and the
- * edited flags only ever turn on (DR-11). SET expressions read the row as it was before.
+ * Tiles an author has edited or reviewed are never overwritten (DR-12, SDD section 4). The
+ * edited flags only ever turn on, and a pack change to an imported sentence's text, translation
+ * or tiles turns the matching one on (DR-11). SET expressions read the row as it was before.
  */
 export function updatePackSentence(
   db: Queryable,
@@ -439,11 +448,15 @@ export function updatePackSentence(
   return insertReturning(
     db,
     `UPDATE sentences SET text = $1, translation = $2,
-       tokens = CASE WHEN tokens_edited OR review_status = 'reviewed' THEN tokens ELSE $3 END,
+       tokens = CASE WHEN tokens_edited OR review_status = 'reviewed' THEN tokens ELSE $3::jsonb END,
        source = $4, source_id = $5, attribution = $6, review_status = $7, grammar = $8,
        vocab_level_code = $9, grammar_level_code = $10, challenge_override = $11,
-       edited = edited OR $12, translation_edited = translation_edited OR $13,
-       tokens_edited = tokens_edited OR $14, archived_at = NULL, updated_at = now()
+       edited = edited OR $12 OR (source IS NOT NULL AND text IS DISTINCT FROM $1),
+       translation_edited = translation_edited OR $13
+         OR (source IS NOT NULL AND translation IS DISTINCT FROM $2),
+       tokens_edited = tokens_edited OR $14
+         OR (source IS NOT NULL AND review_status <> 'reviewed' AND tokens IS DISTINCT FROM $3),
+       archived_at = NULL, updated_at = now()
      WHERE id = $15
      RETURNING id, tokens`,
     [...sentenceParams(s), id],
@@ -541,10 +554,15 @@ export function listPackItems(
   );
 }
 
-export function listActiveSentences(db: Queryable, courseId: number): Promise<SentenceRow[]> {
+/** Authored sentences, and imported ones an author has touched (like items' overrides). */
+export function listPackSentences(db: Queryable, courseId: number): Promise<SentenceRow[]> {
   return query<SentenceRow>(
     db,
-    `SELECT * FROM sentences WHERE course_id = $1 AND archived_at IS NULL ORDER BY id`,
+    `SELECT * FROM sentences
+     WHERE course_id = $1 AND archived_at IS NULL
+       AND (source IS NULL OR review_status <> 'unreviewed' OR edited OR translation_edited
+            OR tokens_edited OR challenge_override IS NOT NULL)
+     ORDER BY id`,
     [courseId],
   );
 }

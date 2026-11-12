@@ -1,5 +1,6 @@
 import { basename, resolve } from 'node:path';
 import { ContentPackError } from '@manabi/core';
+import { loadConfig } from './config';
 import { createPool } from './db/pool';
 import { readPack, writePack } from './modules/content/packFiles';
 import { exportPack, importPack } from './modules/content/service';
@@ -16,7 +17,7 @@ async function main([group, command, dirArg]: string[]): Promise<void> {
   }
   // npm scripts run in the workspace folder; INIT_CWD is where the command was typed.
   const dir = resolve(process.env.INIT_CWD ?? process.cwd(), dirArg);
-  const pool = createPool(process.env.DATABASE_URL ?? '');
+  const pool = createPool(loadConfig().databaseUrl);
   try {
     if (command === 'import') {
       await importPack(pool, await readPack(dir));

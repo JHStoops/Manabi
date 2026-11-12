@@ -49,8 +49,17 @@ export async function readPack(dir: string): Promise<ContentPack> {
     return undefined;
   }
   const read = (file: string) => readFile(join(dir, file), 'utf8');
+  /** `missing` when the file does not exist (null: report it as a problem). */
+  const readOr = (file: string, missing: string | null) =>
+    read(file).catch((err: NodeJS.ErrnoException) => {
+      if (err.code !== 'ENOENT') throw err;
+      if (missing === null) problems.push(`${file}: (root): file not found`);
+      return missing;
+    });
 
-  const course = check('course.yaml', await read('course.yaml'), packCourseSchema);
+  const courseText = await readOr('course.yaml', null);
+  const course =
+    courseText === null ? undefined : check('course.yaml', courseText, packCourseSchema);
   const pack: Omit<ContentPack, 'course'> = { units: [], items: [], sentences: [] };
   for (const file of await listFiles(dir, 'units', '.yaml')) {
     const unit = check(file, await read(file), packUnitSchema);
@@ -73,10 +82,7 @@ export async function readPack(dir: string): Promise<ContentPack> {
     const withBody = body ? { ...data, explanation: body } : data;
     pack.items.push({ key, type: GRAMMAR_TYPE, level, related, overrides, data: withBody });
   }
-  const sentences = await read('sentences.yaml').catch((err: NodeJS.ErrnoException) => {
-    if (err.code === 'ENOENT') return '[]';
-    throw err;
-  });
+  const sentences = (await readOr('sentences.yaml', '[]'))!;
   pack.sentences = check('sentences.yaml', sentences, packSentencesFileSchema) ?? [];
   if (problems.length > 0 || !course) throw new ContentPackError(problems);
   return { course, ...pack };

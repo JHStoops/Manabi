@@ -25,7 +25,7 @@ import {
   listActiveItemKeys,
   listActiveLessons,
   listActiveSections,
-  listActiveSentences,
+  listPackSentences,
   listActiveUnits,
   listPackItems,
   replaceLessonItems,
@@ -93,6 +93,11 @@ export async function importPack(pool: Pool, pack: ContentPack): Promise<void> {
     'item',
     pack.items.map((i) => i.key),
   );
+  // Authored sentences are matched by text, imported ones by source id (findSentenceId).
+  checkUnique(
+    'sentence',
+    pack.sentences.map((s) => (s.source ? `${s.source}:${s.sourceId}` : s.text)),
+  );
 
   await withTransaction(pool, async (db) => {
     await deferPositionChecks(db);
@@ -145,9 +150,13 @@ export async function importPack(pool: Pool, pack: ContentPack): Promise<void> {
         sectionIds.get(unit.section) ?? fail(`unit ${unit.key}: unknown section ${unit.section}`);
       const position = unitsPerSection.get(unit.section) ?? 0;
       unitsPerSection.set(unit.section, position + 1);
-      const unitId = await upsertUnit(db, { sectionId, position, ...unit });
+      const unitId =
+        (await upsertUnit(db, { sectionId, position, ...unit })) ??
+        fail(`unit ${unit.key} belongs to another course`);
       for (const [lessonPosition, lesson] of unit.lessons.entries()) {
-        const lessonId = await upsertLesson(db, { unitId, ...lesson, position: lessonPosition });
+        const lessonId =
+          (await upsertLesson(db, { unitId, ...lesson, position: lessonPosition })) ??
+          fail(`lesson ${lesson.key} belongs to another course`);
         const ids = lesson.items.map((key) => idOf(key, `lesson ${lesson.key}`));
         await replaceLessonItems(db, lessonId, ids);
       }
@@ -193,7 +202,7 @@ export async function exportPack(db: Queryable, courseKey: string): Promise<Cont
   const units = await listActiveUnits(db, course.id);
   const lessons = await listActiveLessons(db, course.id);
   const items = await listPackItems(db, course.id);
-  const sentences = await listActiveSentences(db, course.id);
+  const sentences = await listPackSentences(db, course.id);
   const keyOf = new Map((await listActiveItemKeys(db, course.id)).map((r) => [r.id, r.key]));
 
   return {

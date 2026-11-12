@@ -3,11 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Pool } from 'pg';
 import { ContentPackError } from '@manabi/core';
-import type { ContentPack } from '@manabi/core';
+import type { ContentPack, SentenceAttribution } from '@manabi/core';
 import { query, queryOne } from '../../db/db';
 import { describeWithDb, useTestDatabase } from '../../test/db';
 import { seedUser } from '../../test/fixtures';
-import { insertItem } from './queries';
+import { insertItem, insertSentence } from './queries';
 import { readPack, writePack } from './packFiles';
 import { exportPack, importPack } from './service';
 
@@ -100,6 +100,30 @@ async function seedProgress(pool: Pool, lessonKeys: string[]): Promise<void> {
 }
 
 const unit = (pack: ContentPack, key: string) => pack.units.find((u) => u.key === key)!;
+
+/** The fixture as a second course 'ja-xx' with no items, keeping unit or lesson keys. */
+function otherCourse(pack: ContentPack, keep: 'unit' | 'lesson'): ContentPack {
+  const rekey = (key: string) => key.replace(/^ja-en:/, 'ja-xx:');
+  return {
+    course: {
+      ...pack.course,
+      key: 'ja-xx',
+      sections: pack.course.sections.map((s) => ({ ...s, key: rekey(s.key) })),
+    },
+    units: pack.units.map((u) => ({
+      ...u,
+      key: keep === 'unit' ? u.key : rekey(u.key),
+      section: rekey(u.section),
+      lessons: u.lessons.map((l) => ({
+        ...l,
+        key: keep === 'lesson' ? l.key : rekey(l.key),
+        items: [],
+      })),
+    })),
+    items: [],
+    sentences: [],
+  };
+}
 
 describeWithDb('content packs', () => {
   const pool = useTestDatabase();
@@ -318,6 +342,64 @@ describeWithDb('content packs', () => {
     expect(flags).toEqual({ tokens_edited: true });
   });
 
+  it('exports only the imported sentences an author has touched', async () => {
+    await importPack(pool(), await readPack(FIXTURE));
+    const course = await queryOne<{ id: number }>(pool(), 'SELECT id FROM courses');
+    const reviewed = await queryOne<{ attribution: SentenceAttribution }>(
+      pool(),
+      `SELECT attribution FROM sentences WHERE source = 'tatoeba'`,
+    );
+    await insertSentence(pool(), {
+      courseId: course!.id,
+      text: '火です。',
+      tokens: [],
+      translation: 'It is fire.',
+      source: 'tatoeba',
+      sourceId: '9999',
+      attribution: reviewed!.attribution,
+      grammar: [],
+      vocabLevelCode: 'N5',
+      grammarLevelCode: null,
+    });
+
+    const exported = await exportPack(pool(), 'ja-en');
+    // The reviewed imported sentence and the authored one; the untouched import is left out.
+    expect(exported.sentences.map((s) => s.text)).toEqual(['水をください。', '水です。']);
+  });
+
+  it('turns on the edited flags when a pack changes an imported sentence (DR-11)', async () => {
+    const pack = await readPack(FIXTURE);
+    await importPack(pool(), pack);
+    const imported = pack.sentences[0]!;
+    imported.translation = 'Some water, please.';
+    imported.text = '水をください！';
+    pack.sentences[1]!.text = '水だ。';
+    await importPack(pool(), pack);
+
+    const flags = await query(
+      pool(),
+      `SELECT source, edited, translation_edited, tokens_edited FROM sentences
+       WHERE archived_at IS NULL ORDER BY id`,
+    );
+    // The reviewed sentence keeps its tiles, so tokens_edited stays off; authored ones get no flags.
+    expect(flags).toEqual([
+      { source: 'tatoeba', edited: true, translation_edited: true, tokens_edited: false },
+      { source: null, edited: false, translation_edited: false, tokens_edited: false },
+    ]);
+
+    await query(
+      pool(),
+      `UPDATE sentences SET review_status = 'unreviewed' WHERE source IS NOT NULL`,
+    );
+    imported.tiles = [{ surface: '水', base: '水', reading: 'みず' }];
+    await importPack(pool(), pack);
+    const tiles = await queryOne(
+      pool(),
+      `SELECT tokens_edited FROM sentences WHERE source IS NOT NULL`,
+    );
+    expect(tiles).toEqual({ tokens_edited: true });
+  });
+
   it('applies overrides to dataset-imported items', async () => {
     const pack = await readPack(FIXTURE);
     await importPack(pool(), pack);
@@ -388,7 +470,7 @@ describeWithDb('content packs', () => {
     ]);
   });
 
-  it.each<[string, (pack: ContentPack) => void, string]>([
+  it.each<[string, (pack: ContentPack) => void, string, ('unit' | 'lesson')?]>([
     [
       'an unknown item key in a lesson',
       (p) => p.units[0]!.lessons[0]!.items.push('ja:kana:ん'),
@@ -425,15 +507,47 @@ describeWithDb('content packs', () => {
       'duplicate lesson ja-en:kana:hiragana:a-i',
     ],
     [
+      'a duplicate authored sentence',
+      (p) => p.sentences.push({ ...p.sentences[1]!, translation: 'Water.' }),
+      'duplicate sentence 水です。',
+    ],
+    [
+      'a duplicate imported sentence',
+      (p) => p.sentences.push({ ...p.sentences[0]!, text: '水を。' }),
+      'duplicate sentence tatoeba:4702',
+    ],
+    [
+      'a unit key that belongs to another course',
+      () => {},
+      'unit ja-en:kana:hiragana belongs to another course',
+      'unit',
+    ],
+    [
+      'a lesson key that belongs to another course',
+      () => {},
+      'lesson ja-en:kana:hiragana:a-i belongs to another course',
+      'lesson',
+    ],
+    [
       'an unknown plugin',
       (p) => (p.course.plugin = 'xx'),
       'course.yaml: plugin: unknown plugin xx',
     ],
-  ])('rejects %s and writes nothing', async (_name, edit, problem) => {
+  ])('rejects %s and writes nothing', async (...[, edit, problem, other]) => {
+    // Rest parameters: a fourth named parameter would make Jest wait for a done callback.
     const pack = await readPack(FIXTURE);
+    if (other) await importPack(pool(), otherCourse(pack, other));
+    const before = await snapshot(pool(), CONTENT_TABLES);
     edit(pack);
     await expect(importPack(pool(), pack)).rejects.toMatchObject({ problems: [problem] });
-    expect(await query(pool(), 'SELECT id FROM courses')).toEqual([]);
+    expect(await snapshot(pool(), CONTENT_TABLES)).toEqual(before);
+  });
+
+  it('reports a missing course.yaml by name', async () => {
+    const dir = await tmp();
+    await expect(readPack(dir)).rejects.toMatchObject({
+      problems: ['course.yaml: (root): file not found'],
+    });
   });
 
   it('rejects an export of an unknown course', async () => {
