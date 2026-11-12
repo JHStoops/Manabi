@@ -29,9 +29,7 @@ export type Annotation = { start: number; end: number; kind: string; value: stri
 
 /** Result of checking an answer. */
 export type CheckResult =
-  | { result: 'correct' }
-  | { result: 'near-miss'; hint: string }
-  | { result: 'wrong' };
+  { result: 'correct' } | { result: 'near-miss'; hint: string } | { result: 'wrong' };
 
 /** Which optional learner-facing features a language supports. */
 export interface LanguageFeatures {
