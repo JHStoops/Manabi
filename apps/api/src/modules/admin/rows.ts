@@ -10,7 +10,12 @@ export type ImportRunStatus = 'running' | 'succeeded' | 'failed';
 export interface AnswerReportRow {
   id: number;
   user_id: number | null;
-  exercise_id: number;
+  /** Null for session-generated exercises; set when accepting pins one (FR-229). */
+  exercise_id: number | null;
+  item_id: number | null;
+  exercise_type: string;
+  /** The exercise as the learner saw it. */
+  exercise_payload: { [key: string]: unknown };
   given_answer: string;
   status: AnswerReportStatus;
   resolved_by: number | null;

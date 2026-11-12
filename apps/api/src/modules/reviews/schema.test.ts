@@ -231,13 +231,41 @@ describeWithDb('review schema (migration 0003)', () => {
       });
       // The setting is transaction-local: it does not leak to later statements.
       await withTransaction(pool(), async (client) => {
-        await client.query(`SET LOCAL manabi.allow_truncate = 'on'`);
+        await client.query(
+          `SELECT set_config('manabi.allow_truncate', pg_current_xact_id()::text, true)`,
+        );
         await client.query(`TRUNCATE review_log`);
       });
       await expect(query(pool(), `TRUNCATE review_log`)).rejects.toMatchObject({ code: '23001' });
       await insertReviewLog(pool(), answer(userId, itemIds[0]!));
       await truncateAll(pool());
       expect(await query(pool(), `SELECT 1 FROM review_log`)).toHaveLength(0);
+    });
+
+    it('ignores a session-level or stale truncate setting', async () => {
+      const { itemIds, userId } = await seedLearnerWithItems(pool(), 1);
+      await insertReviewLog(pool(), answer(userId, itemIds[0]!));
+      const client = await pool().connect();
+      try {
+        // A plain 'on', even set for the whole session, does not allow TRUNCATE.
+        await client.query(`SET manabi.allow_truncate = 'on'`);
+        await expect(client.query(`TRUNCATE review_log`)).rejects.toMatchObject({
+          code: '23001',
+        });
+        // Nor does the id of an earlier transaction, kept at session level.
+        await client.query('BEGIN');
+        await client.query(
+          `SELECT set_config('manabi.allow_truncate', pg_current_xact_id()::text, false)`,
+        );
+        await client.query('COMMIT');
+        await expect(client.query(`TRUNCATE review_log`)).rejects.toMatchObject({
+          code: '23001',
+        });
+      } finally {
+        await client.query('RESET manabi.allow_truncate');
+        client.release();
+      }
+      expect(await query(pool(), `SELECT 1 FROM review_log`)).toHaveLength(1);
     });
 
     it('checks facet, exercise type and stages', async () => {

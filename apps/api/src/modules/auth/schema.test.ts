@@ -288,7 +288,8 @@ describeWithDb('account schema (migration 0002)', () => {
       );
       await query(
         pool(),
-        `INSERT INTO answer_reports (user_id, exercise_id, given_answer) VALUES ($1, $2, 'aqua')`,
+        `INSERT INTO answer_reports (user_id, exercise_id, exercise_type, exercise_payload, given_answer)
+         VALUES ($1, $2, 'meaning_choice', '{}', 'aqua')`,
         [gone.id, exercise!.id],
       );
 

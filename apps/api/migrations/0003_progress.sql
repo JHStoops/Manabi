@@ -69,6 +69,8 @@ CREATE TABLE item_progress (
 );
 -- SDD section 7: due items and the 7-day forecast come from one indexed query on this index.
 CREATE INDEX item_progress_user_due_idx ON item_progress (user_id, due_at);
+-- Per-item lookups across learners (admin and author views) and the RESTRICT check on items.
+CREATE INDEX item_progress_item_idx ON item_progress (item_id);
 
 -- FR-117, DR-04: every review answer, append-only (see the triggers at the end of this file).
 -- Keeps enough history for a future adaptive scheduler. NFR-06: sized for 5 million rows.
@@ -87,6 +89,8 @@ CREATE TABLE review_log (
 );
 -- A learner's history (stats, export DR-10, "100 reviews in a day").
 CREATE INDEX review_log_user_answered_idx ON review_log (user_id, answered_at);
+-- Per-item history across learners (scheduler tuning) and the RESTRICT check on items.
+CREATE INDEX review_log_item_idx ON review_log (item_id);
 -- Server-wide activity per day (FR-201). Rows arrive in time order, so a BRIN index stays tiny.
 CREATE INDEX review_log_answered_brin ON review_log USING brin (answered_at);
 
@@ -159,8 +163,10 @@ CREATE TABLE boosters (
 
 -- DR-04: review_log and xp_events are append-only. UPDATE is always rejected. DELETE is rejected
 -- unless the owning user no longer exists, which happens only when the account is deleted and
--- ON DELETE CASCADE removes the rows (DR-07). TRUNCATE is rejected unless the transaction set
--- `manabi.allow_truncate` to 'on' (SET LOCAL); only the test harness does that, between tests.
+-- ON DELETE CASCADE removes the rows (DR-07). TRUNCATE is rejected unless `manabi.allow_truncate`
+-- holds the current transaction's id (set_config(..., pg_current_xact_id()::text, true)), so the
+-- permission cannot outlive the transaction that asked for it, even if set at session level.
+-- Only the test harness does that, between tests.
 -- The app connects as the database owner (SDD section 12 has no separate app role), so these
 -- triggers, not grants, are what enforce the rule.
 CREATE FUNCTION reject_append_only_change() RETURNS trigger
@@ -177,7 +183,7 @@ $$;
 CREATE FUNCTION reject_append_only_truncate() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
-  IF coalesce(current_setting('manabi.allow_truncate', true), '') = 'on' THEN
+  IF current_setting('manabi.allow_truncate', true) = pg_current_xact_id()::text THEN
     RETURN NULL;
   END IF;
   RAISE EXCEPTION '% is append-only: TRUNCATE is not allowed', TG_TABLE_NAME

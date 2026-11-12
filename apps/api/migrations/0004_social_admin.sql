@@ -25,10 +25,14 @@ CREATE TABLE nudges (
   local_date   date NOT NULL,
   seen_at      timestamptz,
   CONSTRAINT nudges_not_self CHECK (from_user_id <> to_user_id),
-  CONSTRAINT nudges_one_per_day_key UNIQUE (from_user_id, to_user_id, local_date)
+  CONSTRAINT nudges_one_per_day_key UNIQUE (from_user_id, to_user_id, local_date),
+  -- Every zone is within a day of UTC, which bounds the sender's local date.
+  CONSTRAINT nudges_local_date_near_utc
+    CHECK (local_date BETWEEN (sent_at AT TIME ZONE 'UTC')::date - 1
+                          AND (sent_at AT TIME ZONE 'UTC')::date + 1)
 );
--- Unseen nudges are read on app load.
-CREATE INDEX nudges_to_unseen_idx ON nudges (to_user_id) WHERE seen_at IS NULL;
+-- A learner's nudges, newest first, read on app load (unseen ones filtered by seen_at).
+CREATE INDEX nudges_to_sent_idx ON nudges (to_user_id, sent_at);
 
 -- FR-181: final weekly ranks, written at the Sunday 23:59 rollover. Ties share a rank.
 CREATE TABLE weekly_results (
@@ -66,11 +70,19 @@ CREATE TABLE user_achievements (
 );
 
 -- FR-054, FR-229: the author inbox. user_id is null once the reporter's account is deleted.
+-- Exercises generated for a session live only in lesson_sessions.state (SDD section 6), so a
+-- report keeps its own copy of the exercise (type and payload) and points at the stored
+-- exercise when there is one, and at the item it practises.
 CREATE TABLE answer_reports (
-  id           bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  user_id      bigint REFERENCES users (id) ON DELETE SET NULL,
-  exercise_id  bigint NOT NULL REFERENCES exercises (id) ON DELETE RESTRICT,
-  given_answer text NOT NULL CHECK (given_answer <> ''),
+  id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id          bigint REFERENCES users (id) ON DELETE SET NULL,
+  -- Null for session-generated exercises; set when accepting the report pins one (FR-229).
+  exercise_id      bigint REFERENCES exercises (id) ON DELETE RESTRICT,
+  item_id          bigint REFERENCES items (id) ON DELETE RESTRICT,
+  -- Exercise type id from the exercise registry, and the payload as the learner saw it.
+  exercise_type    text NOT NULL CHECK (exercise_type ~ '^[a-z][a-z0-9_]*$'),
+  exercise_payload jsonb NOT NULL CHECK (jsonb_typeof(exercise_payload) = 'object'),
+  given_answer     text NOT NULL CHECK (given_answer <> ''),
   status       text NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'accepted', 'dismissed')),
   -- The admin who resolved it; null while open or once that account is deleted.
   resolved_by  bigint REFERENCES users (id) ON DELETE SET NULL,
@@ -78,11 +90,14 @@ CREATE TABLE answer_reports (
   created_at   timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT answer_reports_resolved_when_closed CHECK ((status = 'open') = (resolved_at IS NULL)),
   CONSTRAINT answer_reports_resolver_needs_resolution
-    CHECK (resolved_by IS NULL OR resolved_at IS NOT NULL)
+    CHECK (resolved_by IS NULL OR resolved_at IS NOT NULL),
+  CONSTRAINT answer_reports_has_target CHECK (exercise_id IS NOT NULL OR item_id IS NOT NULL)
 );
 -- The inbox lists open reports, oldest first (FR-201 counts them).
 CREATE INDEX answer_reports_open_idx ON answer_reports (created_at) WHERE status = 'open';
-CREATE INDEX answer_reports_exercise_idx ON answer_reports (exercise_id);
+CREATE INDEX answer_reports_exercise_idx ON answer_reports (exercise_id)
+  WHERE exercise_id IS NOT NULL;
+CREATE INDEX answer_reports_item_idx ON answer_reports (item_id) WHERE item_id IS NOT NULL;
 
 -- FR-226: one row per dataset import run. Importer ids come from packages/importers.
 CREATE TABLE import_runs (

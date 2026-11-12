@@ -17,7 +17,7 @@ Migrations only go up. There is no down-migration path: files have no `-- Down M
 
 ## Append-only tables
 
-`review_log` and `xp_events` (migration 0003) have triggers that reject `UPDATE` always, `DELETE` unless the row's user no longer exists (the `ON DELETE CASCADE` of an account deletion), and `TRUNCATE` unless the transaction has run `SET LOCAL manabi.allow_truncate = 'on'`. Only the test harness sets it, to empty tables between tests. The app connects as the database owner, so the triggers, not grants, enforce the rule.
+`review_log` and `xp_events` (migration 0003) have triggers that reject `UPDATE` always, `DELETE` unless the row's user no longer exists (the `ON DELETE CASCADE` of an account deletion), and `TRUNCATE` unless `manabi.allow_truncate` holds the current transaction's id (`SELECT set_config('manabi.allow_truncate', pg_current_xact_id()::text, true)` inside that transaction), so the permission cannot outlive the transaction. Only the test harness sets it, to empty tables between tests. The app connects as the database owner, so the triggers, not grants, enforce the rule.
 
 ## Running
 
