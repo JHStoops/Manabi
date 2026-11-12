@@ -1,10 +1,5 @@
 import type { User } from '@manabi/core';
-import {
-  ApiRequestError,
-  createApiClient,
-  IDEMPOTENCY_KEY_HEADER,
-  isApiRequestError,
-} from './index';
+import { ApiRequestError, createApiClient, IDEMPOTENCY_KEY_HEADER } from './index';
 import type { ErrorCode } from './index';
 
 const BASE_URL = 'http://manabi.test';
@@ -113,9 +108,7 @@ describe('error responses', () => {
       .catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(ApiRequestError);
-    expect(isApiRequestError(err, 'rate_limited')).toBe(true);
-    expect(isApiRequestError(err, 'forbidden')).toBe(false);
-    if (!isApiRequestError(err)) throw new Error('expected an ApiRequestError');
+    if (!(err instanceof ApiRequestError)) throw new Error('expected an ApiRequestError');
     assertType<Equal<typeof err.code, ErrorCode>>();
     expect(err).toMatchObject({
       name: 'ApiRequestError',
@@ -142,10 +135,6 @@ describe('error responses', () => {
     const api = createApiClient({ baseUrl: BASE_URL, fetch });
 
     await expect(api.GET('/api/v1/me')).rejects.toMatchObject({ status: 403, code: 'forbidden' });
-  });
-
-  it('isApiRequestError is false for other errors', () => {
-    expect(isApiRequestError(new Error('x'))).toBe(false);
   });
 
   it('network failures reject with the fetch error unchanged', async () => {
@@ -204,7 +193,7 @@ describe('idempotency keys', () => {
     await api.POST('/api/v1/auth/login', {
       body,
       idempotencyKey: 'key-2',
-      headers: { 'X-Extra': 'kept' },
+      headers: new Headers({ 'X-Extra': 'kept' }),
     });
 
     expect(requests[0]?.headers.get(IDEMPOTENCY_KEY_HEADER)).toBe('key-1');

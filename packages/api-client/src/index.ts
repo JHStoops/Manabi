@@ -1,5 +1,5 @@
-import createClient from 'openapi-fetch';
-import type { FetchResponse, MaybeOptionalInit } from 'openapi-fetch';
+import createClient, { mergeHeaders } from 'openapi-fetch';
+import type { FetchResponse, HeadersOptions, MaybeOptionalInit } from 'openapi-fetch';
 import type {
   HttpMethod,
   MediaType,
@@ -64,11 +64,6 @@ export class ApiRequestError extends Error {
     }
     return new ApiRequestError(status, errorCodeForStatus(status), `HTTP ${status}`);
   }
-}
-
-/** True when `err` is an API error, optionally with the given code. */
-export function isApiRequestError(err: unknown, code?: ErrorCode): err is ApiRequestError {
-  return err instanceof ApiRequestError && (code === undefined || err.code === code);
 }
 
 /** Options every mutating call accepts on top of its typed params and body. */
@@ -144,7 +139,9 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     async function (path: string, init?: Record<string, unknown> & MutationOptions) {
       const { idempotencyKey, ...rest } = init ?? {};
       if (idempotencyKey !== undefined) {
-        rest.headers = { ...(rest.headers as object), [IDEMPOTENCY_KEY_HEADER]: idempotencyKey };
+        rest.headers = mergeHeaders(rest.headers as HeadersOptions, {
+          [IDEMPOTENCY_KEY_HEADER]: idempotencyKey,
+        });
       }
       const { data, error, response } = await call(path, rest);
       if (!response.ok) throw ApiRequestError.fromResponse(response.status, error);
