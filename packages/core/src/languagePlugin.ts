@@ -1,5 +1,6 @@
 import type { ZodTypeAny } from 'zod';
-import type { Item } from './content';
+import type { Course, Item } from './content';
+import type { Tile } from './sentence';
 
 // NOTE: Several types below are placeholders. They will be replaced by the real
 // domain types (exercises, learner state) as the corresponding features land.
@@ -19,17 +20,17 @@ export type ReviewFacet = string;
 /** How raw keyboard input should be converted (e.g. romaji to kana). */
 export type InputMode = string;
 
-/** A token produced by `tokenize`: a slice of the original sentence. */
-export type Token = { surface: string; start: number; end: number };
-
-/** Placeholder for an annotation attached to a span of a sentence (e.g. furigana). */
+/**
+ * Placeholder for an annotation attached to a span of a sentence (e.g. furigana). `start` and
+ * `end` are UTF-16 code-unit offsets into the tiles' surfaces joined (end exclusive).
+ */
 export type Annotation = { start: number; end: number; kind: string; value: string };
 
 /** Result of checking an answer. */
 export type CheckResult =
   { result: 'correct' } | { result: 'near-miss'; hint: string } | { result: 'wrong' };
 
-/** Which optional learner-facing features a language supports. */
+/** Which optional learner-facing features a language supports (FR-241). */
 export interface LanguageFeatures {
   /** Character-level study (e.g. kana, kanji). */
   characterStudy: boolean;
@@ -41,38 +42,188 @@ export interface LanguageFeatures {
   inputConversion: boolean;
 }
 
-/** Placeholder for the text-to-speech voice selection for a language. */
-export type TtsVoice = { locale: string; voice?: string };
+/** One writing system of a language (SDD section 4). */
+export interface ScriptInfo {
+  /** Script id, e.g. "hiragana" or "kanji". */
+  id: string;
+  /** Whether words in this script can carry readings shown above the text (furigana). */
+  readingsAbove: boolean;
+}
 
 /**
- * Everything language-specific lives behind this interface. Plugins are pure TypeScript:
- * no Node or browser APIs, so they run unchanged on the server and in the browser.
+ * FR-136: how audio is generated for this language. `input` says which text the engine is sent:
+ * the item's or sentence's reading (a sentence's reading is its stored tiles' readings joined),
+ * or its written form.
+ */
+export interface TtsVoice {
+  /** TtsProvider adapter id, e.g. "kokoro". */
+  provider: string;
+  /** Provider voice id, e.g. "jf_alpha". */
+  voice: string;
+  /** Provider-specific language option (Kokoro's `lang_code`), if the provider needs one. */
+  providerLanguage?: string;
+  /** BCP 47 locale for the browser speechSynthesis fallback, e.g. "ja-JP". */
+  locale: string;
+  /** Which text to send to the engine. */
+  input: 'reading' | 'written';
+}
+
+/** Id of a Node-only morphological analyzer adapter in packages/importers, e.g. "kuromoji-ipadic". */
+export type AnalyzerId = string;
+
+/**
+ * One token from a morphological analyzer, in a language-neutral shape (FR-238). The analyzer
+ * adapter (packages/importers) maps its native output to this; for kuromoji-ipadic:
+ * `surface_form`, `pos` plus `pos_detail_1..3`, `conjugated_type`, `conjugated_form`,
+ * `basic_form`, `reading`. Fields the analyzer leaves empty (kuromoji's "*") become null, and
+ * kuromoji's "*" POS details are left out, so `pos` may have fewer than 4 tags.
+ */
+export interface AnalyzerToken {
+  /** The text exactly as it appears in the input. */
+  surface: string;
+  /** Part-of-speech tags from most general to most specific, e.g. ["名詞", "固有名詞", "地域"]. */
+  pos: readonly string[];
+  /** Conjugation (inflection) class, e.g. "一段"; null for words that do not inflect. */
+  conjugationType: string | null;
+  /** Conjugated form of this token, e.g. "連用形"; null for words that do not inflect. */
+  conjugationForm: string | null;
+  /** Dictionary (base) form, e.g. 食べ → 食べる; null when unknown to the analyzer. */
+  baseForm: string | null;
+  /** Reading in the analyzer's script (katakana for kuromoji); null when unknown. */
+  reading: string | null;
+}
+
+/**
+ * A grammar point as `detectGrammar` sees it: its stable key and the detection patterns from its
+ * front matter (SDD section 4, FR-236).
+ */
+export interface GrammarPointPatterns {
+  key: string;
+  // PLACEHOLDER: the pattern shape over analyzer tokens is defined with detectGrammar (#110).
+  detection: readonly unknown[];
+}
+
+/**
+ * A tile from `segment`. Only the Tile part is stored; `counted` says whether the tile counts
+ * toward the sentence's vocabulary level in the coverage check (FR-235: particles, auxiliaries,
+ * numbers, counters and names do not). Deciding that is language knowledge (FR-240).
+ */
+export type SegmentedTile = Tile & { counted: boolean };
+
+/** Text whose tiles `tokenize` returns: a sentence, or authored answer text, and its stored tiles. */
+export interface TokenizeInput {
+  text: string;
+  /** Tiles stored with the text (DR-12); absent, null or empty when none are stored. */
+  tiles?: readonly Tile[] | null;
+}
+
+/**
+ * Everything language-specific lives behind this interface (FR-240, FR-242, SDD section 4).
+ * Plugins are pure TypeScript: no Node or browser APIs, so they run unchanged on the server and
+ * in the browser.
  */
 export interface LanguagePlugin {
-  /** Language code, e.g. "ja". */
+  /** Language code, e.g. "ja". The registry key; a course names its plugin by this code. */
   code: string;
   /** Human-readable name, e.g. "Japanese". */
   name: string;
-  /** Writing systems used, e.g. ["hiragana", "katakana", "kanji"]. */
-  scripts: string[];
-  /** Optional features this language supports. */
+  /** Writing systems used, and whether each has readings shown above text. */
+  scripts: readonly ScriptInfo[];
+  /** Optional features this language supports (FR-241). */
   features: LanguageFeatures;
-  /** Zod schemas for language-specific item types, keyed by item type. */
+  /** Zod schemas for language-specific item `data`, keyed by item type (DR-06). */
   itemSchemas: Record<string, ZodTypeAny>;
-  /** Normalizes a typed answer before comparison (width, case, script, whitespace). */
+  /** Normalizes a typed answer before comparison (kana folding, width, case, punctuation). */
   normalizeAnswer(text: string, context: AnswerContext): string;
   /** Checks a learner's answer: correct, near-miss with a hint, or wrong. */
   checkAnswer(given: string, exercise: Exercise): CheckResult;
   /** Converts raw input for the given input mode (e.g. romaji to kana). */
   convertInput(text: string, mode: InputMode): string;
-  /** Splits a sentence into tokens. */
-  tokenize(sentence: string): Token[];
-  /** Annotates a sentence, taking the learner's learned items into account. */
-  annotate(sentence: string, learnedItems: Item[]): Annotation[];
-  /** Exercise generators keyed by name. */
+  /**
+   * The tappable words and word-bank tiles of a sentence or answer text: its stored tiles,
+   * unchanged. Only when none are stored, a simple fallback split (SDD section 4) whose base form
+   * and reading are just the surface, so fallback tiles are never used for audio or furigana.
+   */
+  tokenize(input: TokenizeInput): Tile[];
+  /**
+   * Reading annotations (furigana) for a sentence's stored tiles, taking the learner's learned
+   * items into account. Offsets are into the tiles' surfaces joined.
+   */
+  annotate(tiles: readonly Tile[], learnedItems: Item[]): Annotation[];
+  /** Exercise generators keyed by exercise type. */
   generators: Record<string, ExerciseGenerator>;
   /** The review facets scheduled independently for an item type. */
   reviewFacets(itemType: string): ReviewFacet[];
-  /** Preferred text-to-speech voice for this language. */
+  /** Text-to-speech provider, voice and which text to send (FR-136). */
   ttsVoice: TtsVoice;
+  /** FR-136: the reading sent to TTS for these tiles (Japanese: readings joined, no spaces). */
+  readingOf(tiles: readonly Tile[]): string;
+  /**
+   * FR-238: the Node-only analyzer adapter whose tokens `segment` and `detectGrammar` consume.
+   * null: the importers' generic whitespace adapter supplies tokens (pos empty, baseForm/reading
+   * null). The plugin never imports the analyzer itself.
+   */
+  analyzer: AnalyzerId | null;
+  /**
+   * FR-238: pure function from analyzer tokens to tiles (surface, base form, reading), each marked
+   * whether it counts toward the vocabulary level (FR-235).
+   */
+  segment(tokens: readonly AnalyzerToken[]): SegmentedTile[];
+  /** FR-236: keys of the given grammar points whose detection patterns match the tokens. */
+  detectGrammar(
+    tokens: readonly AnalyzerToken[],
+    points: readonly GrammarPointPatterns[],
+  ): string[];
+}
+
+/** Thrown when no language plugin is registered under a code. */
+export class UnknownLanguagePluginError extends Error {
+  constructor(readonly code: string) {
+    super(`No language plugin is registered for "${code}"`);
+    this.name = 'UnknownLanguagePluginError';
+  }
+}
+
+/** Thrown when two plugins are registered under the same code. */
+export class DuplicateLanguagePluginError extends Error {
+  constructor(readonly code: string) {
+    super(`A language plugin is already registered for "${code}"`);
+    this.name = 'DuplicateLanguagePluginError';
+  }
+}
+
+/** The one map of language plugins, keyed by language code (SDD section 4). */
+export interface LanguagePluginRegistry {
+  /** The plugin registered under `code`; throws UnknownLanguagePluginError if there is none. */
+  get(code: string): LanguagePlugin;
+  /** The plugin a course names in its `plugin` field. */
+  forCourse(course: Pick<Course, 'plugin'>): LanguagePlugin;
+  has(code: string): boolean;
+  /** Registered codes, in registration order. */
+  codes(): string[];
+}
+
+/**
+ * Builds the registry from the plugins an app ships. Apps own the list (packages never depend on
+ * each other's plugins), so adding a language is one entry there (FR-242).
+ */
+export function createLanguagePluginRegistry(
+  plugins: readonly LanguagePlugin[],
+): LanguagePluginRegistry {
+  const byCode = new Map<string, LanguagePlugin>();
+  for (const plugin of plugins) {
+    if (byCode.has(plugin.code)) throw new DuplicateLanguagePluginError(plugin.code);
+    byCode.set(plugin.code, plugin);
+  }
+  const get = (code: string): LanguagePlugin => {
+    const plugin = byCode.get(code);
+    if (!plugin) throw new UnknownLanguagePluginError(code);
+    return plugin;
+  };
+  return {
+    get,
+    forCourse: (course) => get(course.plugin),
+    has: (code) => byCode.has(code),
+    codes: () => [...byCode.keys()],
+  };
 }
