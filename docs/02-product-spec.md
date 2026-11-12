@@ -185,7 +185,7 @@ Every word and sentence has a speaker button, and Japanese text follows the lear
 - Speaker button on teaching cards, feedback bars, detail pages and example sentences; a second button plays at 0.75 speed.
 - Audio auto-plays when a new item is shown and when an answer is revealed; auto-play can be turned off.
 - Listening exercises hide the text until the answer is checked. A "can't listen now" button skips listening exercises for 15 minutes with no penalty.
-- Clips are generated ahead of time on the server by a free text-to-speech voice, so nobody records anything and playback never waits. Where a clip does not exist yet, the app speaks with the Japanese voice built into the learner's device; if the device has none, speaker buttons are hidden and listening exercises are skipped. An author can still replace any clip with an uploaded recording.
+- Clips are generated on the server by a free text-to-speech voice the first time they are played (a wait of under a second) and kept for every later play, so nobody records anything. If the server cannot produce a clip, the app speaks with the Japanese voice built into the learner's device; if the device has none, speaker buttons are hidden and listening exercises are skipped. An author can still replace any clip with an uploaded recording.
 
 **Japanese text display** (*language-specific*)
 
@@ -330,7 +330,8 @@ There is no separate author role. Where this spec says "author", it means an adm
 
 - A course tree (sections, units, lessons) with drag to reorder.
 - Item editors for words, kanji and grammar points; imported fields are pre-filled and can be overridden without being lost on re-import.
-- Grammar point editor with the blocks from section 6 and a sentence editor that marks furigana and highlights the pattern.
+- Grammar point editor with the blocks from section 6 and a sentence editor that splits and joins tiles, marks furigana and highlights the pattern. Imported sentences arrive with tiles already filled in and marked unreviewed; an author's tiles are never overwritten.
+- Word lists: a supplementary list of common words per level that the level lists lack, and a word blocklist per language (empty at start) that keeps imported sentences containing those words out and flags them in authored content.
 - Lesson editor: choose the lesson's new items, then either let the app generate exercises from item data (vocabulary, kanji, kana, listening) or hand-write exercises (grammar). Generated exercises can be pinned, edited or removed.
 - Preview plays the lesson exactly as a learner would see it.
 - Draft and published states at lesson and unit level; publishing a change never resets learner progress.
@@ -347,7 +348,7 @@ A new language is a content pack plus a small language plugin; the learner exper
 | Character study | Whether character pages, stroke animation and drawing are on | On | Off |
 | Input help | How typed answers are assisted | Romaji-to-kana | Accent-key helper |
 | Answer checking | How answers are normalized and compared | Kana and kanji equivalence | Accent and case tolerance |
-| Word breaking | How a sentence splits into tappable words and tiles | Authored word boundaries | Spaces |
+| Word breaking | How a sentence splits into tappable words and tiles | Tiles stored with each sentence and authored exercise answer: seeded at import or on save by a morphological analyzer, corrected by authors | Spaces |
 | Item fields | Extra facts an item carries | On and kun readings, pitch (later) | Gender, plural |
 | Voice | Which text-to-speech voice to use | Japanese voice | Spanish voice |
 | Levels | The level framework for sections | JLPT N5 to N3 | CEFR A1 to B1 |

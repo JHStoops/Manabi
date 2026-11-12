@@ -35,7 +35,7 @@ Manabi is a self-contained system: one server deployment used through web browse
 | --- | --- |
 | Users | Up to 50 accounts; learners of mixed ages and technical skill; one or two admins |
 | Client environment | Current and previous major versions of Chrome, Edge, Firefox and Safari on desktop, Android and iOS; screens from 360 px wide |
-| Server environment | Linux LXC on Proxmox with Docker Engine and Compose; 2 vCPU, 2 GB RAM, 10 GB disk minimum; media files may be placed on a separate, larger disk |
+| Server environment | Linux LXC on Proxmox with Docker Engine and Compose; 2 vCPU, 4 GB RAM (about 1.4 GB of it for the TTS engine), 10 GB disk minimum, 4 vCPU recommended for audio generated on first play; media files may be placed on a separate, larger disk |
 | Network | Reached over the public internet only through the existing Nginx Proxy Manager, which terminates HTTPS |
 | Design constraints | React frontend built with Vite, styled with Emotion, state in useReducer and useContext; Node backend with Fastify; TypeScript; npm; PostgreSQL through plain SQL with no ORM; Jest for unit and API tests; REST API under `/api/v1`; no required paid or cloud services |
 | Assumptions | Learners are online while studying; English is the base and interface language; open datasets remain available under their current licences |
@@ -99,6 +99,7 @@ Manabi is a self-contained system: one server deployment used through web browse
 | FR-074 | Let a learner turn drawing exercises off, substituting recognition exercises | PR-13 | M2 |
 | FR-075 | Provide a kanji grid filterable by level, stroke count, radical and stage, and searchable by character, meaning and reading | PR-14 | M2 |
 | FR-076 | Let a learner save a private note on any item | PR-15 | v1.0 |
+| FR-077 | Store each character's stroke data, converted at import from the language's stroke source (KanjiVG for Japanese) into the stroke component's format (an outline and a median per stroke), and use no character data bundled with the stroke component | PR-12, PR-13 | M0 |
 
 ### 3.5 Grammar
 
@@ -136,11 +137,12 @@ Manabi is a self-contained system: one server deployment used through web browse
 | ID | The system shall | Traces | Milestone |
 | --- | --- | --- | --- |
 | FR-130 | Provide playable audio for every published word and curated example sentence | PR-50 | M3 |
-| FR-131 | Generate missing or stale audio as a background job through a free, self-hosted TTS provider, with no manual recording required | PR-52 | M3 |
+| FR-131 | Generate a clip through a free, self-hosted TTS provider the first time a word or sentence without a current clip is played, cache it on disk for later plays, and regenerate it when the text or reading changes; no manual recording and no bulk pre-generation job | PR-52 | M3 |
 | FR-132 | Let an author upload a recording that replaces a generated clip | PR-52 | M3 |
 | FR-133 | Offer playback at normal and 0.75 speed | PR-53 | M3 |
 | FR-134 | Let a learner skip listening exercises for 15 minutes without penalty | PR-51 | M3 |
-| FR-135 | Fall back to a device speech voice for the course language when no stored clip exists, and hide speaker buttons and skip listening exercises when the device has none | PR-52 | M1 |
+| FR-135 | Fall back to a device speech voice for the course language when no clip can be served (none stored and none can be generated), and hide speaker buttons and skip listening exercises when the device has none | PR-52 | M1 |
+| FR-136 | Send the TTS engine the kana reading of a word or sentence, never its written form; a sentence's reading comes from its stored tiles | PR-52 | M3 |
 
 ### 3.9 Text display and input
 
@@ -199,19 +201,26 @@ Manabi is a self-contained system: one server deployment used through web browse
 | FR-225 | Keep draft and published states per unit and lesson; publishing changes shall not alter existing learner progress | PR-74 | M1 |
 | FR-226 | Import KANJIDIC2, JMdict, KanjiVG, Tatoeba and level lists idempotently, recording each run | PR-75 | M0 |
 | FR-227 | Import a content pack into the database and export the database to a content pack | PR-80 | M0 |
-| FR-228 | Validate a content pack and report schema errors, untaught items used in exercises, and missing audio or strokes | PR-74 | M1 |
+| FR-228 | Validate a content pack and report schema errors, untaught items used in exercises, missing strokes, and words or sentences with neither an uploaded clip nor a kana reading to generate one from | PR-74 | M1 |
 | FR-229 | Let an author accept or dismiss answer reports; accepting adds the answer to the exercise's accept list | PR-74 | M2 |
 | FR-230 | Show dataset names, versions and licences on an About page | PR-75 | v1.0 |
 | FR-231 | Include a content authoring guide in the repository covering data sources and licences, pack structure with worked examples, conventions, the procedure for adding a level and the validation command, sufficient for Claude or a person to add a new level | PR-77 | v1.0 |
 | FR-232 | Leave every learner's lesson completion, review stages, XP, level and streak unchanged when a content pack is updated or expanded; archive content removed from a pack instead of deleting it; never re-lock a completed unit because lessons were added to it | PR-87 | M0 |
+| FR-233 | Import the JLPT level lists from a parsed copy committed in the repository with its credit, making no request to the lists' source site | PR-75 | M0 |
+| FR-234 | Keep a supplementary common-words list per level, seeded with the missing words that block the most imported sentences and editable by an admin, and treat its words as level-list words in vocabulary import and sentence filtering | PR-74, PR-75 | M0 |
+| FR-235 | Import a Tatoeba sentence only if it has a direct English translation, contains no Latin letters, is at most 15 characters long excluding spaces and punctuation, uses only content words at or below its level (level lists plus supplementary words), and its owner declares the sentence's language as native in Tatoeba's user languages export; store it as unreviewed | PR-75 | M0 |
+| FR-236 | Detect the course's grammar points in each imported sentence from each point's detection patterns, matched by the language plugin over the analyzer's tokens; drop a sentence that uses a grammar point two or more levels above its own or more than one point from the next level up, and flag a kept sentence that uses one next-level point for author review | PR-75 | M0 |
+| FR-237 | Keep a word blocklist per language, empty at start and editable by an admin; skip imported sentences containing a blocked word, and report blocked words in authored sentences and exercises in pack validation and in the editors | PR-74, PR-75 | M0 |
+| FR-238 | Split each imported sentence, and the answer text of authored exercises when a pack is imported or an author saves them, into word tiles in Node with the language plugin's segmentation rules over a morphological analyzer (for Japanese, kuromoji plus merge rules), storing each tile's base form and reading; let authors edit the tiles and never overwrite tiles an author has edited or reviewed | PR-23, PR-74, PR-75 | M0 |
+| FR-239 | Show a source credit (source id, owner and licence, linked to the source) next to every imported sentence and its translation wherever they are shown | PR-75 | v1.0 |
 
 ### 3.14 Language extensibility
 
 | ID | The system shall | Traces | Milestone |
 | --- | --- | --- | --- |
-| FR-240 | Route all language-specific behavior (normalizing, answer checking, input conversion, tokenizing, annotation, exercise generation, review facets, voice) through the language plugin interface | PR-80 | M0 |
+| FR-240 | Route all language-specific behavior (normalizing, answer checking, input conversion, tokenizing, segmentation rules, grammar detection, annotation, exercise generation, review facets, voice) through the language plugin interface; Node-only analyzers are generic adapters that the plugin selects and that hold no language rules | PR-80 | M0 |
 | FR-241 | Show character study, stroke drawing and reading-annotation features only when the active course's plugin enables them | PR-81 | M2 |
-| FR-242 | Allow a second course to be added by registering a plugin and importing a content pack, with no change to core, API or web application code | PR-80 | v1.0 |
+| FR-242 | Allow a second course to be added by registering a plugin and importing a content pack, with no change to core, API or web application code (a new analyzer adapter in the importers package is allowed if the language needs one) | PR-80 | v1.0 |
 | FR-243 | Keep all interface text in a translation catalog | PR-82 | M1 |
 | FR-244 | Treat levels and sections as data, so that N2 and N1 sections can be added to the Japanese course by importing content alone | PR-80 | v1.0 |
 
@@ -242,6 +251,7 @@ Performance targets assume the minimum server in section 2 and 10 learners activ
 | NFR-03 | Performance | Answer feedback shall appear in under 100 ms, without a network round-trip |
 | NFR-04 | Performance | First load on a mid-range phone over a 10 Mbps connection shall be interactive in under 3 seconds; the initial JavaScript shall stay under 250 kB compressed |
 | NFR-05 | Performance | Stroke drawing shall track the pointer at 60 frames per second on a mid-range phone |
+| NFR-08 | Performance | A clip generated on first play shall be ready in under 1 second at the server with 4 vCPU, excluding TTS engine start-up |
 | NFR-06 | Capacity | The system shall support 50 accounts, 5,000 items per course and 5 million review-log rows without tuning |
 | NFR-10 | Security | Passwords shall be stored only as Argon2id hashes; session, invite and reset tokens only as hashes |
 | NFR-11 | Security | All traffic shall use HTTPS; cookies shall be `HttpOnly`, `Secure` and `SameSite=Lax` |
@@ -281,6 +291,8 @@ Performance targets assume the minimum server in section 2 and 10 learners activ
 | DR-08 | Expired sessions, invites, reset tokens and lesson sessions shall be purged by a scheduled job |
 | DR-09 | Imported data shall keep its source and dataset version; author overrides shall be stored separately from imported values |
 | DR-10 | A learner's export shall include profile, settings, lesson progress, item stages, XP history and notes in documented JSON |
+| DR-11 | Each imported sentence and its translation shall store, separately, the source sentence id, the owner's username (or none), the source URL, the licence, the dataset version and whether Manabi has edited it; an author edit to the text or translation shall set that flag |
+| DR-12 | A sentence's tiles shall be stored with it, each with surface text, base form, reading and linked item id where known, together with a review status (unreviewed, flagged or reviewed) and any grammar points detected at import. Authored exercise answer text shall store its tiles, in the same tile shape, in the exercise payload |
 
 ## 7. Verification and v1 acceptance
 
@@ -288,7 +300,7 @@ Each requirement is verified by the cheapest method that gives confidence.
 
 | Method | Applies to |
 | --- | --- |
-| Automated unit tests | Scheduler, XP, streak, answer checking, input conversion (FR-111, 112, 143, 160 to 164) |
+| Automated unit tests | Scheduler, XP, streak, answer checking, input conversion, sentence segmentation against the spike's gold tiles, grammar detection (FR-111, 112, 143, 160 to 164, 236, 238) |
 | Automated API tests | All FR in 3.1 to 3.3, 3.7, 3.11 to 3.13; NFR-13, 14, 20 |
 | End-to-end tests | Invite to first lesson, review session, kanji drawing, leaderboard, author and publish |
 | Load script | NFR-01, 02, 06 with 10 simulated learners |
@@ -299,7 +311,7 @@ Each requirement is verified by the cheapest method that gives confidence.
 
 - [ ] Fresh deployment on the home server from the published images succeeds with only the environment file edited.
 - [ ] An invited learner on a phone completes the first kana lesson within 5 minutes of opening the invite link.
-- [ ] The kana section and all N5 units are published, with audio and stroke data for every item.
+- [ ] The kana section and all N5 units are published, with stroke data for every character and audio for every item (uploaded, cached or generated on first play).
 - [ ] A learner can complete a vocabulary, kanji, grammar and listening lesson and a unit review.
 - [ ] Items from completed lessons come due and move through stages as specified.
 - [ ] Drawing a kanji from memory works with finger and mouse.
@@ -323,14 +335,14 @@ Every PRD requirement maps to at least one requirement here.
 | PR-7 | Typing Japanese | FR-142, FR-143, FR-144 |
 | PR-10 | Kanji detail page | FR-070 |
 | PR-11 | Kanji lessons | FR-040, FR-043, FR-049 |
-| PR-12 | Stroke animation | FR-071 |
-| PR-13 | Drawing practice | FR-044, FR-072, FR-073, FR-074, IF-11 |
+| PR-12 | Stroke animation | FR-071, FR-077 |
+| PR-13 | Drawing practice | FR-044, FR-072, FR-073, FR-074, FR-077, IF-11 |
 | PR-14 | Kanji dictionary | FR-075 |
 | PR-15 | Personal notes | FR-076 |
 | PR-20 | Grammar explanations | FR-090 |
 | PR-21 | Grammar drills | FR-043, FR-091, FR-094 |
 | PR-22 | Grammar reference | FR-092 |
-| PR-23 | Tap-to-define words | FR-093 |
+| PR-23 | Tap-to-define words | FR-093, FR-238, DR-12 |
 | PR-30, PR-31 | Word entries and kanji links | FR-100 |
 | PR-32 | Vocabulary dictionary | FR-101 |
 | PR-40 | Items enter reviews | FR-051, FR-110 |
@@ -339,7 +351,7 @@ Every PRD requirement maps to at least one requirement here.
 | PR-43 | Daily caps | FR-115 |
 | PR-50 | Audio everywhere | FR-130 |
 | PR-51 | Listening exercises | FR-045, FR-134 |
-| PR-52 | Self-hosted audio | FR-131, FR-132, FR-135, IF-09 |
+| PR-52 | Self-hosted audio | FR-131, FR-132, FR-135, FR-136, IF-09, NFR-08 |
 | PR-53 | Slow playback | FR-133 |
 | PR-60 | XP, goal, levels | FR-055, FR-160, FR-161, FR-162 |
 | PR-61 | Streak and freeze | FR-163, FR-164 |
@@ -352,8 +364,8 @@ Every PRD requirement maps to at least one requirement here.
 | PR-71 | Sign-in and reset | FR-003, FR-004, FR-005, IF-10 |
 | PR-72 | Roles | FR-006 |
 | PR-73 | Admin console | FR-200, FR-201, FR-202 |
-| PR-74 | Content editor | FR-022, FR-049, FR-220 to FR-225, FR-228, FR-229 |
-| PR-75 | Dataset importer | FR-226, FR-230, NFR-62 |
+| PR-74 | Content editor | FR-022, FR-049, FR-220 to FR-225, FR-228, FR-229, FR-234, FR-237, FR-238 |
+| PR-75 | Dataset importer | FR-226, FR-230, FR-233 to FR-239, DR-11, DR-12, NFR-62 |
 | PR-76 | Export and delete | FR-008, DR-07, DR-10 |
 | PR-80 | Languages as packs and plugins | FR-023, FR-227, FR-240, FR-242, FR-244 |
 | PR-81 | Script features per language | FR-241 |
