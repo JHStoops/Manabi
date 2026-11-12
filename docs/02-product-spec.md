@@ -348,7 +348,7 @@ A new language is a content pack plus a small language plugin; the learner exper
 | Character study | Whether character pages, stroke animation and drawing are on | On | Off |
 | Input help | How typed answers are assisted | Romaji-to-kana | Accent-key helper |
 | Answer checking | How answers are normalized and compared | Kana and kanji equivalence | Accent and case tolerance |
-| Word breaking | How a sentence splits into tappable words and tiles | Tiles stored with each sentence: seeded at import by a morphological analyzer, corrected by authors | Spaces |
+| Word breaking | How a sentence splits into tappable words and tiles | Tiles stored with each sentence and authored exercise answer: seeded at import or on save by a morphological analyzer, corrected by authors | Spaces |
 | Item fields | Extra facts an item carries | On and kun readings, pitch (later) | Gender, plural |
 | Voice | Which text-to-speech voice to use | Japanese voice | Spanish voice |
 | Levels | The level framework for sections | JLPT N5 to N3 | CEFR A1 to B1 |

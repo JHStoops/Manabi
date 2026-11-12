@@ -209,18 +209,18 @@ Manabi is a self-contained system: one server deployment used through web browse
 | FR-233 | Import the JLPT level lists from a parsed copy committed in the repository with its credit, making no request to the lists' source site | PR-75 | M0 |
 | FR-234 | Keep a supplementary common-words list per level, seeded with the missing words that block the most imported sentences and editable by an admin, and treat its words as level-list words in vocabulary import and sentence filtering | PR-74, PR-75 | M0 |
 | FR-235 | Import a Tatoeba sentence only if it has a direct English translation, contains no Latin letters, is at most 15 characters long excluding spaces and punctuation, uses only content words at or below its level (level lists plus supplementary words), and its owner declares the sentence's language as native in Tatoeba's user languages export; store it as unreviewed | PR-75 | M0 |
-| FR-236 | Detect the course's grammar points in each imported sentence from each point's detection patterns over the segmenter's tokens; drop a sentence that uses a grammar point two or more levels above its own or more than one point from the next level up, and flag a kept sentence that uses one next-level point for author review | PR-75 | M0 |
+| FR-236 | Detect the course's grammar points in each imported sentence from each point's detection patterns, matched by the language plugin over the analyzer's tokens; drop a sentence that uses a grammar point two or more levels above its own or more than one point from the next level up, and flag a kept sentence that uses one next-level point for author review | PR-75 | M0 |
 | FR-237 | Keep a word blocklist per language, empty at start and editable by an admin; skip imported sentences containing a blocked word, and report blocked words in authored sentences and exercises in pack validation and in the editors | PR-74, PR-75 | M0 |
-| FR-238 | Split each imported sentence into word tiles at import time with a per-language segmenter (for Japanese, a morphological analyzer plus merge rules), storing each tile's base form and reading; never overwrite tiles an author has edited or reviewed | PR-23, PR-75 | M0 |
+| FR-238 | Split each imported sentence, and the answer text of authored exercises when a pack is imported or an author saves them, into word tiles in Node with the language plugin's segmentation rules over a morphological analyzer (for Japanese, kuromoji plus merge rules), storing each tile's base form and reading; let authors edit the tiles and never overwrite tiles an author has edited or reviewed | PR-23, PR-74, PR-75 | M0 |
 | FR-239 | Show a source credit (source id, owner and licence, linked to the source) next to every imported sentence and its translation wherever they are shown | PR-75 | v1.0 |
 
 ### 3.14 Language extensibility
 
 | ID | The system shall | Traces | Milestone |
 | --- | --- | --- | --- |
-| FR-240 | Route all language-specific behavior (normalizing, answer checking, input conversion, tokenizing, annotation, exercise generation, review facets, voice) through the language plugin interface | PR-80 | M0 |
+| FR-240 | Route all language-specific behavior (normalizing, answer checking, input conversion, tokenizing, segmentation rules, grammar detection, annotation, exercise generation, review facets, voice) through the language plugin interface; Node-only analyzers are generic adapters that the plugin selects and that hold no language rules | PR-80 | M0 |
 | FR-241 | Show character study, stroke drawing and reading-annotation features only when the active course's plugin enables them | PR-81 | M2 |
-| FR-242 | Allow a second course to be added by registering a plugin and importing a content pack, with no change to core, API or web application code | PR-80 | v1.0 |
+| FR-242 | Allow a second course to be added by registering a plugin and importing a content pack, with no change to core, API or web application code (a new analyzer adapter in the importers package is allowed if the language needs one) | PR-80 | v1.0 |
 | FR-243 | Keep all interface text in a translation catalog | PR-82 | M1 |
 | FR-244 | Treat levels and sections as data, so that N2 and N1 sections can be added to the Japanese course by importing content alone | PR-80 | v1.0 |
 
@@ -292,7 +292,7 @@ Performance targets assume the minimum server in section 2 and 10 learners activ
 | DR-09 | Imported data shall keep its source and dataset version; author overrides shall be stored separately from imported values |
 | DR-10 | A learner's export shall include profile, settings, lesson progress, item stages, XP history and notes in documented JSON |
 | DR-11 | Each imported sentence and its translation shall store, separately, the source sentence id, the owner's username (or none), the source URL, the licence, the dataset version and whether Manabi has edited it; an author edit to the text or translation shall set that flag |
-| DR-12 | A sentence's tiles shall be stored with it, each with surface text, base form, reading and linked item id where known, together with a review status (unreviewed, flagged or reviewed) and any grammar points detected at import |
+| DR-12 | A sentence's tiles shall be stored with it, each with surface text, base form, reading and linked item id where known, together with a review status (unreviewed, flagged or reviewed) and any grammar points detected at import. Authored exercise answer text shall store its tiles, in the same tile shape, in the exercise payload |
 
 ## 7. Verification and v1 acceptance
 
@@ -364,7 +364,7 @@ Every PRD requirement maps to at least one requirement here.
 | PR-71 | Sign-in and reset | FR-003, FR-004, FR-005, IF-10 |
 | PR-72 | Roles | FR-006 |
 | PR-73 | Admin console | FR-200, FR-201, FR-202 |
-| PR-74 | Content editor | FR-022, FR-049, FR-220 to FR-225, FR-228, FR-229, FR-234, FR-237 |
+| PR-74 | Content editor | FR-022, FR-049, FR-220 to FR-225, FR-228, FR-229, FR-234, FR-237, FR-238 |
 | PR-75 | Dataset importer | FR-226, FR-230, FR-233 to FR-239, DR-11, DR-12, NFR-62 |
 | PR-76 | Export and delete | FR-008, DR-07, DR-10 |
 | PR-80 | Languages as packs and plugins | FR-023, FR-227, FR-240, FR-242, FR-244 |

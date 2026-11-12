@@ -19,7 +19,7 @@ Manabi is a TypeScript monorepo: a React single-page app talking to a Node API o
 | Auth | Opaque session tokens stored in the database; cookie for web, bearer header for mobile | Revocable, simple, works for both client kinds |
 | Audio | Clips generated on first play by Kokoro (self-hosted, voice `jf_alpha`, sent the kana reading) behind a provider interface and cached on disk, with the browser's built-in speech voice (Web Speech API) as fallback when no clip can be produced | No cloud cost; no bulk generation to run; engine can be swapped per language |
 | Stroke data | KanjiVG converted at import to Hanzi Writer data, animated and checked in the browser by Hanzi Writer (MIT) | Open data; proven matcher with animation and hints built in; no server round-trip while drawing |
-| Sentence tiles | Segmented at import in Node (kuromoji plus merge rules) and stored with each sentence, with base form and reading per tile | The analyzer is too large for the browser; tiles never change after review |
+| Sentence tiles | Segmented in Node at import and when an author saves (a generic kuromoji adapter in `packages/importers`, the merge rules in the language plugin) and stored with each sentence and with authored exercise answer text, with base form and reading per tile | The analyzer is too large for the browser; language rules stay in the plugin; tiles never change after review |
 | Mobile readiness | Everything through `/api/v1`, documented by OpenAPI; installable PWA now | A native or React Native client can reuse the API and shared packages |
 | Deployment | Docker Compose in one Proxmox LXC, behind the existing Nginx Proxy Manager | One command up; fits the existing server |
 
@@ -40,9 +40,9 @@ Apps depend on packages; packages never depend on apps; language plugins depend 
 | `apps/web` | React app: routes, screens, exercise components (including the Hanzi Writer stroke component), themes, PWA manifest |
 | `apps/api` | Fastify server: routes, services, database access, job handlers; also serves the built web app |
 | `packages/core` | Domain types, Zod schemas, exercise type definitions, SRS scheduler, XP and streak rules, the `LanguagePlugin` interface |
-| `packages/lang-ja` | Japanese plugin: kana and kanji handling, romaji conversion, answer normalization, exercise generators, item field schemas |
+| `packages/lang-ja` | Japanese plugin: kana and kanji handling, romaji conversion, answer normalization, exercise generators, item field schemas, the segmentation merge rules and grammar detection matcher over analyzer tokens (pure functions) |
 | `packages/api-client` | Typed client generated from the OpenAPI document; used by web and, later, mobile |
-| `packages/importers` | Dataset parsers and import jobs (KANJIDIC2, JMdict, KanjiVG, Tatoeba, level lists); the committed copy of the level lists; per-language import-time steps that need Node: sentence segmentation (kuromoji for Japanese) and grammar-point detection |
+| `packages/importers` | Dataset parsers and import jobs (KANJIDIC2, JMdict, KanjiVG, Tatoeba, level lists); the committed copy of the level lists; a generic, Node-only analyzer adapter registry (kuromoji with its IPADIC dictionary loading) with no language rules, and the segmentation path that runs a plugin's declared analyzer and then the plugin's own rules |
 | `content/ja-en` | The Japanese course content pack: YAML and Markdown under version control |
 | `deploy` | Dockerfile, Compose file, example environment file, database dump script, Nginx Proxy Manager setup notes |
 | `docs` | These four documents, exported |
@@ -64,7 +64,10 @@ Adding a language means writing one plugin package and one content pack; core, A
 | `normalizeAnswer(text, context)` | Canonical form for comparison (kana folding, width, case, punctuation) |
 | `checkAnswer(given, exercise)` | Returns correct, near-miss with a hint, or wrong |
 | `convertInput(text, mode)` | Live input help (romaji to kana) |
-| `tokenize(sentence)` | Returns a sentence's tappable words and word-bank tiles from the tiles stored with it; when none are stored, a simple fallback (one tile per run of the same script, or spaces for languages that use them) |
+| `tokenize(sentence)` | Returns a sentence's or answer's tappable words and word-bank tiles from the tiles stored with it; only as a last resort, when none are stored, a simple fallback (one tile per run of the same script, or spaces for languages that use them) |
+| `analyzer` | Which Node-only morphological analyzer the plugin's segmentation needs, by adapter id (Japanese: `'kuromoji-ipadic'`), or none for languages split on spaces |
+| `segment(tokens)` | Pure function from analyzer tokens (surface, part-of-speech tags, base form, reading) to tiles with surface, base form and reading (Japanese: merge rules R0 to R10 and the idiom split list) |
+| `detectGrammar(tokens, points)` | Pure matcher: which of the given grammar points' detection patterns match the analyzer tokens |
 | `annotate(sentence, learnedItems)` | Produces reading annotations honoring the learner's furigana setting |
 | `generators` | Functions that build exercises of each type from an item and its course context |
 | `reviewFacets(itemType)` | Which facets an item is reviewed on (meaning, reading, listening) |
@@ -72,7 +75,9 @@ Adding a language means writing one plugin package and one content pack; core, A
 
 Plugins are pure TypeScript with no Node or browser APIs, so the same code runs in the browser for instant feedback and on the server for the authoritative check. They are registered in one map keyed by language code; a course row names its plugin.
 
-Language-specific steps that need large dictionaries or Node APIs run only at import time, in `packages/importers`, registered per language code next to the importers: a `segmentSentence(text)` step that returns tiles with base form and reading (Japanese: kuromoji with IPADIC plus the merge rules from the word-boundary spike), and grammar-point detection over those tokens. Their output is stored with the sentence, so the plugin, the API and the browser only read it. No analyzer ships to the browser.
+**Segmentation and grammar detection.** All Japanese-specific rules live in `packages/lang-ja`; only the analyzer itself, which needs a large dictionary and Node APIs, lives outside it. The plugin declares the analyzer it needs (`analyzer`) and supplies pure functions over that analyzer's tokens: `segment` (the merge rules from the word-boundary spike) and `detectGrammar` (each grammar point's detection patterns). `packages/importers` holds a generic analyzer adapter registry keyed by adapter id (`kuromoji-ipadic`: kuromoji 0.1.2 and its dictionary loading) with no language rules, and one segmentation path: look up the course's plugin, run its declared analyzer on the text, then call the plugin's `segment` and, for sentences, `detectGrammar`. The path runs only in Node: in the import job, and in the API when an author saves text in an editor. Its output is stored, so the browser only reads it. No analyzer ships to the browser.
+
+**Tiles for authored exercise text.** Answer text in authored exercises (EX-04, EX-05, EX-08 and EX-10 answers and accept lists, hand-authored word-bank exercises, and the tile form used by the word-bank alternative on phones) gets tiles from the same segmentation path when a pack is imported or an author saves the exercise in the editor. The tiles are stored in the exercise payload in the same shape as sentence tiles (DR-12). Authors can edit them and re-segment on request; tiles an author has edited are never overwritten on re-import. `tokenize`'s script-run fallback is a last resort for text that somehow has no stored tiles, not the normal path.
 
 Stroke data is supplied per language at import (Japanese: KanjiVG) and stored in Hanzi Writer's character format; the stroke component in `apps/web` is language-neutral and draws whatever data the course provides.
 
@@ -160,7 +165,7 @@ Each exercise type is one registry entry with four parts, so adding a type touch
 
 | Part | Lives in | Role |
 | --- | --- | --- |
-| Payload schema | `packages/core` | Zod schema for the stored JSONB payload (prompt, options, accept list, audio ref, item refs) |
+| Payload schema | `packages/core` | Zod schema for the stored JSONB payload (prompt, options, accept list, stored tiles for answer text, audio ref, item refs) |
 | Grader | `packages/core`, calling the language plugin | Takes payload and response, returns correct, near-miss or wrong, plus the feedback text |
 | Generator (optional) | Language plugin | Builds a payload from an item and course context; used for vocabulary, kanji, kana and listening |
 | Renderer | `apps/web` | React component registered under the type id; receives payload, reports a response |
@@ -273,8 +278,8 @@ Imports are repeatable background jobs that fill the `items`, `sentences` and `s
 - Keep a Japanese sentence only if it has a direct English translation (the lowest-id one is used; the others' ids are kept for the author), contains no Latin letters, is at most 15 characters excluding spaces and punctuation, and its owner declares native Japanese in Tatoeba's user languages export (this also drops ownerless sentences).
 - Coverage: every content word, by base form, is at or below the sentence's level in the level lists or the supplementary words; particles, auxiliaries, numbers, counters and person and place names are exempt.
 - Blocklist: a sentence containing a word on the language's blocklist is skipped. The same check reports blocked words in authored sentences and exercises in the pack lint and the editors.
-- Segmentation: each kept sentence is split into tiles by the language's import-time segmenter, storing surface, base form and reading per tile. Japanese uses kuromoji 0.1.2 (IPADIC) plus the merge rules R0 to R10 and a small idiom split list; the spike's `rules.ts` and `gold.tsv` are the starting code and test fixtures. Expect authors to adjust about 1 in 8 N5 sentences.
-- Grammar level: grammar points are detected from each point's detection patterns over the segmenter's tokens. A sentence may use at most one grammar point from the next level up; one using more, or any point two or more levels up, is dropped; one using exactly one next-level point is kept and flagged for author review. Only points present in the course are detected, so higher-level points can be added as stubs to make detection complete.
+- Segmentation: each kept sentence is split into tiles by the segmentation path in section 4 (the plugin's declared analyzer, then the plugin's `segment`), storing surface, base form and reading per tile. For Japanese the `kuromoji-ipadic` adapter (kuromoji 0.1.2) runs in `packages/importers` and the merge rules R0 to R10 and a small idiom split list run in `packages/lang-ja`; the spike's `rules.ts` (ported into the plugin) and `gold.tsv` are the starting code and test fixtures. Expect authors to adjust about 1 in 8 N5 sentences.
+- Grammar level: grammar points are detected by the plugin's `detectGrammar` from each point's detection patterns over the analyzer's tokens. A sentence may use at most one grammar point from the next level up; one using more, or any point two or more levels up, is dropped; one using exactly one next-level point is kept and flagged for author review. Only points present in the course are detected, so higher-level points can be added as stubs to make detection complete.
 - Imported sentences start "unreviewed". Tiles an author has edited or reviewed, and authored sentences, are never overwritten on re-import.
 - Each sentence and its translation store source id, owner (or none, shown as "Tatoeba contributors"), source URL, licence, dataset version and an edited flag; wherever an imported sentence is shown, a small credit links to its Tatoeba page.
 
@@ -332,7 +337,7 @@ Tests concentrate where mistakes hurt learners most: answer checking, scheduling
 
 | Layer | Tool | Covers |
 | --- | --- | --- |
-| Unit | Jest (with ts-jest) | `core` rules (scheduler, XP, streak edge cases across time zones and freezes), language plugins (table-driven answer-checking cases, romaji conversion, reading stored tiles) and import-time steps (segmentation against the word-boundary spike's `gold.tsv`, grammar detection against the sentence spike's sample) |
+| Unit | Jest (with ts-jest) | `core` rules (scheduler, XP, streak edge cases across time zones and freezes), language plugins (table-driven answer-checking cases, romaji conversion, reading stored tiles, merge rules and grammar detection over recorded analyzer tokens) and the segmentation path in `packages/importers` (kuromoji plus the plugin's rules against the word-boundary spike's `gold.tsv`, grammar detection against the sentence spike's sample) |
 | API integration | Jest against a real PostgreSQL in a container | Each route group; the lesson-complete and review-answer transactions; idempotency; role checks |
 | Component | Testing Library | Each exercise renderer and the lesson player state machine |
 | End to end | Playwright | Accept invite, finish a lesson, do reviews, draw a kanji, see the leaderboard, author and publish a lesson |
@@ -350,7 +355,7 @@ Four short experiments ran during M0. The owner decided their outcomes on 2026-1
 | [TTS engine](spikes/tts.md) (#1) | Which self-hosted engine gives acceptable Japanese on this server? Candidates: Kokoro and VOICEVOX; also the built-in device voices | Kokoro (Kokoro-FastAPI), voice `jf_alpha`, always sent the kana reading; VOICEVOX dropped. Clips are generated on first play (0.2 to 0.4 s at 4 vCPU) and cached; no bulk job. About 1.35 GB RAM, `OMP_NUM_THREADS` = vCPU count. Device voices only as fallback; phone testing deferred |
 | [Stroke matching](spikes/stroke-matching.md) (#2) | Is the simple resample-and-compare matcher forgiving enough on a phone? Compare with Hanzi Writer fed Japanese stroke data | Adopt Hanzi Writer (MIT) for animation, checking and hints, fed KanjiVG converted at import to its format; its bundled data is not used. Leniency configurable, starting at 1, confirmed with the owner's recordings. Trace and memory modes both in v1 |
 | [Sentence quality](spikes/sentence-quality.md) (#3) | How many Tatoeba sentences survive the "only taught words, short enough" filter per level, and how good are they? | High yield (about 14,600 N5 sentences covering 95% of N5 words). Commit a parsed copy of the tanos lists; add per-level supplementary words; keep the native-owner filter, coverage filter and 15-character limit; automatic grammar-level check; per-language word blocklist; per-sentence attribution |
-| [Word boundaries](spikes/word-boundaries.md) (#4) | Is a morphological analyzer (for example kuromoji) good enough to pre-tokenize imported sentences for author review? | Yes: kuromoji plus merge rules, 95 of 100 sample sentences exact. Runs only at import in `packages/importers`; tiles with base form and reading are stored; `tokenize` reads them; authored boundaries win; imported sentences start unreviewed |
+| [Word boundaries](spikes/word-boundaries.md) (#4) | Is a morphological analyzer (for example kuromoji) good enough to pre-tokenize imported sentences for author review? | Yes: kuromoji plus merge rules, 95 of 100 sample sentences exact. kuromoji runs only in Node (a generic adapter in `packages/importers`, at import and on editor save) and the merge rules live in `packages/lang-ja`; tiles with base form and reading are stored with sentences and authored exercise answers; `tokenize` reads them; authored boundaries win; imported sentences start unreviewed |
 
 **Open questions**
 
