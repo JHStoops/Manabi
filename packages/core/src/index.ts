@@ -8,6 +8,7 @@ export * from './account';
 export * from './auth';
 export * from './apiError';
 export * from './content';
+export * from './contentPack';
 export * from './exerciseRegistry';
 export * from './http';
 export * from './languagePlugin';

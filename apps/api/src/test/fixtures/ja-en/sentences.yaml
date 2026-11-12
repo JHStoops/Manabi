@@ -1,0 +1,31 @@
+- text: 水をください。
+  translation: Water, please.
+  tiles:
+    - { surface: 水, base: 水, reading: みず, item: ja:word:水:みず }
+    - { surface: を, base: を, reading: を }
+    - { surface: ください, base: くださる, reading: ください }
+  reviewStatus: reviewed
+  grammar: [ja:grammar:wo-kudasai]
+  vocabLevel: N5
+  grammarLevel: N5
+  source: tatoeba
+  sourceId: '4702'
+  attribution:
+    sentence:
+      sourceId: '4702'
+      owner: someone
+      url: https://tatoeba.org/sentences/show/4702
+      licence: CC BY 2.0 FR
+      datasetVersion: '2026-10-01'
+    translation:
+      sourceId: '1276'
+      owner: null
+      url: https://tatoeba.org/sentences/show/1276
+      licence: CC BY 2.0 FR
+      datasetVersion: '2026-10-01'
+- text: 水です。
+  translation: It is water.
+  tiles:
+    - { surface: 水, base: 水, reading: みず, item: ja:word:水:みず }
+    - { surface: です, base: です, reading: です }
+  challengeOverride: false

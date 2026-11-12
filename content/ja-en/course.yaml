@@ -1,14 +1,21 @@
-# STUB: course definition for the Japanese (from English) pack. Schema is not final.
-id: ja-en
-target: ja
-base: en
+# Course definition for the Japanese (from English) pack (SDD section 4). Sections are in path
+# order; adding a level is adding a section here (FR-244).
+key: ja-en
+targetLang: ja
+baseLang: en
 plugin: ja
+title: Japanese for English speakers
+status: draft
 sections:
-  - id: kana
+  - key: ja-en:kana
     title: Kana
-  - id: n5
+    level: kana
+  - key: ja-en:n5
     title: N5
-  - id: n4
+    level: N5
+  - key: ja-en:n4
     title: N4
-  - id: n3
+    level: N4
+  - key: ja-en:n3
     title: N3
+    level: N3

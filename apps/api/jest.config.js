@@ -25,6 +25,6 @@ module.exports = {
     'src/**/*.ts',
     '!src/**/*.test.ts',
     '!src/test/**',
-    '!src/{server,worker,migrate,generateClient}.ts',
+    '!src/{server,worker,migrate,generateClient,cli}.ts',
   ],
 };

@@ -1,0 +1,5 @@
+- key: ja:word:水:みず
+  type: word
+  level: N5
+  data: { written: 水, reading: みず, meanings: [water] }
+  overrides: { meanings: [water, cold water] }

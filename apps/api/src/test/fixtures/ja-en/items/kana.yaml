@@ -1,0 +1,8 @@
+- key: ja:kana:あ
+  type: kana
+  level: kana
+  data: { character: あ, script: hiragana, romaji: a }
+- key: ja:kana:い
+  type: kana
+  level: kana
+  data: { character: い, script: hiragana, romaji: i }
