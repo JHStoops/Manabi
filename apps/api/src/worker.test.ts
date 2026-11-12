@@ -28,7 +28,9 @@ describeWithDb('worker process', () => {
     let stdout = '';
     let stderr = '';
     child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
-    const exited = new Promise<number | null>((resolve) => child.on('exit', resolve));
+    const exited = new Promise<{ code: number | null; signal: string | null }>((resolve) =>
+      child.on('exit', (code, signal) => resolve({ code, signal })),
+    );
     await new Promise<void>((resolve, reject) => {
       child.stdout.on('data', (chunk: Buffer) => {
         stdout += chunk.toString();
@@ -38,7 +40,8 @@ describeWithDb('worker process', () => {
     });
 
     child.kill('SIGTERM');
-    expect(await exited).toBe(0);
+    // Exit code 0, not death by the signal; stderr is included to explain a failure.
+    expect({ ...(await exited), stderr }).toEqual({ code: 0, signal: null, stderr: '' });
 
     const lines = stdout
       .trim()
@@ -52,6 +55,5 @@ describeWithDb('worker process', () => {
     );
     expect(lines.at(-1)!.msg).toBe('worker stopped');
     expect(stdout).not.toContain(testDatabaseUrl());
-    expect(stderr).toBe('');
   }, 30_000);
 });
