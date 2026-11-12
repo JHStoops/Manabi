@@ -1,5 +1,6 @@
 name: CI
 
+# NFR-50 (strict TypeScript, linted and formatted in CI) and NFR-51 (coverage gates).
 on:
   push:
     branches: [main]
@@ -8,6 +9,23 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      # Real PostgreSQL for API integration tests (SDD section 13).
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: manabi
+          POSTGRES_PASSWORD: manabi
+          POSTGRES_DB: manabi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U manabi -d manabi_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://manabi:manabi@localhost:5432/manabi_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,6 +33,17 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
+      - name: Lint
+        run: npm run lint
+      - name: Check formatting
+        run: npm run format:check
+      - name: Type check
+        run: npm run typecheck
+      - name: Check PostgreSQL is reachable
+        run: psql "$DATABASE_URL" -c 'select 1'
+      - name: Test with coverage
+        run: npm run test:coverage
+      - name: npm audit (report only)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: npm audit --audit-level=low

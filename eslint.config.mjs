@@ -9,6 +9,8 @@ export default tseslint.config(
       '**/coverage/**',
       '**/playwright-report/**',
       '**/jest.config*.js',
+      // Throwaway spike code (own package.json, not workspaces) stays out of all checks.
+      'spikes/**',
     ],
   },
   js.configs.recommended,
