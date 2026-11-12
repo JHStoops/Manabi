@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
+import { errorCodeForStatus } from '@manabi/core';
 import type { ApiError } from '@manabi/core';
 import type { Config } from './config';
 
@@ -11,11 +12,12 @@ export async function buildApp(config: Config): Promise<FastifyInstance> {
   const app = Fastify({ logger: config.nodeEnv !== 'test' });
 
   app.setErrorHandler((error, _request, reply) => {
-    const err = error as { statusCode?: number; code?: string; message: string };
+    const err = error as { statusCode?: number; message: string };
     const status = err.statusCode ?? 500;
     const body: ApiError = {
       error: {
-        code: err.code ?? (status >= 500 ? 'internal_error' : 'bad_request'),
+        // IF-07: only codes from the core enum; framework codes (FST_ERR_*) are not exposed.
+        code: errorCodeForStatus(status),
         message: status >= 500 ? 'Internal server error' : err.message,
         details: null,
       },

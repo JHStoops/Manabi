@@ -1,10 +1,8 @@
 import type { ZodTypeAny } from 'zod';
+import type { Item } from './content';
 
 // NOTE: Several types below are placeholders. They will be replaced by the real
-// domain types (items, exercises, learner state) as the corresponding features land.
-
-/** Placeholder for a content item (word, kanji, grammar point, ...). */
-export type Item = { id: string; type: string };
+// domain types (exercises, learner state) as the corresponding features land.
 
 /** Placeholder for an exercise presented to the learner. */
 export type Exercise = { id: string; type: string; prompt: unknown; accepted: unknown };

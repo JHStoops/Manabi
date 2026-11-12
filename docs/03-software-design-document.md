@@ -97,6 +97,8 @@ The web app renders script features from the `features` flags: the Kanji area of
 | `audio/` | Optional recorded clips that replace generated ones |
 | AUTHORING.md | The content authoring guide for Claude or a person adding a level: where each dataset comes from and its licence, the pack file formats with a worked example of each lesson type, naming and key conventions, style rules for grammar explanations and exercises, the step-by-step procedure for a new level (set the level ceiling, run imports, draft units, validate, preview, publish), and the lint command that must pass |
 
+Tiles in pack files (in sentences.yaml and in authored exercise answer text) name their item by stable key; import resolves each key to the item's id for storage, a key with no item in the course is an import error, and export writes the key back (DR-02, DR-03).
+
 The database is what the running app reads. A CLI and an admin action import a pack into the database and export the database back to a pack, so content edited in the admin editor can be committed to git and a course can be moved between servers. Items have stable keys (`ja:kanji:水`, `ja:word:水:みず`, `ja:grammar:te-kudasai`) so re-imports update in place and learner progress stays attached. Importing an updated or larger pack (for example adding N4) only adds and updates content rows: an import never writes to progress tables, lessons and items dropped from a pack are archived instead of deleted, and lessons added inside an already completed unit do not re-lock anything.
 
 ## 5. Data model
@@ -110,11 +112,11 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 | `courses` | id, target_lang, base_lang, plugin, title, status | One row per course |
 | `sections` | id, course_id, position, title, level_code, archived_at | Kana, N5, N4, N3; archived instead of deleted when dropped from a pack |
 | `units` | id, section_id, position, title, status | Draft or published |
-| `lessons` | id, unit_id, position, type, title, status | Type from the Product Spec's lesson types |
-| `items` | id, course_id, key (unique), type, level_code, data (JSONB), overrides (JSONB), source | Kana, kanji, word, grammar point; `overrides` survive re-import |
+| `lessons` | id, unit_id, position, type, title, status | Type is one of kana, vocabulary, kanji, grammar, listening, unit_review (the Product Spec's lesson types) |
+| `items` | id, course_id, key (unique), type, level_code, data (JSONB), overrides (JSONB), source, dataset_version | Kana, kanji, word, grammar point; `overrides` survive re-import |
 | `item_links` | from_item_id, to_item_id, kind | Word contains kanji; grammar related to grammar; kanji has component |
 | `lesson_items` | lesson_id, item_id, position | The new items a lesson teaches |
-| `sentences` | id, course_id, text, tokens (JSONB), translation, source, source_id, attribution (JSONB), review_status, grammar (JSONB), vocab_level_code, grammar_level_code, challenge_override, edited | Tokens carry tiles with surface, base form, reading and item id; the sentence reading is the tiles' readings joined. Attribution holds owner, URL, licence and dataset version for the sentence and its translation separately. Review status is unreviewed, flagged or reviewed; grammar lists the points detected at import; `vocab_level_code` is the highest level among the content words, set by the import's coverage check and recomputed when tiles change; `grammar_level_code` (same domain as `level_code`) is the highest level among them, null when none; `challenge_override` is null when the challenge status is derived (`grammar_level_code` above `vocab_level_code`) and true or false when an author has set it; edited marks author changes to imported text |
+| `sentences` | id, course_id, text, tokens (JSONB), translation, source, source_id, attribution (JSONB), review_status, grammar (JSONB), vocab_level_code, grammar_level_code, challenge_override, edited, translation_edited, tokens_edited | Tokens carry tiles with surface, base form, reading and item id; the sentence reading is the tiles' readings joined. Attribution holds owner, URL, licence and dataset version for the sentence and its translation separately. Review status is unreviewed, flagged or reviewed; grammar lists the points detected at import; `vocab_level_code` is the highest level among the content words, set by the import's coverage check and recomputed when tiles change; `grammar_level_code` (same domain as `level_code`) is the highest level among them, null when none; `challenge_override` is null when the challenge status is derived (`grammar_level_code` above `vocab_level_code`) and true or false when an author has set it; edited, translation_edited and tokens_edited mark author changes to the imported text, translation and tiles, which re-import never overwrites |
 | `supplementary_words` | id, course_id, level_code, written, reading, note | Admin-editable; seeded from the words that block the most imported sentences |
 | `blocked_words` | id, lang, word | Admin-editable blocklist per language; empty at start |
 | `sentence_items` | sentence_id, item_id | For "example sentences using this item" |
@@ -126,7 +128,7 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 
 | Table | Key columns | Notes |
 | --- | --- | --- |
-| `users` | id, username, email, password_hash, display_name, role (admin or learner), must_change_password, password_expires_at, time_zone, settings (JSONB), disabled_at | Settings hold theme, furigana mode, caps, toggles; password_expires_at is set with an admin's temporary password |
+| `users` | id, username, email, password_hash, display_name, role (admin or learner), must_change_password, password_expires_at, time_zone, settings (JSONB), disabled_at | Settings hold avatar color and initial, daily goal, caps, theme and color mode, furigana mode, text size, sound, motion and social toggles; missing keys read as their defaults (learnerSettingsSchema in core); password_expires_at is set with an admin's temporary password |
 | `invites` | id, token_hash, email, role, created_by, expires_at, used_by, used_at, revoked_at | Single use; email is null when the link was only copied |
 | `sessions` | id, user_id, token_hash, client_kind, expires_at, last_seen_at | Web or mobile |
 | `password_resets` | id, user_id, token_hash, origin, expires_at, used_at | Origin: email or admin issued |

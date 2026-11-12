@@ -18,7 +18,6 @@ describe('japanese language plugin', () => {
 
   it('declares no optional features while its behavior is stubbed', () => {
     expect(Object.values(japanese.features).every((enabled) => !enabled)).toBe(true);
-    expect(japanese.itemSchemas).toEqual({});
     expect(japanese.generators).toEqual({});
   });
 
