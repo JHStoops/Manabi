@@ -300,7 +300,7 @@ The app is internet-facing but invite-only, so the design aims at keeping strang
 | Sessions | Random 256-bit token, stored hashed; 30-day sliding expiry; listed and revocable from the profile; all sessions revoked on password change |
 | Cookies | `HttpOnly`, `Secure`, `SameSite=Lax`; state-changing requests also require a matching `Origin` header |
 | Invites and resets | Single-use random tokens, stored hashed, with expiry. An admin-set temporary password sets must_change_password, so the next sign-in can do nothing but choose a new password; it expires after 7 days |
-| Brute force | Rate limits per IP and per username on login, invite and reset routes; progressive delay after failures |
+| Brute force | Rate limits per IP and per username on login, invite and reset routes; progressive delay after failures is deferred to the backlog (PRD section 7) |
 | Authorization | Role checked per route group; every progress query is scoped by the session's user id in the service layer |
 | Input | All bodies and queries validated by Zod; Markdown from authors is rendered through a sanitizer |
 | Headers | Strict Content Security Policy, HSTS, no-sniff and frame-deny set by the API |
