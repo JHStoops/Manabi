@@ -148,7 +148,7 @@ For the importer (SDD section 10 step 5):
 2. No Latin letters in the Japanese.
 3. Every content word is at or below the item's level (the coverage rule above), with grammar tokens, counters, numbers and person and place names exempt, and words on the level's supplementary common-words list count as in-level (owner decision 2). Words on the language's blocklist reject the sentence (owner decision 5).
 4. **Length ≤ 15** characters, excluding spaces and punctuation. ≤10 loses about a quarter of N5 words with five or more sentences; ≤20 adds little coverage and the extra sentences are the longest and hardest.
-5. **Owner declares native Japanese** on Tatoeba (`user_languages`, level 5). This drops orphan sentences, which failed most often, and still leaves 14,583 N5 sentences. If coverage for a particular word is too thin, fall back to all owners for that word.
+5. **Owner declares native Japanese** on Tatoeba (`user_languages`, level 5). This drops orphan sentences, which failed most often, and still leaves 14,583 N5 sentences.
 6. Grammar (owner decision 4): at most one grammar point from the next level above the item's level; otherwise drop or flag for author review, detected automatically.
 7. Import everything as "unreviewed". Authors pick at most a few sentences per item; the rest stay unpublished.
 8. Store the kuromoji tokenization with each sentence so authors can see which words it uses and the coverage check can be re-run when the course word list changes.
