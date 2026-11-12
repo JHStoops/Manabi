@@ -11,3 +11,6 @@ playwright-report/
 test-results/
 .DS_Store
 *.log
+
+# Downloaded open datasets (npm run download --workspace @manabi/importers)
+packages/importers/datasets/

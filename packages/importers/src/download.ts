@@ -1,0 +1,44 @@
+import { createWriteStream } from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { basename, join, resolve } from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import type { ReadableStream } from 'node:stream/web';
+import { createGunzip } from 'node:zlib';
+import { datasets } from './datasets';
+
+/**
+ * `npm run download --workspace @manabi/importers`: fetches every dataset into the git-ignored
+ * `packages/importers/datasets/<name>/` and writes a manifest.json there with the version and
+ * licence (SDD section 10). Never run by tests or CI.
+ */
+const ROOT = resolve(__dirname, '../datasets');
+
+async function main(): Promise<void> {
+  for (const [name, dataset] of Object.entries(datasets)) {
+    const dir = join(ROOT, name);
+    await mkdir(dir, { recursive: true });
+    let version: string | null = null;
+    for (const url of dataset.urls) {
+      console.log(`Downloading ${url}`);
+      const res = await fetch(url);
+      if (!res.ok || !res.body) throw new Error(`${url}: HTTP ${res.status}`);
+      // The server's Last-Modified date stands in for the version of files that carry none.
+      const modified = res.headers.get('last-modified');
+      version ??= (modified ? new Date(modified) : new Date()).toISOString().slice(0, 10);
+      const gz = url.endsWith('.gz');
+      const file = join(dir, basename(url, gz ? '.gz' : ''));
+      const body = Readable.fromWeb(res.body as ReadableStream);
+      await (gz
+        ? pipeline(body, createGunzip(), createWriteStream(file))
+        : pipeline(body, createWriteStream(file)));
+    }
+    const manifest = { version, downloadedAt: new Date().toISOString(), ...dataset };
+    await writeFile(join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+  }
+}
+
+main().catch((err: unknown) => {
+  console.error(err);
+  process.exit(1);
+});

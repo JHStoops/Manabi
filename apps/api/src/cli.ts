@@ -1,31 +1,51 @@
 import { basename, resolve } from 'node:path';
+import type { Pool } from 'pg';
 import { ContentPackError } from '@manabi/core';
 import { loadConfig } from './config';
 import { createPool } from './db/pool';
 import { readPack, writePack } from './modules/content/packFiles';
 import { exportPack, importPack } from './modules/content/service';
+import { importKanjidic2 } from './modules/imports/service';
 
 const USAGE = `Usage: manabi pack import <dir>
-       manabi pack export <dir>   (the folder name is the course key, for example content/ja-en)`;
+       manabi pack export <dir>   (the folder name is the course key, for example content/ja-en)
+       manabi import kanjidic2 <course-key> <file>`;
 
-/** `manabi pack import|export <dir>` (FR-227) against DATABASE_URL. */
-async function main([group, command, dirArg]: string[]): Promise<void> {
-  if (group !== 'pack' || (command !== 'import' && command !== 'export') || !dirArg) {
+/** Picks the command to run, or null for bad arguments. */
+function command([group, name, arg, file]: string[]): ((pool: Pool) => Promise<unknown>) | null {
+  if (!arg) return null;
+  // npm scripts run in the workspace folder; INIT_CWD is where the command was typed.
+  const cwd = process.env.INIT_CWD ?? process.cwd();
+  if (group === 'import' && name === 'kanjidic2' && file) {
+    return (pool) => importKanjidic2(pool, { courseKey: arg, file: resolve(cwd, file) });
+  }
+  const dir = resolve(cwd, arg);
+  if (group === 'pack' && name === 'import') {
+    return async (pool) => {
+      await importPack(pool, await readPack(dir));
+      return `Imported ${dir}`;
+    };
+  }
+  if (group === 'pack' && name === 'export') {
+    return async (pool) => {
+      await writePack(dir, await exportPack(pool, basename(dir)));
+      return `Exported to ${dir}`;
+    };
+  }
+  return null;
+}
+
+/** `manabi pack import|export` (FR-227) and `manabi import <dataset>` (FR-226) on DATABASE_URL. */
+async function main(args: string[]): Promise<void> {
+  const run = command(args);
+  if (!run) {
     console.error(USAGE);
     process.exitCode = 2;
     return;
   }
-  // npm scripts run in the workspace folder; INIT_CWD is where the command was typed.
-  const dir = resolve(process.env.INIT_CWD ?? process.cwd(), dirArg);
   const pool = createPool(loadConfig().databaseUrl);
   try {
-    if (command === 'import') {
-      await importPack(pool, await readPack(dir));
-      console.log(`Imported ${dir}`);
-    } else {
-      await writePack(dir, await exportPack(pool, basename(dir)));
-      console.log(`Exported to ${dir}`);
-    }
+    console.log(await run(pool));
   } finally {
     await pool.end();
   }
