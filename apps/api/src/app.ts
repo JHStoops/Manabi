@@ -1,59 +1,178 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import type { Writable } from 'node:stream';
 import Fastify from 'fastify';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest, FastifyServerOptions } from 'fastify';
+import fastifyHelmet from '@fastify/helmet';
 import fastifyStatic from '@fastify/static';
-import { errorCodeForStatus } from '@manabi/core';
-import type { ApiError } from '@manabi/core';
+import fastifySwagger from '@fastify/swagger';
+import {
+  jsonSchemaTransform,
+  serializerCompiler,
+  validatorCompiler,
+} from 'fastify-type-provider-zod';
+import type { FastifyPluginAsyncZod, ZodTypeProvider } from 'fastify-type-provider-zod';
+import type { Pool } from 'pg';
+import { emptyQuerySchema } from '@manabi/core';
 import type { Config } from './config';
+import { apiNotFound, errorHandler } from './errors';
+import { featureModules } from './modules';
+import { API_PREFIX, missingRequestSchemas } from './routeSchemas';
+import type { RegisteredRoute } from './types';
+import './types';
 
-/** Builds the Fastify app. Does not listen and does not connect to the database. */
-export async function buildApp(config: Config): Promise<FastifyInstance> {
-  const app = Fastify({ logger: config.nodeEnv !== 'test' });
+export interface AppOptions {
+  config: Config;
+  /** The shared pg pool; the caller owns it and ends it after closing the app. */
+  pool: Pool;
+  /** Where JSON logs go instead of stdout (tests). */
+  logStream?: Writable;
+}
 
-  app.setErrorHandler((error, _request, reply) => {
-    const err = error as { statusCode?: number; message: string };
-    const status = err.statusCode ?? 500;
-    const body: ApiError = {
-      error: {
-        // IF-07: only codes from the core enum; framework codes (FST_ERR_*) are not exposed.
-        code: errorCodeForStatus(status),
-        message: status >= 500 ? 'Internal server error' : err.message,
-        details: null,
-      },
-    };
-    if (status >= 500) app.log.error(error);
-    return reply.status(status).send(body);
-  });
+/** Log fields that could carry secrets; pino replaces their values. */
+const REDACT_PATHS = [
+  'req.headers.authorization',
+  'req.headers.cookie',
+  'res.headers["set-cookie"]',
+  'password',
+  '*.password',
+  'newPassword',
+  '*.newPassword',
+  'token',
+  '*.token',
+  'sessionSecret',
+  '*.sessionSecret',
+  'databaseUrl',
+  '*.databaseUrl',
+];
 
-  app.get('/api/v1/healthz', async () => ({ status: 'ok' }));
+/**
+ * Structured JSON logs to stdout (SDD section 12). Requests are logged by method, path and route
+ * only: no query strings (they can hold search terms), client addresses or headers.
+ */
+function loggerOptions(config: Config, stream?: Writable): FastifyServerOptions['logger'] {
+  return {
+    level: config.logLevel,
+    redact: { paths: REDACT_PATHS, censor: '[redacted]' },
+    serializers: {
+      req: (request: FastifyRequest) => ({
+        id: request.id,
+        method: request.method,
+        path: request.url.split('?')[0],
+        route: request.routeOptions?.url,
+      }),
+    },
+    ...(stream ? { stream } : {}),
+  };
+}
 
-  // PLACEHOLDER: the real document will be generated from the Zod schemas in @manabi/core.
-  app.get('/api/v1/openapi.json', async () => ({
-    openapi: '3.1.0',
-    info: { title: 'Manabi API', version: '0.0.0' },
-    paths: {
-      '/api/v1/healthz': {
-        get: { responses: { '200': { description: 'Service is healthy' } } },
+/**
+ * SDD section 11 (Headers): strict CSP, HSTS, no-sniff and frame-deny on every response. The web
+ * app makes no third-party requests, so everything is same-origin. Emotion injects <style> tags
+ * at runtime, hence 'unsafe-inline' for styles only.
+ */
+const helmetOptions = {
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      manifestSrc: ["'self'"],
+      mediaSrc: ["'self'", 'blob:'],
+      objectSrc: ["'none'"],
+      scriptSrc: ["'self'"],
+      scriptSrcAttr: ["'none'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      workerSrc: ["'self'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  strictTransportSecurity: { maxAge: 31_536_000, includeSubDomains: true },
+  frameguard: { action: 'deny' as const },
+};
+
+/** The OpenAPI document of every API route (IF-05). */
+const openApiRoute: FastifyPluginAsyncZod = async (app) => {
+  app.get(
+    '/openapi.json',
+    {
+      schema: {
+        summary: 'OpenAPI description of this API',
+        tags: ['meta'],
+        querystring: emptyQuerySchema,
       },
     },
-  }));
+    async () => app.swagger(),
+  );
+};
 
-  if (config.webDistDir && existsSync(config.webDistDir)) {
+/**
+ * Builds the Fastify app. Does not listen. Every route under /api/v1 must declare its request
+ * schemas (NFR-13); registering one without them fails here, at start-up.
+ */
+export async function buildApp({ config, pool, logStream }: AppOptions): Promise<FastifyInstance> {
+  const app = Fastify({
+    logger: config.logLevel === 'silent' && !logStream ? false : loggerOptions(config, logStream),
+    // IF-08: Nginx Proxy Manager terminates HTTPS and sets X-Forwarded-For/-Proto/-Host, so
+    // request.protocol is 'https' and request.ip is the client's for proxied requests.
+    trustProxy: config.trustProxy,
+  }).withTypeProvider<ZodTypeProvider>();
+
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
+  app.decorate('db', pool);
+
+  const routes: RegisteredRoute[] = [];
+  app.decorate('registeredRoutes', routes);
+  app.addHook('onRoute', (route) => {
+    const missing = missingRequestSchemas(route);
+    if (missing.length > 0) {
+      throw new Error(
+        `Route ${String(route.method)} ${route.url} must declare Zod schemas for: ${missing.join(', ')} (NFR-13)`,
+      );
+    }
+    routes.push({ method: route.method, url: route.url, schema: route.schema });
+  });
+
+  await app.register(fastifyHelmet, helmetOptions);
+  await app.register(fastifySwagger, {
+    openapi: {
+      openapi: '3.0.3',
+      info: { title: 'Manabi API', version: '1.0.0' },
+    },
+    transform: jsonSchemaTransform,
+  });
+
+  app.setErrorHandler(errorHandler);
+
+  await app.register(
+    async (api) => {
+      for (const module of featureModules) await api.register(module);
+      await api.register(openApiRoute);
+    },
+    { prefix: API_PREFIX },
+  );
+
+  const hasWebApp = Boolean(config.webDistDir) && existsSync(config.webDistDir);
+  if (hasWebApp) {
     await app.register(fastifyStatic, { root: config.webDistDir });
-    app.setNotFoundHandler((request, reply) => {
-      if (request.url.startsWith('/api/')) {
-        const body: ApiError = {
-          error: { code: 'not_found', message: 'Route not found', details: null },
-        };
-        return reply.status(404).send(body);
-      }
-      if (existsSync(join(config.webDistDir, 'index.html'))) {
-        return reply.sendFile('index.html');
-      }
-      return reply.status(404).send();
-    });
   }
+  app.setNotFoundHandler((request, reply) => {
+    // The web app does its own routing: unknown non-API paths get index.html.
+    if (
+      hasWebApp &&
+      !request.url.startsWith('/api/') &&
+      existsSync(join(config.webDistDir, 'index.html'))
+    ) {
+      return reply.sendFile('index.html');
+    }
+    return apiNotFound(request, reply);
+  });
 
   return app;
 }
