@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { levelCodeSchema } from '@manabi/core';
 
 export type NodeEnv = 'development' | 'test' | 'production';
 
@@ -25,6 +26,8 @@ export interface Config {
   webDistDir: string;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
   trustProxy: TrustProxy;
+  /** Highest level the level-list import reads (SDD section 10 step 2); raise it to add a level. */
+  levelCeiling: string;
 }
 
 /** Thrown by `loadConfig` when the environment is invalid. The message never contains values. */
@@ -79,6 +82,7 @@ const envSchema = z
     // and clients cannot spoof it with their own X-Forwarded-For. Setting NPM's address instead
     // also stops other LAN peers from faking X-Forwarded-Proto.
     TRUST_PROXY: trustProxySchema.default('1'),
+    LEVEL_CEILING: levelCodeSchema.default('N3'),
   })
   .superRefine((env, ctx) => {
     // Tests that need a database get their own URL; everything else needs one to start.
@@ -130,5 +134,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     webDistDir: e.WEB_DIST_DIR,
     logLevel: e.LOG_LEVEL ?? (e.NODE_ENV === 'test' ? 'silent' : 'info'),
     trustProxy: e.TRUST_PROXY,
+    levelCeiling: e.LEVEL_CEILING,
   };
 }

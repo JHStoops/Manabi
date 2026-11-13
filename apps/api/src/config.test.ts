@@ -16,6 +16,7 @@ describe('loadConfig', () => {
       webDistDir: '',
       logLevel: 'silent',
       trustProxy: 1,
+      levelCeiling: 'N3',
     });
   });
 
@@ -28,6 +29,7 @@ describe('loadConfig', () => {
       SESSION_SECRET: SECRET,
       MEDIA_DIR: '/media',
       LOG_LEVEL: 'warn',
+      LEVEL_CEILING: 'N2',
       SMTP_HOST: '',
     });
     expect(config).toMatchObject({
@@ -36,6 +38,7 @@ describe('loadConfig', () => {
       databaseUrl: DB,
       sessionSecret: SECRET,
       logLevel: 'warn',
+      levelCeiling: 'N2',
     });
   });
 
@@ -61,6 +64,7 @@ describe('loadConfig', () => {
     ['a bad port', { NODE_ENV: 'test', PORT: '70000' }, 'PORT'],
     ['an unknown NODE_ENV', { NODE_ENV: 'staging' }, 'NODE_ENV'],
     ['a bad TRUST_PROXY', { NODE_ENV: 'test', TRUST_PROXY: 'npm-host' }, 'TRUST_PROXY'],
+    ['a bad LEVEL_CEILING', { NODE_ENV: 'test', LEVEL_CEILING: 'N 2' }, 'LEVEL_CEILING'],
     [
       'a short production secret',
       { NODE_ENV: 'production', DATABASE_URL: DB, PUBLIC_URL: 'https://m.example.com' },

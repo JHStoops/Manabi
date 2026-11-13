@@ -43,3 +43,4 @@ export DATABASE_URL=postgres://manabi:manabi@localhost:5432/manabi_test
 - `0002_accounts.sql`: users, invites, sessions, password_resets.
 - `0003_progress.sql`: enrollments, lesson_progress, lesson_sessions, item_progress, review_log, xp_events, user_stats, user_notes, boosters; the append-only triggers.
 - `0004_social_admin.sql`: follows, nudges, weekly_results, achievements, user_achievements, answer_reports, import_runs.
+- `0005_level_list_words.sql`: level_list_words, the JLPT level-list words the JMdict import filters on.

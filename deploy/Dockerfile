@@ -29,6 +29,8 @@ RUN npm ci --omit=dev --workspace @manabi/api --include-workspace-root
 COPY --from=build /app/apps/api/dist apps/api/dist
 COPY --from=build /app/apps/web/dist apps/web/dist
 COPY apps/api/migrations apps/api/migrations
+# The committed JLPT level lists the level-list import reads (FR-233).
+COPY packages/importers/data packages/importers/data
 ENV WEB_DIST_DIR=/app/apps/web/dist
 ENV PATH=/app/node_modules/.bin:$PATH
 WORKDIR /app/apps/api

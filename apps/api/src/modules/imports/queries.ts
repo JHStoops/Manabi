@@ -1,7 +1,7 @@
 import type { Queryable } from '../../db/db';
 import { insertReturning, query } from '../../db/db';
 import type { JsonObject } from '../content/rows';
-import type { ImportedItem } from '@manabi/importers';
+import type { ImportedItem, LevelWord } from '@manabi/importers';
 
 // Dataset imports (FR-226, SDD section 10). Nothing here touches a progress table.
 
@@ -63,6 +63,55 @@ export async function upsertImportedItems(
       i.items.map((item) => item.key),
       i.items.map((item) => item.type),
       i.items.map((item) => JSON.stringify(item.data)),
+    ],
+  );
+  return row!;
+}
+
+/**
+ * SDD section 10 step 2: sets `level_code` on the course's imported items with these keys.
+ * Authored items keep the level their pack gives them. Returns how many rows changed.
+ */
+export async function setImportedItemLevels(
+  db: Queryable,
+  i: { courseId: number; levels: { key: string; level: string }[] },
+): Promise<number> {
+  const [row] = await query<{ updated: number }>(
+    db,
+    `WITH updated AS (
+       UPDATE items SET level_code = t.level, updated_at = now()
+       FROM unnest($2::text[], $3::text[]) AS t (key, level)
+       WHERE items.key = t.key AND items.course_id = $1 AND items.source IS NOT NULL
+         AND items.level_code IS DISTINCT FROM t.level
+       RETURNING 1)
+     SELECT count(*)::int AS updated FROM updated`,
+    [i.courseId, i.levels.map((l) => l.key), i.levels.map((l) => l.level)],
+  );
+  return row!.updated;
+}
+
+/** Upserts level-list words by (course, written, reading); only a changed level is updated. */
+export async function upsertLevelListWords(
+  db: Queryable,
+  i: { courseId: number; words: LevelWord[] },
+): Promise<UpsertCounts> {
+  const [row] = await query<{ added: number; updated: number }>(
+    db,
+    `WITH upserted AS (
+       INSERT INTO level_list_words (course_id, level_code, written, reading)
+       SELECT $1, t.level, t.written, t.reading
+       FROM unnest($2::text[], $3::text[], $4::text[]) AS t (level, written, reading)
+       ON CONFLICT (course_id, written, reading) DO UPDATE SET level_code = EXCLUDED.level_code
+       WHERE level_list_words.level_code IS DISTINCT FROM EXCLUDED.level_code
+       RETURNING xmax = 0 AS inserted)
+     SELECT count(*) FILTER (WHERE inserted)::int AS added,
+       count(*) FILTER (WHERE NOT inserted)::int AS updated
+     FROM upserted`,
+    [
+      i.courseId,
+      i.words.map((w) => w.level),
+      i.words.map((w) => w.written),
+      i.words.map((w) => w.reading),
     ],
   );
   return row!;

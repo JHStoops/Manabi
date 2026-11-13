@@ -1,12 +1,18 @@
 import { createReadStream } from 'node:fs';
 import type { Pool } from 'pg';
 import { parseItemData } from '@manabi/core';
-import { datasets, parseKanjidic2 } from '@manabi/importers';
+import { datasets, parseKanjidic2, readLevelLists } from '@manabi/importers';
 import type { DatasetName, ParsedDataset } from '@manabi/importers';
 import { withTransaction } from '../../db/db';
 import { languagePlugins } from '../../plugins';
 import { findCourseByKey } from '../content/queries';
-import { finishImportRun, insertImportRun, upsertImportedItems } from './queries';
+import {
+  finishImportRun,
+  insertImportRun,
+  setImportedItemLevels,
+  upsertImportedItems,
+  upsertLevelListWords,
+} from './queries';
 
 // Dataset imports (FR-226, SDD section 10): repeatable, keyed by stable key, never writing to
 // progress tables or overwriting author overrides.
@@ -87,4 +93,43 @@ export function importKanjidic2(
   return recordRun(pool, 'kanjidic2', async () =>
     importItems(pool, courseKey, 'kanjidic2', await parseKanjidic2(createReadStream(file, 'utf8'))),
   );
+}
+
+export interface ImportLevelLists {
+  courseKey: string;
+  /** The configured level ceiling (`LEVEL_CEILING`); later levels are skipped. */
+  ceiling: string;
+  /** Lists folder; defaults to the committed copy. */
+  dir?: string;
+}
+
+/**
+ * SDD section 10 step 2, FR-233: sets `level_code` on the course's imported kanji and stores the
+ * level-list words, read from the committed copy (no network request) up to the level ceiling.
+ * Kanji not imported yet are skipped, so run KANJIDIC2 first.
+ */
+export function importLevelLists(
+  pool: Pool,
+  { courseKey, ceiling, dir }: ImportLevelLists,
+): Promise<ImportSummary> {
+  return recordRun(pool, 'level-lists', async () => {
+    const lists = await readLevelLists(ceiling, dir);
+    return withTransaction(pool, async (db) => {
+      const course = await findCourseByKey(db, courseKey);
+      if (!course) throw new Error(`No course ${courseKey}: import its content pack first`);
+      const kanji = await setImportedItemLevels(db, { courseId: course.id, levels: lists.kanji });
+      const words = await upsertLevelListWords(db, { courseId: course.id, words: lists.words });
+      const { datasetVersion, licence, attribution, levels } = lists;
+      return {
+        datasetVersion,
+        licence,
+        attribution,
+        ceiling,
+        levels,
+        added: words.added,
+        updated: kanji + words.updated,
+        skipped: lists.kanji.length + lists.words.length - kanji - words.added - words.updated,
+      };
+    });
+  });
 }

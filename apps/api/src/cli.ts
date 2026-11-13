@@ -5,11 +5,12 @@ import { loadConfig } from './config';
 import { createPool } from './db/pool';
 import { readPack, writePack } from './modules/content/packFiles';
 import { exportPack, importPack } from './modules/content/service';
-import { importKanjidic2 } from './modules/imports/service';
+import { importKanjidic2, importLevelLists } from './modules/imports/service';
 
 const USAGE = `Usage: manabi pack import <dir>
        manabi pack export <dir>   (the folder name is the course key, for example content/ja-en)
-       manabi import kanjidic2 <course-key> <file>`;
+       manabi import kanjidic2 <course-key> <file>
+       manabi import level-lists <course-key>   (up to LEVEL_CEILING, default N3)`;
 
 /** Picks the command to run, or null for bad arguments. */
 function command([group, name, arg, file]: string[]): ((pool: Pool) => Promise<unknown>) | null {
@@ -18,6 +19,9 @@ function command([group, name, arg, file]: string[]): ((pool: Pool) => Promise<u
   const cwd = process.env.INIT_CWD ?? process.cwd();
   if (group === 'import' && name === 'kanjidic2' && file) {
     return (pool) => importKanjidic2(pool, { courseKey: arg, file: resolve(cwd, file) });
+  }
+  if (group === 'import' && name === 'level-lists' && !file) {
+    return (pool) => importLevelLists(pool, { courseKey: arg, ceiling: loadConfig().levelCeiling });
   }
   const dir = resolve(cwd, arg);
   if (group === 'pack' && name === 'import') {
