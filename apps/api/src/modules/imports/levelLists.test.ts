@@ -110,7 +110,7 @@ describeWithDb('importLevelLists (FR-226, FR-233, FR-244, NFR-62)', () => {
     }
     try {
       const summary = await importLevelLists(pool(), { courseKey: 'ja-en', ceiling: 'N3' });
-      expect(summary).toMatchObject({ levels: ['N5', 'N4'], added: 686 + 585, updated: 1 });
+      expect(summary).toMatchObject({ levels: ['N5', 'N4'], added: 687 + 585, updated: 1 });
       for (const spy of network) expect(spy).not.toHaveBeenCalled();
     } finally {
       for (const spy of network) spy.mockRestore();

@@ -2,7 +2,8 @@
 
 JLPT Resources by Jonathan Waller (tanos.co.uk), CC BY. The site's "Use my data!" page licenses
 everything on it not for sale under Creative Commons "BY" and asks for credit to the site,
-preferably with a link: <http://www.tanos.co.uk/jlpt/>.
+preferably with a link: <http://www.tanos.co.uk/jlpt/>. The source states "CC BY" without a
+version; see the Creative Commons licences at <https://creativecommons.org/licenses/>.
 
 tanos.co.uk no longer resolves, so this is a parsed copy of its pages as archived by the Wayback
 Machine (FR-233). The importer reads only these files and makes no network request. The pages
@@ -11,7 +12,7 @@ say "Updated: November 21, 2010", which is the `version` in `manifest.json`.
 | File           | Wayback Machine snapshot                                                              | Entries |
 | -------------- | ------------------------------------------------------------------------------------- | ------- |
 | `N5-kanji.txt` | <https://web.archive.org/web/20200806005029/http://www.tanos.co.uk/jlpt/jlpt5/kanji/> | 79      |
-| `N5-words.tsv` | <https://web.archive.org/web/20200728231522/http://www.tanos.co.uk/jlpt/jlpt5/vocab/> | 686     |
+| `N5-words.tsv` | <https://web.archive.org/web/20200728231522/http://www.tanos.co.uk/jlpt/jlpt5/vocab/> | 687     |
 | `N4-kanji.txt` | <https://web.archive.org/web/20200716184232/http://www.tanos.co.uk/jlpt/jlpt4/kanji/> | 166     |
 | `N4-words.tsv` | <https://web.archive.org/web/20200629172633/http://www.tanos.co.uk/jlpt/jlpt4/vocab/> | 585     |
 
@@ -31,16 +32,25 @@ alternatives give more than one entry here.
 
 ## Fixes to the source rows
 
-| Level | Page row                       | Here                                             |
-| ----- | ------------------------------ | ------------------------------------------------ |
-| N5    | 明い あかるい                  | 明るい あかるい (typo)                           |
-| N5    | 伯父/叔父 おじいさん           | お祖父さん/お爺さん おじいさん (wrong kanji)     |
-| N5    | 伯父/叔父 おじさん             | 伯父さん/叔父さん おじさん (missing さん)        |
-| N4    | 堅/硬/固い かたい              | 堅い/硬い/固い かたい (shorthand expanded)       |
-| N4    | お・金持ち かねもち/おかねもち | 金持ち かねもち, お金持ち おかねもち (two words) |
+| Level | Page row                                                                   | Here                                             |
+| ----- | -------------------------------------------------------------------------- | ------------------------------------------------ |
+| N5    | 明い あかるい                                                              | 明るい あかるい (typo)                           |
+| N5    | 伯父/叔父 おじいさん                                                       | お祖父さん/お爺さん おじいさん (wrong kanji)     |
+| N5    | 伯父/叔父 おじさん                                                         | 伯父さん/叔父さん おじさん (missing さん)        |
+| N5    | より、ほう より、ほう                                                      | より, ほう (two words)                           |
+| N5    | コピーする コピーする                                                      | コピー (する dropped)                            |
+| N5    | 散歩 さんぽする, 掃除 そうじする, 勉強 べんきょうする, 練習 れんしゅうする | readings without する                            |
+| N4    | 堅/硬/固い かたい                                                          | 堅い/硬い/固い かたい (shorthand expanded)       |
+| N4    | お・金持ち かねもち/おかねもち                                             | 金持ち かねもち, お金持ち おかねもち (two words) |
+| N4    | 明日 あす・あした                                                          | 明日 あす (あした is in N5)                      |
+| N4    | けんか・する, チェック・する                                               | けんか, チェック (する dropped)                  |
+| N4    | 遠慮, 故障, 生活, 生産, 退院, 入院, 入学, 拝見 with readings ending ・する | readings without ・する                          |
 
 ## Adding a level
 
 Save the level's kanji and vocabulary pages from the Wayback Machine, write the two files in the
 format above, list the snapshots and any fixes here, then raise `LEVEL_CEILING` and run the
 import again.
+
+Only raising the ceiling is supported (SDD section 10): lowering `LEVEL_CEILING` does not remove
+levels or words already imported.

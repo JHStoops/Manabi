@@ -37,9 +37,16 @@ describe('readLevelLists (FR-233, SDD section 10 step 2)', () => {
     const lists = await readLevelLists('N4');
     expect(lists.levels).toEqual(['N5', 'N4']);
     expect(lists.kanji).toHaveLength(79 + 166);
-    expect(lists.words).toHaveLength(686 + 585);
+    expect(lists.words).toHaveLength(687 + 585);
     // Fixed in the copy (data/tanos/README.md).
     expect(lists.words).toContainEqual({ level: 'N5', written: '明るい', reading: 'あかるい' });
     expect(lists.words.some((w) => w.written === '明い')).toBe(false);
+    // No leftover separators or する suffixes from the source rows.
+    const bad = lists.words.filter(
+      ({ written, reading }) =>
+        /[・、\s]/.test(written + reading) ||
+        (reading.endsWith('する') && !written.endsWith('する')),
+    );
+    expect(bad).toEqual([]);
   });
 });
