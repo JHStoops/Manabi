@@ -32,7 +32,13 @@ the fixtures in `fixtures/`.
   or supplementary word found (`ja:word:<written>:<reading>`) with its list level, and links it to
   its kanji items. Run it after the level lists; the run summary lists the words not found
   (`unmatched`) and keys an authored item or another course owns (`skippedOwned`).
-- Not yet: KanjiVG, Tatoeba.
+- KanjiVG (CC BY-SA 3.0, Ulrich Apel and contributors): `npm run manabi -- import kanjivg ja-en packages/importers/datasets/kanjivg/kanjivg-20260714.xml`,
+  or the `import-kanjivg` worker job with `{ courseKey, file }`. Creates the course's kana items
+  (`ja:kana:<char>`, the 71 hiragana and 71 katakana in `@manabi/lang-ja`) if missing, then stores
+  `stroke_data` for every item with a `character` (kana and kanji), converted to Hanzi Writer data:
+  a fixed-width ribbon outline around each centreline plus its median (FR-077). The run summary
+  lists characters without KanjiVG strokes in `missing`. Run it after KANJIDIC2.
+- Not yet: Tatoeba.
 
 ## Sentence segmentation
 

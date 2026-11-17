@@ -4,6 +4,7 @@ import { segment } from './segment';
 import { readingOf, tokenize } from './tokenize';
 
 export * from './itemSchemas';
+export { courseKana } from './kana';
 export { segment } from './segment';
 export { readingOf, splitByScript, tokenize } from './tokenize';
 

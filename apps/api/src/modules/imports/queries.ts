@@ -172,3 +172,38 @@ export async function insertContainsLinks(
   );
   return row!.added;
 }
+
+/** FR-077: the course's character items (those whose data has a `character`, such as kana and kanji). */
+export function findCharacterItems(
+  db: Queryable,
+  courseId: number,
+): Promise<{ id: number; character: string }[]> {
+  return query(
+    db,
+    `SELECT id, data->>'character' AS character FROM items
+     WHERE course_id = $1 AND data ? 'character' ORDER BY id`,
+    [courseId],
+  );
+}
+
+/** Upserts stroke data by item; an unchanged row is not written, so a re-run changes nothing. */
+export async function upsertStrokeData(
+  db: Queryable,
+  rows: { itemId: number; strokes: object }[],
+): Promise<UpsertCounts> {
+  const [row] = await query<{ added: number; updated: number }>(
+    db,
+    `WITH upserted AS (
+       INSERT INTO stroke_data (item_id, strokes)
+       SELECT t.item_id, t.strokes::jsonb
+       FROM unnest($1::bigint[], $2::text[]) AS t (item_id, strokes)
+       ON CONFLICT (item_id) DO UPDATE SET strokes = EXCLUDED.strokes, updated_at = now()
+       WHERE stroke_data.strokes IS DISTINCT FROM EXCLUDED.strokes
+       RETURNING xmax = 0 AS inserted)
+     SELECT count(*) FILTER (WHERE inserted)::int AS added,
+       count(*) FILTER (WHERE NOT inserted)::int AS updated
+     FROM upserted`,
+    [rows.map((r) => r.itemId), rows.map((r) => JSON.stringify(r.strokes))],
+  );
+  return row!;
+}

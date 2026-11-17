@@ -1,13 +1,22 @@
 import { createReadStream } from 'node:fs';
 import type { Pool } from 'pg';
 import { parseItemData } from '@manabi/core';
-import { datasets, parseJmdict, parseKanjidic2, readLevelLists } from '@manabi/importers';
+import {
+  datasets,
+  kanaItems,
+  kanjiVgToHanziWriter,
+  parseJmdict,
+  parseKanjidic2,
+  parseKanjiVg,
+  readLevelLists,
+} from '@manabi/importers';
 import type { DatasetName, ParsedDataset } from '@manabi/importers';
 import type { Queryable } from '../../db/db';
 import { withTransaction } from '../../db/db';
 import { languagePlugins } from '../../plugins';
 import { findCourseByKey } from '../content/queries';
 import {
+  findCharacterItems,
   findKeysOwnedElsewhere,
   finishImportRun,
   insertContainsLinks,
@@ -16,6 +25,7 @@ import {
   setImportedItemLevels,
   upsertImportedItems,
   upsertLevelListWords,
+  upsertStrokeData,
 } from './queries';
 
 // Dataset imports (FR-226, SDD section 10): repeatable, keyed by stable key, never writing to
@@ -169,6 +179,36 @@ export function importJmdict(pool: Pool, { courseKey, file }: ImportFile): Promi
         links: parsed.links,
       });
       return { linksAdded, unmatched: parsed.unmatched };
+    });
+  });
+}
+
+/**
+ * SDD section 10 step 4, FR-077: creates the course's kana items (`ja:kana:<char>`) if missing and,
+ * in the same transaction, stores KanjiVG strokes converted to Hanzi Writer data for every
+ * character item (kana and kanji). `added`, `updated` and `skipped` count kana items, the
+ * `strokes*` fields count stroke rows, and `missing` lists characters KanjiVG lacks. Run KANJIDIC2
+ * first so its kanji get strokes.
+ */
+export function importKanjiVg(pool: Pool, { courseKey, file }: ImportFile): Promise<ImportSummary> {
+  return recordRun(pool, 'kanjivg', async () => {
+    const { datasetVersion, strokes } = await parseKanjiVg(createReadStream(file, 'utf8'));
+    const parsed = { datasetVersion, items: kanaItems() };
+    return importItems(pool, courseKey, 'kanjivg', parsed, async (db, courseId) => {
+      const rows: { itemId: number; strokes: object }[] = [];
+      const missing: string[] = [];
+      for (const { id, character } of await findCharacterItems(db, courseId)) {
+        const paths = strokes.get(character);
+        if (paths) rows.push({ itemId: id, strokes: kanjiVgToHanziWriter(paths) });
+        else missing.push(character);
+      }
+      const counts = await upsertStrokeData(db, rows);
+      return {
+        strokesAdded: counts.added,
+        strokesUpdated: counts.updated,
+        strokesSkipped: rows.length - counts.added - counts.updated,
+        missing,
+      };
     });
   });
 }
