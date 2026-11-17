@@ -1,7 +1,8 @@
 import { Suspense, lazy } from 'react';
 import styled from '@emotion/styled';
 import { NavLink, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { t } from './i18n';
+import { useTranslation } from 'react-i18next';
+import './i18n';
 import { useSession } from './state/session';
 import { tapTarget, useMediaQuery } from './theme';
 
@@ -63,9 +64,13 @@ const Main = styled.main`
   padding: ${({ theme }) => theme.spacing(4)};
 `;
 
-const loading = <p>{t('app.loading')}</p>;
+function Loading() {
+  const { t } = useTranslation();
+  return <p>{t('app.loading')}</p>;
+}
 
 function Layout() {
+  const { t } = useTranslation();
   const { user } = useSession();
   const wide = useMediaQuery('(min-width: 768px)');
   const nav = (
@@ -83,7 +88,7 @@ function Layout() {
     <Shell wide={wide}>
       {wide && nav}
       <Main>
-        <Suspense fallback={loading}>
+        <Suspense fallback={<Loading />}>
           <Outlet />
         </Suspense>
       </Main>
@@ -94,7 +99,7 @@ function Layout() {
 
 function RequireSignedIn() {
   const { status } = useSession();
-  if (status === 'loading') return loading;
+  if (status === 'loading') return <Loading />;
   return status === 'signedIn' ? <Outlet /> : <Navigate to="/sign-in" replace />;
 }
 
@@ -104,12 +109,13 @@ function RequireAdmin() {
 
 // Stub: the sign-in screen comes with #22.
 function SignInPage() {
+  const { t } = useTranslation();
   return <h1>{t('area.signIn')}</h1>;
 }
 
 export function App() {
   return (
-    <Suspense fallback={loading}>
+    <Suspense fallback={<Loading />}>
       <Routes>
         <Route path="/sign-in" element={<SignInPage />} />
         <Route element={<RequireSignedIn />}>
