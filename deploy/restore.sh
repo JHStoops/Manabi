@@ -6,6 +6,10 @@ set -euo pipefail
 
 dump="$(realpath "${1:?usage: ./restore.sh <dump.sql.gz>}")"
 gzip -t "$dump"
+# pg_dump ends with this line (newer versions add an \unrestrict line after it); without it the
+# dump is truncated. No grep -q: exiting early would fail the pipe under pipefail.
+zcat "$dump" | tail -n 10 | grep -F -- '-- PostgreSQL database dump complete' > /dev/null \
+  || { echo "Incomplete dump: $dump" >&2; exit 1; }
 cd "$(dirname "$0")"
 
 read -r -p "Replace the manabi database with $dump? Its current data is lost. [y/N] " answer

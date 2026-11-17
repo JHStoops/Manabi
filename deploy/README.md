@@ -15,7 +15,7 @@ Manabi runs with Docker Compose inside a Proxmox LXC, behind your existing Nginx
 1. LXC: enable nesting (and keyctl) in the container's Options > Features so Docker can run.
 2. Install Docker and the Compose plugin in the LXC.
 3. Clone this repo (only the `deploy` folder is needed), `cd deploy`, `cp .env.example .env`, and fill in the values. `MEDIA_DIR`, `DUMPS_DIR` and `DATASETS_DIR` may point to a separate HDD mount.
-4. `docker compose up -d`. This pulls the release image `ghcr.io/jhstoops/manabi:$MANABI_VERSION` (CI builds one for every `v*` tag, for example `v0.1.0` gives `0.1.0` and `latest`); if the GHCR package is private, run `docker login ghcr.io` first. `docker compose build` builds the same image from this checkout instead. The app applies database migrations on start.
+4. `docker compose up -d`. The image must be published first (a `v*` tag pushed) and, if the GHCR package is private, `docker login ghcr.io` run first; otherwise Compose falls back to building from this checkout and fails. This pulls the release image `ghcr.io/jhstoops/manabi:$MANABI_VERSION` (CI builds one for every `v*` tag, for example `v0.1.0` gives `0.1.0` and `latest`). `docker compose build` builds the same image from this checkout instead. The app applies database migrations on start.
 5. Create the first admin: `docker compose exec app node dist/cli.js create-admin <username>`. It asks for the password twice (or reads one line from stdin) and applies the sign-up rules: at least 10 characters, not a common password.
 6. Only `APP_PORT` is published. Check from another machine with `nmap -p- <LXC IP>`: only `APP_PORT` (and SSH, if enabled) should be open.
 
