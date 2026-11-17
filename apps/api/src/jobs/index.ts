@@ -1,4 +1,5 @@
 import type { AnyJobDefinition } from './define';
+import { importJmdictJob } from './importJmdict';
 import { importKanjidic2Job } from './importKanjidic2';
 import { importLevelListsJob } from './importLevelLists';
 import { purgeExpiredJob } from './purgeExpired';
@@ -11,4 +12,5 @@ export const allJobs: readonly AnyJobDefinition[] = [
   purgeExpiredJob,
   importKanjidic2Job,
   importLevelListsJob,
+  importJmdictJob,
 ];

@@ -28,8 +28,8 @@ describeWithDb('importKanjidic2 (FR-226, DR-09, NFR-62)', () => {
       licence: 'CC BY-SA 4.0',
       attribution: expect.stringContaining('EDRDG'),
     };
-    expect(first).toEqual({ ...run, added: 2, updated: 0, skipped: 0 });
-    expect(second).toEqual({ ...run, added: 0, updated: 0, skipped: 2 });
+    expect(first).toEqual({ ...run, added: 2, updated: 0, skipped: 0, skippedOwned: [] });
+    expect(second).toEqual({ ...run, added: 0, updated: 0, skipped: 2, skippedOwned: [] });
     expect(await runs()).toEqual([
       { importer: 'kanjidic2', status: 'succeeded', summary: first },
       { importer: 'kanjidic2', status: 'succeeded', summary: second },

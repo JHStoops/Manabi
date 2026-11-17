@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- JMdict entries (EDRDG, CC BY-SA 4.0), trimmed and simplified, for tests. -->
+<!DOCTYPE JMdict [
+<!ELEMENT JMdict (entry*)>
+<!ENTITY n "noun (common) (futsuumeishi)">
+<!ENTITY v1 "Ichidan verb">
+<!ENTITY v5u "Godan verb with 'u' ending">
+<!ENTITY v5r "Godan verb with 'ru' ending">
+<!ENTITY vi "intransitive verb">
+<!ENTITY uk "word usually written using kana alone">
+]>
+<!-- JMdict created: 2026-11-17 -->
+<JMdict>
+<entry>
+<ent_seq>1567790</ent_seq>
+<k_ele>
+<keb>水</keb>
+<ke_pri>ichi1</ke_pri>
+</k_ele>
+<r_ele>
+<reb>みず</reb>
+<re_pri>ichi1</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<gloss>water</gloss>
+<gloss xml:lang="ger">Wasser</gloss>
+<gloss>cold water</gloss>
+</sense>
+</entry>
+<entry>
+<ent_seq>1198180</ent_seq>
+<k_ele>
+<keb>会う</keb>
+<ke_pri>ichi1</ke_pri>
+</k_ele>
+<k_ele>
+<keb>逢う</keb>
+</k_ele>
+<k_ele>
+<keb>遭う</keb>
+</k_ele>
+<r_ele>
+<reb>あう</reb>
+<re_pri>ichi1</re_pri>
+</r_ele>
+<sense>
+<stagk>会う</stagk>
+<stagk>逢う</stagk>
+<pos>&v5u;</pos>
+<pos>&vi;</pos>
+<gloss>to meet</gloss>
+<gloss>to see</gloss>
+</sense>
+<sense>
+<stagk>遭う</stagk>
+<gloss>to encounter (e.g. an accident)</gloss>
+</sense>
+</entry>
+<entry>
+<ent_seq>1580400</ent_seq>
+<k_ele>
+<keb>上手</keb>
+</k_ele>
+<r_ele>
+<reb>うわて</reb>
+</r_ele>
+<r_ele>
+<reb>かみて</reb>
+</r_ele>
+<sense>
+<stagr>うわて</stagr>
+<pos>&n;</pos>
+<gloss>upper part</gloss>
+</sense>
+<sense>
+<stagr>かみて</stagr>
+<gloss>upper stage (left side of the stage from the audience's view)</gloss>
+</sense>
+</entry>
+<entry>
+<ent_seq>1580640</ent_seq>
+<k_ele>
+<keb>人</keb>
+<ke_pri>ichi1</ke_pri>
+</k_ele>
+<r_ele>
+<reb>ひと</reb>
+<re_pri>ichi1</re_pri>
+</r_ele>
+<r_ele>
+<reb>ヒト</reb>
+<re_nokanji/>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<gloss>person</gloss>
+</sense>
+</entry>
+<entry>
+<ent_seq>1604890</ent_seq>
+<k_ele>
+<keb>日</keb>
+</k_ele>
+<k_ele>
+<keb>陽</keb>
+</k_ele>
+<r_ele>
+<reb>ひ</reb>
+</r_ele>
+<r_ele>
+<reb>か</reb>
+<re_restr>日</re_restr>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<gloss>day</gloss>
+</sense>
+</entry>
+<entry>
+<ent_seq>1546640</ent_seq>
+<k_ele>
+<keb>要る</keb>
+<ke_pri>ichi1</ke_pri>
+</k_ele>
+<r_ele>
+<reb>いる</reb>
+<re_pri>ichi1</re_pri>
+</r_ele>
+<sense>
+<pos>&v5r;</pos>
+<gloss>to need</gloss>
+</sense>
+</entry>
+<entry>
+<ent_seq>1577980</ent_seq>
+<k_ele>
+<keb>居る</keb>
+<ke_pri>ichi1</ke_pri>
+</k_ele>
+<r_ele>
+<reb>いる</reb>
+<re_pri>ichi1</re_pri>
+</r_ele>
+<sense>
+<pos>&v1;</pos>
+<misc>&uk;</misc>
+<gloss>to be (of animate objects)</gloss>
+<gloss>to exist</gloss>
+</sense>
+</entry>
+</JMdict>
