@@ -41,7 +41,8 @@ export interface ParsedTatoeba {
 
 const MAX_LENGTH = 15;
 const LATIN = /\p{Script=Latin}/u;
-const SPACE_OR_PUNCTUATION = /[\p{P}\p{S}\p{Z}]/gu;
+// FR-235: only spaces and punctuation are left out of the length; symbols such as ♪ count.
+const SPACE_OR_PUNCTUATION = /[\p{P}\p{Z}]/gu;
 
 /** A Tatoeba TSV export's rows, split on tabs. */
 async function* rows(file: string): AsyncGenerator<string[]> {
