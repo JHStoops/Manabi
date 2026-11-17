@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1
 # Build context is the repository root: docker build -f deploy/Dockerfile .
-# Requires a package-lock.json at the repository root (run `npm install` once and commit it).
 
 FROM node:24-slim AS build
 WORKDIR /app
@@ -16,6 +15,9 @@ COPY . .
 RUN npm run build
 
 FROM node:24-slim AS runtime
+# NFR-07: the API trims and transcodes generated clips to Opus with ffmpeg (Debian's has libopus).
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -36,5 +38,6 @@ ENV PATH=/app/node_modules/.bin:$PATH
 WORKDIR /app/apps/api
 EXPOSE 3000
 # The API applies pending migrations on start (NFR-52), then listens. The worker service
-# overrides this command. `node dist/migrate.js` applies migrations without starting the API.
+# overrides this command. `node dist/migrate.js` applies migrations without starting the API;
+# `node dist/cli.js` is the `manabi` CLI and `node dist/download.js <dir>` fetches the datasets.
 CMD ["node", "dist/server.js"]

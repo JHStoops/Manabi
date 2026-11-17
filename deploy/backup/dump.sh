@@ -11,9 +11,10 @@ KEEP_DAYS="${KEEP_DAYS:-14}"
 dump_once() {
   mkdir -p "$DUMP_DIR"
   local file="$DUMP_DIR/manabi-$(date +%Y%m%d-%H%M%S).sql.gz"
-  pg_dump --no-owner | gzip > "$file.tmp"
+  # The caller's `||` turns off set -e in here, so a failed dump must return by hand.
+  pg_dump --no-owner | gzip > "$file.tmp" || { rm -f "$file.tmp"; return 1; }
   mv "$file.tmp" "$file"
-  find "$DUMP_DIR" -name 'manabi-*.sql.gz' -mtime +"$KEEP_DAYS" -delete
+  find "$DUMP_DIR" -name 'manabi-*.sql.gz' -mmin +"$((KEEP_DAYS * 1440))" -delete
   echo "dump written: $file"
 }
 

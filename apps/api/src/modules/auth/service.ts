@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { learnerSettingsSchema } from '@manabi/core';
+import { learnerSettingsSchema, newPasswordSchema, usernameSchema } from '@manabi/core';
 import type {
   AcceptInviteRequest,
   ChangePasswordRequest,
@@ -222,6 +222,36 @@ export async function acceptInvite(
     const token = await issueSession(client, user.id, body.clientKind);
     return { user: toUser(user), token, clientKind: body.clientKind };
   });
+}
+
+/**
+ * FR-009: creates an admin account from the server's command line (`manabi create-admin`), with
+ * the same username and password rules as sign-up. The time zone is the server's (`TZ`).
+ */
+export async function createAdmin(pool: Pool, username: string, password: string): Promise<User> {
+  const name = usernameSchema.safeParse(username);
+  if (!name.success) throw new AppError('validation_failed', 'Invalid username');
+  const length = newPasswordSchema.safeParse(password);
+  if (!length.success) {
+    throw new AppError('validation_failed', length.error.issues[0]?.message ?? 'Invalid password');
+  }
+  checkNewPassword(password, username, 'password');
+  try {
+    const user = await q.insertUser(pool, {
+      username,
+      email: null,
+      passwordHash: await hashPassword(password),
+      displayName: username,
+      role: 'admin',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+    return toUser(user);
+  } catch (err) {
+    if ((err as { constraint?: string }).constraint === 'users_username_key') {
+      throw new AppError('conflict', 'That username is already taken');
+    }
+    throw err;
+  }
 }
 
 /**

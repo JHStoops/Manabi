@@ -1,12 +1,15 @@
-# Run from this folder: docker compose --env-file .env up -d
+# Run from this folder: docker compose up -d (reads .env here)
 # There is deliberately no reverse proxy here; the owner's Nginx Proxy Manager fronts the app port.
+# NFR-15: only the app port is published; db and tts sit on the internal network alone.
 name: manabi
 
 x-app: &app
   build:
     context: ..
     dockerfile: deploy/Dockerfile
-  image: manabi:local
+  # Release images are built by CI on version tags (NFR-41). `docker compose build` builds one
+  # locally under the same name instead.
+  image: ghcr.io/jhstoops/manabi:${MANABI_VERSION:-latest}
   restart: unless-stopped
   environment: &app-env
     PUBLIC_URL: ${PUBLIC_URL}
@@ -24,6 +27,9 @@ x-app: &app
     TZ: ${TZ:-UTC}
   volumes:
     - ${MEDIA_DIR:-./media}:/media
+    # Open datasets fetched with `node dist/download.js /datasets`, read by the import commands.
+    - ${DATASETS_DIR:-./datasets}:/datasets
+  networks: [default, internal]
   depends_on:
     db:
       condition: service_healthy
@@ -63,19 +69,22 @@ services:
       TZ: ${TZ:-UTC}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks: [internal]
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U manabi -d manabi']
       interval: 5s
       timeout: 5s
       retries: 10
 
-  # Optional text-to-speech service: docker compose --profile tts up -d
+  # Text-to-speech (Kokoro-FastAPI, spike #1), answering at http://tts:8880 on the internal network
+  # only. Holds about 1.35 GB of memory. Study keeps working while it is stopped (device voices).
   tts:
-    profiles: ['tts']
-    # PLACEHOLDER: the TTS engine has not been chosen yet. Replace this image with the real one.
-    image: busybox:stable
-    command: ['sleep', 'infinity']
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.10.0@sha256:f54c5960c2b9387f6349080a9944f8bc7e8cdb98a4ef9238cb0b0f9ff9795f44
     restart: unless-stopped
+    environment:
+      # Set to the LXC's vCPU count; Kokoro otherwise sizes its threads from the host's cores.
+      OMP_NUM_THREADS: ${OMP_NUM_THREADS:-4}
+    networks: [internal]
 
   # Nightly pg_dump into DUMPS_DIR, keeping 14 days. Back that folder up with Backrest/restic.
   backup:
@@ -93,9 +102,15 @@ services:
     volumes:
       - ./backup/dump.sh:/dump.sh:ro
       - ${DUMPS_DIR:-./dumps}:/dumps
+    networks: [internal]
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   pgdata:
+
+networks:
+  # No route in or out of the Docker host; only app and worker also join the default network.
+  internal:
+    internal: true
