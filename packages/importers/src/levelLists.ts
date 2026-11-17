@@ -85,3 +85,8 @@ export async function readLevelLists(ceiling: string, dir = LEVEL_LISTS_DIR): Pr
   }
   return result;
 }
+
+/** FR-244: the levels named in the lists' manifest, easiest first. */
+export async function readLevelOrder(dir = LEVEL_LISTS_DIR): Promise<string[]> {
+  return (JSON.parse(await readFile(join(dir, 'manifest.json'), 'utf8')) as Manifest).levels;
+}

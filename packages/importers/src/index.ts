@@ -4,3 +4,4 @@ export * from './kanjivg';
 export * from './levelLists';
 export * from './segmentation';
 export * from './jmdict';
+export * from './tatoeba';

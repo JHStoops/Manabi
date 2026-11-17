@@ -53,9 +53,16 @@ export const attributionPartSchema = z
   .strict();
 export type AttributionPart = z.infer<typeof attributionPartSchema>;
 
-/** DR-11: the `sentences.attribution` JSONB, kept separately for the sentence and translation. */
+/**
+ * DR-11: the `sentences.attribution` JSONB, kept separately for the sentence and translation.
+ * `otherTranslationIds`: the source's other direct translations, for the author to choose from.
+ */
 export const sentenceAttributionSchema = z
-  .object({ sentence: attributionPartSchema, translation: attributionPartSchema })
+  .object({
+    sentence: attributionPartSchema,
+    translation: attributionPartSchema,
+    otherTranslationIds: z.array(nonEmptyTextSchema).optional(),
+  })
   .strict();
 export type SentenceAttribution = z.infer<typeof sentenceAttributionSchema>;
 

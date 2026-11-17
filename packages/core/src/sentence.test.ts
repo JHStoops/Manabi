@@ -85,8 +85,20 @@ describeSchema(
 describeSchema(
   'sentenceAttributionSchema',
   sentenceAttributionSchema,
-  [['both sides', { sentence: part, translation: { ...part, sourceId: '678' } }]],
-  [['only the sentence', { sentence: part }]],
+  [
+    ['both sides', { sentence: part, translation: { ...part, sourceId: '678' } }],
+    [
+      'other translations',
+      { sentence: part, translation: part, otherTranslationIds: ['679', '680'] },
+    ],
+  ],
+  [
+    ['only the sentence', { sentence: part }],
+    [
+      'an empty other translation id',
+      { sentence: part, translation: part, otherTranslationIds: [''] },
+    ],
+  ],
 );
 
 const sentence = {

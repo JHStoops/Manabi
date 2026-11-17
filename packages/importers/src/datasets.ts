@@ -40,7 +40,7 @@ export const datasets = {
     licence: 'CC BY 2.0 FR',
     attribution: 'Tatoeba contributors',
     homepage: 'https://tatoeba.org/',
-    // Stored bzip2-compressed as downloaded; the Tatoeba importer reads them.
+    // bzip2 files are unpacked next to the download (the tar holds user_languages.csv).
     urls: [
       `${TATOEBA}/per_language/jpn/jpn_sentences_detailed.tsv.bz2`,
       `${TATOEBA}/per_language/eng/eng_sentences_detailed.tsv.bz2`,
