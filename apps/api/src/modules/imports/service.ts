@@ -225,7 +225,8 @@ export function importKanjiVg(pool: Pool, { courseKey, file }: ImportFile): Prom
  * per-side attribution. `file` is the folder of unpacked exports. Run it after JMdict and the
  * pack import (FR-236: the course's grammar points are detected in each sentence). The summary
  * counts the sentences each filter dropped, the updated ones whose tiles an author owns
- * (`tilesKept`) and the challenging ones by grammar level (`challenging`).
+ * (`tilesKept`) and the sentences detected as challenging in this run, by grammar level
+ * (`challenging`; not the stored status, which keeps locked rows and `challenge_override`).
  */
 export function importTatoeba(pool: Pool, { courseKey, file }: ImportFile): Promise<ImportSummary> {
   return recordRun(pool, 'tatoeba', async () => {

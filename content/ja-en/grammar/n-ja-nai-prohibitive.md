@@ -4,6 +4,7 @@ key: ja:grammar:n-ja-nai-prohibitive
 level: N3
 pattern: Verb-dictionary + んじゃない (prohibition)
 # Only where a statement ends: 行くんじゃない？ and 行くんじゃないの？ are questions.
+# The よ variant also matches よね？ tag questions; over-detection only makes a sentence challenging.
 detection:
   - [
       { pos: [動詞] },

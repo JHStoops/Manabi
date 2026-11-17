@@ -45,8 +45,9 @@ export interface ParsedTatoeba {
     unknownWords: number;
   };
   /**
-   * FR-236: kept sentences whose grammar level is above their vocabulary level (challenging when
-   * no author overrides it), counted by grammar level.
+   * FR-236: kept sentences detected as challenging in this run (detected grammar level above the
+   * vocabulary level), counted by grammar level. Not the stored status: locked sentences keep
+   * their stored grammar, and `challenge_override` is not consulted.
    */
   challenging: Record<string, number>;
 }
@@ -149,6 +150,7 @@ export async function parseTatoeba(
       else {
         const [translation, ...others] = translations;
         const grammarRank = Math.max(-1, ...segmented.grammar.map((key) => pointRank.get(key)!));
+        // With no counted tile (vocabulary level null) any detected point counts, even an N5 one.
         if (grammarRank > worst) {
           const level = levels[grammarRank]!;
           result.challenging[level] = (result.challenging[level] ?? 0) + 1;
