@@ -59,7 +59,11 @@ describeWithDb('importJmdict (FR-226, FR-234, DR-02, DR-09)', () => {
       level_code: 'N2',
       source: 'jmdict',
       dataset_version: '2026-11-17',
-      data: { written: '逢う', reading: 'あう', meanings: ['to meet', 'to see'] },
+      data: {
+        written: '逢う',
+        reading: 'あう',
+        senses: [{ partsOfSpeech: ['v5u', 'vi'], meanings: ['to meet', 'to see'] }],
+      },
     });
     expect((await findItemByKey(pool(), 'ja:word:上手:かみて'))?.level_code).toBe('N5');
     // 会 and 上 have no kanji item, so only 水 and 逢 are linked.
@@ -80,12 +84,13 @@ describeWithDb('importJmdict (FR-226, FR-234, DR-02, DR-09)', () => {
       key: 'ja:word:会う:あう',
       type: 'word',
       levelCode: 'N4',
-      data: { written: '会う', reading: 'あう', meanings: ['to meet'] },
+      data: { written: '会う', reading: 'あう', senses: [{ meanings: ['to meet'] }] },
       source: null,
       datasetVersion: null,
     });
     await importJmdict(pool(), { courseKey: 'ja-en', file });
-    await setItemOverrides(pool(), 'ja:word:水:みず', { meanings: ['H2O'] });
+    const overrides = { senses: [{ partsOfSpeech: ['n'], meanings: ['H2O'] }] };
+    await setItemOverrides(pool(), 'ja:word:水:みず', overrides);
 
     const dir = await mkdtemp(join(tmpdir(), 'jmdict-'));
     try {
@@ -104,8 +109,8 @@ describeWithDb('importJmdict (FR-226, FR-234, DR-02, DR-09)', () => {
     }
 
     expect(await findItemByKey(pool(), 'ja:word:水:みず')).toMatchObject({
-      data: { meanings: ['water', 'fluid'] },
-      overrides: { meanings: ['H2O'] },
+      data: { senses: [{ partsOfSpeech: ['n'], meanings: ['water', 'fluid'] }] },
+      overrides,
     });
     expect(await findItemByKey(pool(), 'ja:word:会う:あう')).toMatchObject({ source: null });
   });

@@ -8,6 +8,7 @@
 <!ENTITY v5r "Godan verb with 'ru' ending">
 <!ENTITY vi "intransitive verb">
 <!ENTITY uk "word usually written using kana alone">
+<!ENTITY aux-v "auxiliary verb">
 ]>
 <!-- JMdict created: 2026-11-17 -->
 <JMdict>
@@ -147,6 +148,12 @@
 <misc>&uk;</misc>
 <gloss>to be (of animate objects)</gloss>
 <gloss>to exist</gloss>
+</sense>
+<sense>
+<pos>&aux-v;</pos>
+<pos>&v1;</pos>
+<misc>&uk;</misc>
+<gloss>to be ..-ing</gloss>
 </sense>
 </entry>
 </JMdict>

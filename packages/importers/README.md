@@ -31,7 +31,11 @@ the fixtures in `fixtures/`.
   the `import-jmdict` worker job with `{ courseKey, file }`. Imports one word item per level-list
   or supplementary word found (`ja:word:<written>:<reading>`) with its list level, and links it to
   its kanji items. Run it after the level lists; the run summary lists the words not found
-  (`unmatched`) and keys an authored item or another course owns (`skippedOwned`).
+  (`unmatched`) and keys an authored item or another course owns (`skippedOwned`). A word keeps
+  every sense JMdict allows for its spelling and reading (`stagk`, `stagr`), in JMdict order, with
+  part-of-speech codes as written (`v5u`, `adj-i`). Senses restricted only by a free-text note
+  are kept too (空く/あく gets 開く's "to open"); authors fix those with a `senses` override, which
+  replaces the whole list.
 - KanjiVG (CC BY-SA 3.0, Ulrich Apel and contributors): `npm run manabi -- import kanjivg ja-en packages/importers/datasets/kanjivg/kanjivg-20260714.xml`,
   or the `import-kanjivg` worker job with `{ courseKey, file }`. Creates the course's kana items
   (`ja:kana:<char>`, the 71 hiragana and 71 katakana in `@manabi/lang-ja`) if missing, then stores

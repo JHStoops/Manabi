@@ -27,30 +27,29 @@ describe('parseJmdict (FR-226, DR-02)', () => {
     ]);
 
     expect(parsed.datasetVersion).toBe('2026-11-17');
-    expect(
-      parsed.items.map((item) => [item.key, item.data.meanings, item.data.partsOfSpeech]),
-    ).toEqual([
+    // Parts of speech are JMdict's entity codes, not the header's English text.
+    expect(parsed.items.map((item) => [item.key, item.data.senses])).toEqual([
       // Non-English glosses are dropped.
-      ['ja:word:水:みず', ['water', 'cold water'], ['noun (common) (futsuumeishi)']],
-      [
-        'ja:word:逢う:あう',
-        ['to meet', 'to see'],
-        ["Godan verb with 'u' ending", 'intransitive verb'],
-      ],
+      ['ja:word:水:みず', [{ partsOfSpeech: ['n'], meanings: ['water', 'cold water'] }]],
+      // stagk excludes the 遭う sense.
+      ['ja:word:逢う:あう', [{ partsOfSpeech: ['v5u', 'vi'], meanings: ['to meet', 'to see'] }]],
       // stagk picks the sense; parts of speech carry over from the sense before.
       [
         'ja:word:遭う:あう',
-        ['to encounter (e.g. an accident)'],
-        ["Godan verb with 'u' ending", 'intransitive verb'],
+        [{ partsOfSpeech: ['v5u', 'vi'], meanings: ['to encounter (e.g. an accident)'] }],
       ],
       // stagr picks the sense for the second reading.
       [
         'ja:word:上手:かみて',
-        ["upper stage (left side of the stage from the audience's view)"],
-        ['noun (common) (futsuumeishi)'],
+        [
+          {
+            partsOfSpeech: ['n'],
+            meanings: ["upper stage (left side of the stage from the audience's view)"],
+          },
+        ],
       ],
-      ['ja:word:ヒト:ヒト', ['person'], ['noun (common) (futsuumeishi)']],
-      ['ja:word:日:か', ['day'], ['noun (common) (futsuumeishi)']],
+      ['ja:word:ヒト:ヒト', [{ partsOfSpeech: ['n'], meanings: ['person'] }]],
+      ['ja:word:日:か', [{ partsOfSpeech: ['n'], meanings: ['day'] }]],
     ]);
     // ヒト is never written 人 (re_nokanji); か is read only for 日 (re_restr).
     expect(parsed.unmatched).toEqual([
@@ -70,11 +69,19 @@ describe('parseJmdict (FR-226, DR-02)', () => {
       ['要る', 'いる'],
       ['いる', 'いる'],
     ]);
-    // 要る comes first in the file but is not usually written in kana.
-    expect(parsed.items.map((item) => [item.key, item.data.meanings[0]])).toEqual([
-      ['ja:word:要る:いる', 'to need'],
-      ['ja:word:いる:いる', 'to be (of animate objects)'],
+    // 要る comes first in the file but is not usually written in kana. Every sense is kept, in
+    // order, each with its own codes.
+    expect(parsed.items.map((item) => [item.key, item.data.senses])).toEqual([
+      ['ja:word:要る:いる', [{ partsOfSpeech: ['v5r'], meanings: ['to need'] }]],
+      [
+        'ja:word:いる:いる',
+        [
+          { partsOfSpeech: ['v1'], meanings: ['to be (of animate objects)', 'to exist'] },
+          { partsOfSpeech: ['aux-v', 'v1'], meanings: ['to be ..-ing'] },
+        ],
+      ],
     ]);
+    for (const item of parsed.items) expect(() => wordDataSchema.parse(item.data)).not.toThrow();
   });
 
   it('rejects a file without the creation date', async () => {
