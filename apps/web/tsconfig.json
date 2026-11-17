@@ -6,5 +6,5 @@
     "jsxImportSource": "@emotion/react",
     "types": ["vite/client", "jest"]
   },
-  "include": ["src", "vite.config.ts", "playwright.config.ts"]
+  "include": ["src", "e2e", "vite.config.ts", "playwright.config.ts"]
 }

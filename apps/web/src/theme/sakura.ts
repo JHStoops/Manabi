@@ -2,6 +2,15 @@ import type { ManabiTheme } from './types';
 
 // PLACEHOLDER palette; real design tokens come later.
 const spacing = (units: number): string => `${units * 4}px`;
+const radii = { small: '8px', medium: '16px', pill: '999px' };
+const fontSizes = { small: '0.875rem', body: '1rem', title: '1.5rem', display: '2rem' };
+const lessonColors = {
+  vocabulary: '#2f7de1',
+  kanji: '#8a4fd8',
+  grammar: '#2e9d5b',
+  listening: '#e8822a',
+  review: '#d4a017',
+};
 
 export const sakuraLight: ManabiTheme = {
   name: 'sakura',
@@ -15,8 +24,10 @@ export const sakuraLight: ManabiTheme = {
     primaryText: '#ffffff',
     border: '#f0d5de',
   },
+  lessonColors,
   spacing,
-  radius: '8px',
+  radii,
+  fontSizes,
 };
 
 export const sakuraDark: ManabiTheme = {
@@ -31,6 +42,8 @@ export const sakuraDark: ManabiTheme = {
     primaryText: '#1c1317',
     border: '#3d2a33',
   },
+  lessonColors,
   spacing,
-  radius: '8px',
+  radii,
+  fontSizes,
 };

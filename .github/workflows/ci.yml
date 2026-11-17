@@ -52,6 +52,11 @@ jobs:
         run: psql "$DATABASE_URL" -c 'select 1'
       - name: Test with coverage
         run: npm run test:coverage
+      # NFR-60, IF-03: smoke test the production build in a real browser.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Smoke test the web app
+        run: npm run e2e --workspace @manabi/web
       - name: npm audit (report only)
         if: ${{ !cancelled() }}
         continue-on-error: true

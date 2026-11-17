@@ -92,6 +92,23 @@ export default tseslint.config(
     },
   },
   {
+    // FR-243: visible text in the web app comes from the translation catalog (src/i18n).
+    files: ['apps/web/src/**/*.tsx'],
+    ignores: ['**/*.test.tsx'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...[
+          'JSXText[value=/\\S/]',
+          'JSXAttribute[name.name=/^(aria-label|title|alt|placeholder)$/] > Literal',
+        ].map((selector) => ({
+          selector,
+          message: 'Hard-coded UI text: add it to the catalog in src/i18n/en.ts and use t().',
+        })),
+      ],
+    },
+  },
+  {
     files: ['packages/lang-*/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
