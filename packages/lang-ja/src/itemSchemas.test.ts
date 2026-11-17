@@ -59,18 +59,29 @@ describeSchema(
   ],
 );
 
-const word = { written: '水', reading: 'みず', meanings: ['water'] };
+const word = { written: '水', reading: 'みず', senses: [{ meanings: ['water'] }] };
 
 describeSchema(
   'wordDataSchema',
   wordDataSchema,
   [
     ['a word', word],
-    ['a word with parts of speech', { ...word, partsOfSpeech: ['noun'] }],
+    [
+      'a word with several senses and parts of speech',
+      {
+        ...word,
+        senses: [
+          { partsOfSpeech: ['n'], meanings: ['water'] },
+          { partsOfSpeech: ['n', 'n-pref'], meanings: ['fluid', 'liquid'] },
+        ],
+      },
+    ],
   ],
   [
     ['a kanji reading', { ...word, reading: '水' }],
-    ['no meanings', { ...word, meanings: [] }],
+    ['no senses', { ...word, senses: [] }],
+    ['a sense without meanings', { ...word, senses: [{ meanings: [] }] }],
+    ['the old flat meanings', { written: '水', reading: 'みず', meanings: ['water'] }],
     ['an empty written form', { ...word, written: '' }],
   ],
 );
@@ -104,7 +115,10 @@ describe('japanese.itemSchemas', () => {
   });
 
   it('validates item data through the core helper (DR-06)', () => {
-    expect(parseItemData(japanese, 'word', word)).toEqual({ ...word, partsOfSpeech: [] });
+    expect(parseItemData(japanese, 'word', word)).toEqual({
+      ...word,
+      senses: [{ partsOfSpeech: [], meanings: ['water'] }],
+    });
     expect(() => parseItemData(japanese, 'sentence', {})).toThrow('no item type "sentence"');
   });
 });

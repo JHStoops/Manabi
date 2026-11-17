@@ -21,9 +21,6 @@ interface Entry {
   senses: { stagk: string[]; stagr: string[]; pos: string[]; misc: string[]; glosses: string[] }[];
 }
 
-/** JMdict's `&uk;` misc entity, as expanded from the DOCTYPE. */
-const USUALLY_KANA = 'word usually written using kana alone';
-
 /**
  * FR-226, SDD section 10 step 3: streams JMdict XML (pass `createReadStream(file, 'utf8')`) and
  * returns one word item per wanted level-list word (kana-only words have the reading as their
@@ -33,9 +30,9 @@ const USUALLY_KANA = 'word usually written using kana alone';
  * readings allowed with it, or, for a kana-only word, when the reading is one of its readings.
  * Of several matching entries the best is kept: for a kana-only word, one with no kanji spelling
  * or usually written in kana scores 2; a priority-marked (common) spelling or reading scores 1;
- * ties keep the first in the file. The word takes the glosses of the first sense allowed for its
- * spelling and reading, and that sense's parts of speech (a sense without any repeats the last
- * ones given, as JMdict defines).
+ * ties keep the first in the file. The word keeps every sense allowed for its spelling and reading
+ * (`stagk`, `stagr`), in JMdict order, each with its English glosses and part-of-speech codes (a
+ * sense without any repeats the last ones given, as JMdict defines).
  */
 export async function parseJmdict(
   input: AsyncIterable<string>,
@@ -51,10 +48,11 @@ export async function parseJmdict(
   let text = '';
   let entry: Entry = { kebs: [], rebs: [], senses: [] };
 
-  // JMdict declares its part-of-speech and misc codes as entities in the DOCTYPE.
+  // JMdict declares its part-of-speech and misc codes as entities in the DOCTYPE. Each expands
+  // to its own name, so `&v5u;` reads as the code `v5u`, not its English description.
   parser.on('doctype', (doctype) => {
-    for (const [, name, value] of doctype.matchAll(/<!ENTITY\s+(\S+)\s+"([^"]*)">/g)) {
-      parser.ENTITIES[name!] = value!;
+    for (const [, name] of doctype.matchAll(/<!ENTITY\s+(\S+)\s+"[^"]*">/g)) {
+      parser.ENTITIES[name!] = name!;
     }
   });
   parser.on('comment', (comment) => {
@@ -107,14 +105,14 @@ export async function parseJmdict(
       );
       if (!reb || (!kanaOnly && !keb)) continue;
       // A kana-only word has no kanji spelling to restrict senses by.
-      const sense = senses.find(
+      const allowed = senses.filter(
         (s) =>
           (kanaOnly || s.stagk.length === 0 || s.stagk.includes(word.written)) &&
           (s.stagr.length === 0 || s.stagr.includes(word.reading)) &&
           s.glosses.length > 0,
       );
-      if (!sense) continue;
-      const usuallyKana = kebs.length === 0 || senses[0]!.misc.includes(USUALLY_KANA);
+      if (allowed.length === 0) continue;
+      const usuallyKana = kebs.length === 0 || senses[0]!.misc.includes('uk');
       const score = (kanaOnly && usuallyKana ? 2 : 0) + ((keb ?? reb).pri ? 1 : 0);
       const key = `ja:word:${word.written}:${word.reading}`;
       if ((best.get(key)?.score ?? -1) >= score) continue;
@@ -124,8 +122,7 @@ export async function parseJmdict(
         data: {
           written: word.written,
           reading: word.reading,
-          meanings: sense.glosses,
-          partsOfSpeech: sense.pos,
+          senses: allowed.map((s) => ({ partsOfSpeech: s.pos, meanings: s.glosses })),
         },
       });
     }

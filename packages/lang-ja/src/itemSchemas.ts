@@ -44,13 +44,21 @@ export const kanjiDataSchema = z
   .strict();
 export type KanjiData = z.infer<typeof kanjiDataSchema>;
 
-/** A word: written form, kana reading, meanings (primary first) and parts of speech. */
+/**
+ * A word: written form, kana reading and its senses, primary first. Each sense has its English
+ * meanings and its part-of-speech codes as JMdict writes them (`v5u`, `adj-i`).
+ */
 export const wordDataSchema = z
   .object({
     written: text,
     reading: z.string().regex(kanaReading),
-    meanings: z.array(text).min(1),
-    partsOfSpeech: z.array(text).default([]),
+    senses: z
+      .array(
+        z
+          .object({ partsOfSpeech: z.array(text).default([]), meanings: z.array(text).min(1) })
+          .strict(),
+      )
+      .min(1),
   })
   .strict();
 export type WordData = z.infer<typeof wordDataSchema>;

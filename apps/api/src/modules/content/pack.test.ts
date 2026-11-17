@@ -178,7 +178,9 @@ describeWithDb('content packs', () => {
       pool(),
       `SELECT id, overrides FROM items WHERE key = 'ja:word:水:みず'`,
     );
-    expect(water!.overrides).toEqual({ meanings: ['water', 'cold water'] });
+    expect(water!.overrides).toEqual({
+      senses: [{ partsOfSpeech: ['n'], meanings: ['water', 'cold water'] }],
+    });
     const sentences = await query<{ tokens: { itemId?: number }[]; attribution: unknown }>(
       pool(),
       'SELECT tokens, attribution, challenge_override FROM sentences ORDER BY id',
