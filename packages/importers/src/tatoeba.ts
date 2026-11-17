@@ -2,9 +2,9 @@ import { createReadStream } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
-import type { LanguagePlugin } from '@manabi/core';
+import type { GrammarPointPatterns, LanguagePlugin } from '@manabi/core';
 import type { LevelWord } from './levelLists';
-import { segmentText } from './segmentation';
+import { segmentSentence } from './segmentation';
 
 /** One side of a Tatoeba pair (DR-11). */
 export interface TatoebaText {
@@ -24,7 +24,14 @@ export interface TatoebaSentence {
   tiles: { surface: string; base: string; reading: string; word: string | null }[];
   /** Highest level among the counted tiles' words; null when no tile is counted. */
   vocabLevel: string | null;
+  /** Keys of the course's grammar points detected in the sentence (FR-236). */
+  grammar: string[];
+  /** Highest level among the detected points; null when none is detected. */
+  grammarLevel: string | null;
 }
+
+/** A course grammar point and its level, for detection (FR-236). */
+export type LevelledGrammarPoint = GrammarPointPatterns & { level: string | null };
 
 export interface ParsedTatoeba {
   datasetVersion: string;
@@ -37,6 +44,11 @@ export interface ParsedTatoeba {
     notNative: number;
     unknownWords: number;
   };
+  /**
+   * FR-236: kept sentences whose grammar level is above their vocabulary level (challenging when
+   * no author overrides it), counted by grammar level.
+   */
+  challenging: Record<string, number>;
 }
 
 const MAX_LENGTH = 15;
@@ -61,12 +73,14 @@ const owner = (value: string | undefined): string | null =>
  * letters, is at most 15 characters excluding spaces and punctuation, its owner declares native
  * Japanese (level 5) in the user languages export, and every tile the plugin counts matches a
  * wanted word by its base form, as written or as read. `levels` orders the levels, easiest first.
+ * FR-236: no sentence is dropped for its grammar; each records the `points` detected in it.
  */
 export async function parseTatoeba(
   dir: string,
   plugin: LanguagePlugin,
   wanted: LevelWord[],
   levels: string[],
+  points: readonly LevelledGrammarPoint[],
 ): Promise<ParsedTatoeba> {
   const manifest = JSON.parse(await readFile(join(dir, 'manifest.json'), 'utf8')) as {
     version?: string;
@@ -94,12 +108,14 @@ export async function parseTatoeba(
       byForm.set(form, [...(byForm.get(form) ?? []), word]);
     }
   }
-  const rank = (word: LevelWord) => levels.indexOf(word.level);
+  const rank = ({ level }: { level: string | null }) => levels.indexOf(level ?? '');
+  const pointRank = new Map(points.map((p) => [p.key, rank(p)]));
 
   const result: ParsedTatoeba = {
     datasetVersion: manifest.version,
     sentences: [],
     dropped: { noTranslation: 0, latin: 0, tooLong: 0, notNative: 0, unknownWords: 0 },
+    challenging: {},
   };
   for await (const [id, , text, user] of rows(join(dir, 'jpn_sentences_detailed.tsv'))) {
     if (!id || !text) continue;
@@ -116,7 +132,8 @@ export async function parseTatoeba(
     else {
       let worst = -1;
       let covered = true;
-      const tiles = (await segmentText(plugin, text)).map(({ counted, ...tile }) => {
+      const segmented = await segmentSentence(plugin, text, points);
+      const tiles = segmented.tiles.map(({ counted, ...tile }) => {
         if (!counted) return { ...tile, word: null };
         // shortcut: homographs (いる 居る/要る) pick the word whose reading matches the tile, then
         // the easiest; authors fix the rest in the sentence editor (FR-238).
@@ -131,12 +148,19 @@ export async function parseTatoeba(
       if (!covered) result.dropped.unknownWords++;
       else {
         const [translation, ...others] = translations;
+        const grammarRank = Math.max(-1, ...segmented.grammar.map((key) => pointRank.get(key)!));
+        if (grammarRank > worst) {
+          const level = levels[grammarRank]!;
+          result.challenging[level] = (result.challenging[level] ?? 0) + 1;
+        }
         result.sentences.push({
           sentence: { sourceId: id, text, owner: sentenceOwner },
           translation: translation!,
           otherTranslationIds: others.map((t) => t.sourceId),
           tiles,
           vocabLevel: worst < 0 ? null : levels[worst]!,
+          grammar: segmented.grammar,
+          grammarLevel: grammarRank < 0 ? null : levels[grammarRank]!,
         });
       }
     }

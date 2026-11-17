@@ -99,13 +99,17 @@ describeSchema(
         themes: ['requests'],
         formation: [{ wordType: 'Verb', form: 'te-form + ください', example: '食べてください' }],
         explanation: 'A polite request.',
-        detection: [{ any: 'pattern' }],
+        detection: [[{ surface: 'て' }, { base: 'くださる', pos: ['動詞'] }]],
       },
     ],
   ],
   [
     ['no pattern', { meaning: 'Please do' }],
     ['a bad formation row', { pattern: 'x', formation: [{ wordType: 'Verb' }] }],
+    ['an empty detection pattern', { pattern: 'x', detection: [[]] }],
+    ['an empty matcher', { pattern: 'x', detection: [[{}]] }],
+    ['an unknown matcher field', { pattern: 'x', detection: [[{ reading: 'テ' }]] }],
+    ['a pattern that is not a list', { pattern: 'x', detection: [{ base: 'て' }] }],
   ],
 );
 

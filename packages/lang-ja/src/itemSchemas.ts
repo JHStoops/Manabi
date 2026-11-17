@@ -67,6 +67,24 @@ export type WordData = z.infer<typeof wordDataSchema>;
 export const formationRowSchema = z.object({ wordType: text, form: text, example: text }).strict();
 
 /**
+ * FR-236: one detection pattern, a run of consecutive kuromoji-ipadic tokens. Each matcher names
+ * the token's surface, base form and/or leading part-of-speech tags, e.g.
+ * `[{ base: て }, { base: おく, pos: [動詞, 非自立] }]`.
+ */
+export const detectionPatternSchema = z
+  .array(
+    z
+      .object({
+        surface: text.optional(),
+        base: text.optional(),
+        pos: z.array(text).min(1).optional(),
+      })
+      .strict()
+      .refine((m) => Object.keys(m).length > 0, 'A matcher needs surface, base or pos'),
+  )
+  .min(1);
+
+/**
  * A grammar point. A stub has only its pattern (and level, on the item envelope) until its page is
  * written (SDD section 4), so every other field is optional.
  */
@@ -79,8 +97,8 @@ export const grammarDataSchema = z
     formation: z.array(formationRowSchema).default([]),
     /** Markdown body: explanation paragraphs. */
     explanation: text.optional(),
-    // PLACEHOLDER: detection patterns over analyzer tokens are defined with detectGrammar.
-    detection: z.array(z.unknown()).default([]),
+    /** FR-236: the point is detected in a sentence when any one pattern matches. */
+    detection: z.array(detectionPatternSchema).default([]),
   })
   .strict();
 export type GrammarData = z.infer<typeof grammarDataSchema>;

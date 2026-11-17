@@ -17,7 +17,7 @@ const wanted = [
 
 describe('parseTatoeba (FR-235, FR-238, DR-11)', () => {
   it('keeps only native-owned, short, Latin-free sentences whose counted words are all known', async () => {
-    const parsed = await parseTatoeba(dir, japanese, wanted, levels);
+    const parsed = await parseTatoeba(dir, japanese, wanted, levels, []);
 
     expect(parsed.datasetVersion).toBe('2026-11-11');
     expect(parsed.dropped).toEqual({
@@ -35,7 +35,7 @@ describe('parseTatoeba (FR-235, FR-238, DR-11)', () => {
   });
 
   it('uses the lowest-id translation, keeps the others and matches words by base form', async () => {
-    const [water, student] = (await parseTatoeba(dir, japanese, wanted, levels)).sentences;
+    const [water, student] = (await parseTatoeba(dir, japanese, wanted, levels, [])).sentences;
 
     expect(water).toEqual({
       sentence: { sourceId: '143718', text: '水をください。', owner: 'bunbuku' },
@@ -53,13 +53,53 @@ describe('parseTatoeba (FR-235, FR-238, DR-11)', () => {
         },
       ],
       vocabLevel: 'N4',
+      grammar: [],
+      grammarLevel: null,
     });
     // Of the homographs 私, the one read as the tile is picked.
     expect(student!.tiles[0]!.word).toBe('ja:word:私:わたし');
     expect(student!.vocabLevel).toBe('N5');
   });
 
+  // FR-236. 私は学生です。 has N5 words; the points match its は and です.
+  const wa = { key: 'wa', detection: [[{ base: 'は' }]] };
+  const desu = { key: 'desu', detection: [[{ base: 'です' }]] };
+  it.each([
+    ['no point', [], [], null, {}],
+    ['one next-level point', [{ ...wa, level: 'N4' }], ['wa'], 'N4', { N4: 1 }],
+    [
+      'several next-level points',
+      [
+        { ...wa, level: 'N4' },
+        { ...desu, level: 'N4' },
+      ],
+      ['wa', 'desu'],
+      'N4',
+      { N4: 1 },
+    ],
+    [
+      'a point two levels up',
+      [
+        { ...wa, level: 'N3' },
+        { ...desu, level: 'N5' },
+      ],
+      ['wa', 'desu'],
+      'N3',
+      { N3: 2 }, // 今日は暑いです。 has N4 words and は too
+    ],
+    ['a point at the vocabulary level', [{ ...wa, level: 'N5' }], ['wa'], 'N5', {}],
+  ])(
+    'with %s, keeps the sentence and stores the highest detected level',
+    async (_label, points, grammar, grammarLevel, challenging) => {
+      const parsed = await parseTatoeba(dir, japanese, wanted, levels, points);
+
+      expect(parsed.sentences).toHaveLength(3);
+      expect(parsed.sentences[1]).toMatchObject({ vocabLevel: 'N5', grammar, grammarLevel });
+      expect(parsed.challenging).toEqual(challenging);
+    },
+  );
+
   it('fails without a dataset version', async () => {
-    await expect(parseTatoeba(__dirname, japanese, wanted, levels)).rejects.toThrow();
+    await expect(parseTatoeba(__dirname, japanese, wanted, levels, [])).rejects.toThrow();
   });
 });

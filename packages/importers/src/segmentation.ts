@@ -1,5 +1,11 @@
 import path from 'node:path';
-import type { AnalyzerId, AnalyzerToken, LanguagePlugin, SegmentedTile } from '@manabi/core';
+import type {
+  AnalyzerId,
+  AnalyzerToken,
+  GrammarPointPatterns,
+  LanguagePlugin,
+  SegmentedTile,
+} from '@manabi/core';
 import type * as Kuromoji from 'kuromoji';
 import type { IpadicFeatures, Tokenizer } from 'kuromoji';
 
@@ -73,7 +79,20 @@ const whitespaceAnalyzer: Analyzer = (text) =>
  * `counted` is for the coverage check.
  */
 export async function segmentText(plugin: LanguagePlugin, text: string): Promise<SegmentedTile[]> {
+  return (await segmentSentence(plugin, text, [])).tiles;
+}
+
+/**
+ * FR-236, FR-238: `segmentText` for a sentence, which also returns the keys of the given grammar
+ * points the plugin's `detectGrammar` finds in the analyzer's tokens.
+ */
+export async function segmentSentence(
+  plugin: LanguagePlugin,
+  text: string,
+  points: readonly GrammarPointPatterns[],
+): Promise<{ tiles: SegmentedTile[]; grammar: string[] }> {
   const analyze =
     plugin.analyzer === null ? whitespaceAnalyzer : await loadAnalyzer(plugin.analyzer);
-  return plugin.segment(analyze(text));
+  const tokens = analyze(text);
+  return { tiles: plugin.segment(tokens), grammar: plugin.detectGrammar(tokens, points) };
 }

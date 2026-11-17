@@ -94,13 +94,25 @@ export interface AnalyzerToken {
 }
 
 /**
+ * FR-236: matches one analyzer token. Every given field must match: `surface` and `base` exactly
+ * (`base` against `baseForm`), `pos` as a prefix of the token's tags. At least one field is given.
+ */
+export interface TokenMatcher {
+  surface?: string;
+  base?: string;
+  pos?: readonly string[];
+}
+
+/** FR-236: a run of consecutive tokens, one matcher per token. */
+export type DetectionPattern = readonly TokenMatcher[];
+
+/**
  * A grammar point as `detectGrammar` sees it: its stable key and the detection patterns from its
- * front matter (SDD section 4, FR-236).
+ * front matter (SDD section 4, FR-236). The point is detected when any one pattern matches.
  */
 export interface GrammarPointPatterns {
   key: string;
-  // PLACEHOLDER: the pattern shape over analyzer tokens is defined with detectGrammar (#110).
-  detection: readonly unknown[];
+  detection: readonly DetectionPattern[];
 }
 
 /**

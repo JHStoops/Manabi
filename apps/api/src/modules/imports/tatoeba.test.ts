@@ -66,6 +66,7 @@ describeWithDb('importTatoeba (FR-226, FR-235, FR-238, DR-11, NFR-62)', () => {
       skipped: 0,
       tilesKept: 0,
       dropped: { noTranslation: 1, latin: 1, tooLong: 1, notNative: 2, unknownWords: 1 },
+      challenging: {},
     });
     const water = await sentence('143718');
     const ids = new Map(
