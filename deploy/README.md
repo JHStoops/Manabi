@@ -7,16 +7,30 @@ Manabi runs with Docker Compose inside a Proxmox LXC, behind your existing Nginx
 - `app`: API, serves the built web app, runs database migrations on start.
 - `worker`: same image, runs background and scheduled jobs with pg-boss, whose queue lives in the `pgboss` schema of the same database (pg-boss creates and upgrades it; our migrations never touch it). Its first job purges expired sessions, invites, reset links and lesson sessions nightly at 03:30 in `TZ`. The app keeps working while the worker is stopped; jobs sent meanwhile wait in the queue.
 - `db`: official `postgres` image with a named volume.
-- `tts`: optional (`--profile tts`); placeholder until a TTS engine is chosen.
+- `tts`: Kokoro-FastAPI CPU, pinned by version and digest, on the internal network only (no published port). Holds about 1.35 GB of RAM; set `OMP_NUM_THREADS` to the LXC's vCPU count. Study keeps working while it is stopped (`docker compose stop tts`).
 - `backup`: nightly `pg_dump` into `DUMPS_DIR`, keeping 14 days.
 
 ## Setup
 
 1. LXC: enable nesting (and keyctl) in the container's Options > Features so Docker can run.
 2. Install Docker and the Compose plugin in the LXC.
-3. Clone this repo, `cd deploy`, `cp .env.example .env`, and fill in the values. `MEDIA_DIR` and `DUMPS_DIR` may point to a separate HDD mount.
-4. The Dockerfile needs `package-lock.json` at the repo root; generate it once with `npm install` and commit it.
-5. `docker compose up -d --build`.
+3. Clone this repo (only the `deploy` folder is needed), `cd deploy`, `cp .env.example .env`, and fill in the values. `MEDIA_DIR`, `DUMPS_DIR` and `DATASETS_DIR` may point to a separate HDD mount.
+4. `docker compose up -d`. This pulls the release image `ghcr.io/jhstoops/manabi:$MANABI_VERSION` (CI builds one for every `v*` tag, for example `v0.1.0` gives `0.1.0` and `latest`); if the GHCR package is private, run `docker login ghcr.io` first. `docker compose build` builds the same image from this checkout instead. The app applies database migrations on start.
+5. Create the first admin: `docker compose exec app node dist/cli.js create-admin <username>`. It asks for the password twice (or reads one line from stdin) and applies the sign-up rules: at least 10 characters, not a common password.
+6. Only `APP_PORT` is published. Check from another machine with `nmap -p- <LXC IP>`: only `APP_PORT` (and SSH, if enabled) should be open.
+
+To upgrade, set `MANABI_VERSION` to the new tag and run `docker compose up -d`; set the old tag to roll back (migrations are forward-only, so restore a dump from before the upgrade if a rollback needs the old schema).
+
+## Datasets
+
+The importers read open datasets (JMdict, KANJIDIC2, KanjiVG, Tatoeba) from `DATASETS_DIR`, mounted at `/datasets` in `app` and `worker`. Fetch them once (a few hundred MB):
+
+```sh
+docker compose exec app node dist/download.js /datasets
+docker compose exec app node dist/cli.js import jmdict ja-en /datasets/jmdict/JMdict_e
+```
+
+Run `node dist/cli.js` without arguments for the other import commands. The datasets can be downloaded again at any time, so they need no backup. Outside Docker the same script is `npm run download --workspace @manabi/importers -- <dir>`.
 
 ## Nginx Proxy Manager
 
@@ -30,6 +44,14 @@ The app refuses to start with an invalid `.env` and names each problem (for exam
 
 - Proxmox Backup Server backs up the whole LXC.
 - Backrest (restic) backs up `DUMPS_DIR` (database dumps) and `MEDIA_DIR`.
-- Restore a dump with: `gunzip -c manabi-YYYYMMDD-HHMMSS.sql.gz | docker compose exec -T db psql -U manabi manabi`.
+- The `backup` service writes `manabi-YYYYMMDD-HHMMSS.sql.gz` to `DUMPS_DIR` every night at 03:00 in `TZ` and deletes dumps older than 14 days. Take one now with `docker compose exec backup /dump.sh`.
+- In Backrest, add `DUMPS_DIR` and `MEDIA_DIR` (the host paths from `.env`) to the plan's paths.
 
-This setup has not been built or tested yet.
+## Restore
+
+1. On a fresh LXC, do Setup steps 1 to 3 with the old `.env` (same `POSTGRES_PASSWORD` and `SESSION_SECRET`).
+2. Restore `DUMPS_DIR` and `MEDIA_DIR` from Backrest to the paths in `.env`.
+3. From the `deploy` folder: `./restore.sh <path to manabi-YYYYMMDD-HHMMSS.sql.gz>`. It starts the database, replaces the `manabi` database with the dump and starts the stack; the app applies any newer migrations.
+4. Check `GET /api/v1/healthz` returns 200 and sign in.
+
+The same script restores over a running stack (it stops `app`, `worker` and `backup` first). It asks before replacing the database.

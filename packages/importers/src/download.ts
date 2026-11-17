@@ -9,11 +9,15 @@ import { createGunzip } from 'node:zlib';
 import { datasets } from './datasets';
 
 /**
- * `npm run download --workspace @manabi/importers`: fetches every dataset into the git-ignored
- * `packages/importers/datasets/<name>/` and writes a manifest.json there with the version and
- * licence (SDD section 10). Never run by tests or CI.
+ * `npm run download --workspace @manabi/importers [-- <dir>]`: fetches every dataset into
+ * `<dir>/<name>/` (default: the git-ignored `packages/importers/datasets/`) and writes a
+ * manifest.json there with the version and licence (SDD section 10). The server runs it as
+ * `node dist/download.js /datasets` in the app image. Never run by tests or CI.
  */
-const ROOT = resolve(__dirname, '../datasets');
+const ROOT = process.argv[2]
+  ? // npm scripts run in the workspace folder; INIT_CWD is where the command was typed.
+    resolve(process.env.INIT_CWD ?? process.cwd(), process.argv[2])
+  : resolve(__dirname, '../datasets');
 
 async function main(): Promise<void> {
   for (const [name, dataset] of Object.entries(datasets)) {

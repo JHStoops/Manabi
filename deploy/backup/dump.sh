@@ -13,7 +13,7 @@ dump_once() {
   local file="$DUMP_DIR/manabi-$(date +%Y%m%d-%H%M%S).sql.gz"
   pg_dump --no-owner | gzip > "$file.tmp"
   mv "$file.tmp" "$file"
-  find "$DUMP_DIR" -name 'manabi-*.sql.gz' -mtime +"$KEEP_DAYS" -delete
+  find "$DUMP_DIR" -name 'manabi-*.sql.gz' -mmin +"$((KEEP_DAYS * 1440))" -delete
   echo "dump written: $file"
 }
 

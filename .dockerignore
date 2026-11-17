@@ -3,3 +3,7 @@ node_modules
 packages/importers/datasets
 .git
 .claude
+deploy/.env
+deploy/dumps
+deploy/media
+deploy/datasets

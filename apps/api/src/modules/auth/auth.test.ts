@@ -8,7 +8,7 @@ import { seedUser } from '../../test/fixtures';
 import { scopedUserId, SESSION_COOKIE } from './guard';
 import { hashPassword } from './passwords';
 import type { NewUser } from './queries';
-import { createInvite, setTemporaryPassword } from './service';
+import { createAdmin, createInvite, setTemporaryPassword } from './service';
 
 // API tests for the auth module (issue #12): FR-001, FR-003 to FR-006, IF-06, NFR-10 to NFR-12,
 // NFR-14.
@@ -864,5 +864,15 @@ describeWithDb('auth API', () => {
     for (const secret of secrets) expect(text).not.toContain(secret);
     const hashes = await query<{ h: string }>(pool(), `SELECT password_hash AS h FROM users`);
     for (const { h } of hashes) expect(h).toMatch(/^\$argon2id\$v=19\$m=19456,t=2,p=1\$/);
+  });
+
+  it('creates an admin from the CLI who can sign in, with sign-up password rules (FR-009)', async () => {
+    const user = await createAdmin(pool(), 'owner', PASSWORD);
+    expect(user).toMatchObject({ username: 'owner', role: 'admin', email: null });
+    await cookieFor(await start(), 'owner');
+    await expect(createAdmin(pool(), 'owner', PASSWORD)).rejects.toThrow('already taken');
+    await expect(createAdmin(pool(), 'other', 'short')).rejects.toThrow('at least 10');
+    await expect(createAdmin(pool(), 'other', 'password123')).rejects.toThrow('too common');
+    await expect(createAdmin(pool(), 'two words', PASSWORD)).rejects.toThrow('Invalid username');
   });
 });
