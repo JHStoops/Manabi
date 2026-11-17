@@ -103,7 +103,8 @@ export default tseslint.config(
           'JSXAttribute[name.name=/^(aria-label|title|alt|placeholder)$/] > Literal',
         ].map((selector) => ({
           selector,
-          message: 'Hard-coded UI text: add it to the catalog in src/i18n/en.ts and use t().',
+          message:
+            'Hard-coded UI text: add it to the catalog in src/i18n/en.ts and use t() from useTranslation.',
         })),
       ],
     },
