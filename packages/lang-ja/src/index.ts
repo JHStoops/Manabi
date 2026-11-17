@@ -1,8 +1,10 @@
 import type { LanguagePlugin } from '@manabi/core';
+import { detectGrammar } from './grammar';
 import { itemSchemas } from './itemSchemas';
 import { segment } from './segment';
 import { readingOf, tokenize } from './tokenize';
 
+export { detectGrammar } from './grammar';
 export * from './itemSchemas';
 export { courseKana } from './kana';
 export { segment } from './segment';
@@ -61,7 +63,7 @@ export const japanese: LanguagePlugin = {
   // FR-238: kuromoji 0.1.2 with its IPADIC dictionary, run by the adapter in packages/importers.
   analyzer: 'kuromoji-ipadic',
   segment,
-  detectGrammar: () => notImplemented('detectGrammar', 110),
+  detectGrammar,
 };
 
 export default japanese;

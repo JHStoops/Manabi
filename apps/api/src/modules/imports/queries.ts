@@ -2,7 +2,7 @@ import type { Queryable } from '../../db/db';
 import { insertReturning, query } from '../../db/db';
 import type { JsonObject } from '../content/rows';
 import type { SentenceAttribution, Tile } from '@manabi/core';
-import type { ImportedItem, LevelWord } from '@manabi/importers';
+import type { ImportedItem, LevelledGrammarPoint, LevelWord } from '@manabi/importers';
 
 // Dataset imports (FR-226, SDD section 10). Nothing here touches a progress table.
 
@@ -227,13 +227,32 @@ export interface ImportedSentence {
   tokens: Tile[];
   attribution: SentenceAttribution;
   vocabLevel: string | null;
+  grammar: string[];
+  grammarLevel: string | null;
+}
+
+/**
+ * FR-236: the course's grammar points (stubs included) with their detection patterns, as an
+ * author override leaves them; the pack import validated them against the plugin's schema.
+ */
+export function listGrammarPoints(
+  db: Queryable,
+  courseId: number,
+): Promise<LevelledGrammarPoint[]> {
+  return query(
+    db,
+    `SELECT key, level_code AS level, COALESCE((data || overrides) -> 'detection', '[]') AS detection
+     FROM items WHERE course_id = $1 AND type = 'grammar' AND archived_at IS NULL ORDER BY key`,
+    [courseId],
+  );
 }
 
 /**
  * SDD section 10 step 5: upserts imported sentences by (course, source, source id), new ones
  * unreviewed. DR-11, FR-238: an edited text or translation keeps its value and attribution, and
- * tiles (with the vocabulary level) an author has edited or reviewed, or whose text was edited,
- * are kept; an identical re-run writes nothing. Returns each written row and whether its tiles
+ * tiles (with the vocabulary level, detected grammar and grammar level) an author has edited or
+ * reviewed, or whose text was edited, are kept; `challenge_override` is never written (FR-236); an
+ * identical re-run writes nothing. Returns each written row and whether its tiles
  * were written.
  */
 export function upsertImportedSentences(
@@ -244,11 +263,13 @@ export function upsertImportedSentences(
   return query(
     db,
     `INSERT INTO sentences AS s
-       (course_id, source, source_id, text, translation, tokens, attribution, vocab_level_code)
+       (course_id, source, source_id, text, translation, tokens, attribution, vocab_level_code,
+        grammar, grammar_level_code)
      SELECT $1, $2, t.source_id, t.text, t.translation, t.tokens::jsonb, t.attribution::jsonb,
-       t.level
-     FROM unnest($3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[])
-       AS t (source_id, text, translation, tokens, attribution, level)
+       t.level, t.grammar::jsonb, t.grammar_level
+     FROM unnest($3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[],
+         $9::text[], $10::text[])
+       AS t (source_id, text, translation, tokens, attribution, level, grammar, grammar_level)
      ON CONFLICT (course_id, source, source_id) WHERE source IS NOT NULL DO UPDATE SET
        text = CASE WHEN s.edited THEN s.text ELSE EXCLUDED.text END,
        translation = CASE WHEN s.translation_edited THEN s.translation
@@ -261,6 +282,9 @@ export function upsertImportedSentences(
        tokens = CASE WHEN ${locked} THEN s.tokens ELSE EXCLUDED.tokens END,
        vocab_level_code = CASE WHEN ${locked} THEN s.vocab_level_code
          ELSE EXCLUDED.vocab_level_code END,
+       grammar = CASE WHEN ${locked} THEN s.grammar ELSE EXCLUDED.grammar END,
+       grammar_level_code = CASE WHEN ${locked} THEN s.grammar_level_code
+         ELSE EXCLUDED.grammar_level_code END,
        updated_at = now()
      WHERE (NOT s.edited AND (s.text, s.attribution -> 'sentence')
              IS DISTINCT FROM (EXCLUDED.text, EXCLUDED.attribution -> 'sentence'))
@@ -268,8 +292,9 @@ export function upsertImportedSentences(
              IS DISTINCT FROM (EXCLUDED.translation, EXCLUDED.attribution -> 'translation'))
        OR s.attribution -> 'otherTranslationIds'
             IS DISTINCT FROM EXCLUDED.attribution -> 'otherTranslationIds'
-       OR (NOT ${locked} AND (s.tokens, s.vocab_level_code)
-             IS DISTINCT FROM (EXCLUDED.tokens, EXCLUDED.vocab_level_code))
+       OR (NOT ${locked} AND (s.tokens, s.vocab_level_code, s.grammar, s.grammar_level_code)
+             IS DISTINCT FROM (EXCLUDED.tokens, EXCLUDED.vocab_level_code, EXCLUDED.grammar,
+               EXCLUDED.grammar_level_code))
      RETURNING s.id, xmax = 0 AS inserted, NOT ${locked} AS retiled`,
     [
       i.courseId,
@@ -280,6 +305,8 @@ export function upsertImportedSentences(
       i.sentences.map((s) => JSON.stringify(s.tokens)),
       i.sentences.map((s) => JSON.stringify(s.attribution)),
       i.sentences.map((s) => s.vocabLevel),
+      i.sentences.map((s) => JSON.stringify(s.grammar)),
+      i.sentences.map((s) => s.grammarLevel),
     ],
   );
 }

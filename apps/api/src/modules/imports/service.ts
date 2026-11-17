@@ -24,6 +24,7 @@ import {
   finishImportRun,
   insertContainsLinks,
   insertImportRun,
+  listGrammarPoints,
   listWantedWords,
   replaceSentenceItems,
   setImportedItemLevels,
@@ -221,9 +222,11 @@ export function importKanjiVg(pool: Pool, { courseKey, file }: ImportFile): Prom
 /**
  * SDD section 10 step 5, FR-235, FR-238, DR-11: imports the Tatoeba Japanese-English pairs that
  * pass the sentence filters, unreviewed, with their tiles linked to the course's word items and
- * per-side attribution. `file` is the folder of unpacked exports. Run it after JMdict. The
- * summary counts the sentences each filter dropped and the updated ones whose tiles an author
- * owns (`tilesKept`).
+ * per-side attribution. `file` is the folder of unpacked exports. Run it after JMdict and the
+ * pack import (FR-236: the course's grammar points are detected in each sentence). The summary
+ * counts the sentences each filter dropped, the updated ones whose tiles an author owns
+ * (`tilesKept`) and the sentences detected as challenging in this run, by grammar level
+ * (`challenging`; not the stored status, which keeps locked rows and `challenge_override`).
  */
 export function importTatoeba(pool: Pool, { courseKey, file }: ImportFile): Promise<ImportSummary> {
   return recordRun(pool, 'tatoeba', async () => {
@@ -234,7 +237,8 @@ export function importTatoeba(pool: Pool, { courseKey, file }: ImportFile): Prom
       throw new Error(`No level-list words for ${courseKey}: run the level-list import first`);
     }
     const plugin = languagePlugins.get(course.plugin);
-    const parsed = await parseTatoeba(file, plugin, wanted, await readLevelOrder());
+    const points = await listGrammarPoints(pool, course.id);
+    const parsed = await parseTatoeba(file, plugin, wanted, await readLevelOrder(), points);
     const { licence, attribution } = datasets.tatoeba;
     const { datasetVersion } = parsed;
     const part = ({ sourceId, owner }: { sourceId: string; owner: string | null }) => ({
@@ -269,6 +273,8 @@ export function importTatoeba(pool: Pool, { courseKey, file }: ImportFile): Prom
             otherTranslationIds: s.otherTranslationIds,
           },
           vocabLevel: s.vocabLevel,
+          grammar: s.grammar,
+          grammarLevel: s.grammarLevel,
         })),
       });
       await replaceSentenceItems(
@@ -285,6 +291,7 @@ export function importTatoeba(pool: Pool, { courseKey, file }: ImportFile): Prom
         skipped: parsed.sentences.length - written.length,
         tilesKept: written.filter((r) => !r.retiled).length,
         dropped: parsed.dropped,
+        challenging: parsed.challenging,
       };
     });
   });
