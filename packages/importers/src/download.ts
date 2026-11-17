@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
@@ -32,6 +33,9 @@ async function main(): Promise<void> {
       await (gz
         ? pipeline(body, createGunzip(), createWriteStream(file))
         : pipeline(body, createWriteStream(file)));
+      // Node has no bzip2, so Tatoeba's exports are unpacked with the system tools.
+      if (file.endsWith('.tar.bz2')) execFileSync('tar', ['-xjf', file, '-C', dir]);
+      else if (file.endsWith('.bz2')) execFileSync('bunzip2', ['-kf', file]);
     }
     const manifest = { version, downloadedAt: new Date().toISOString(), ...dataset };
     await writeFile(join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);

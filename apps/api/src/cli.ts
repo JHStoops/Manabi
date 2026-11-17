@@ -10,6 +10,7 @@ import {
   importKanjidic2,
   importKanjiVg,
   importLevelLists,
+  importTatoeba,
 } from './modules/imports/service';
 
 const USAGE = `Usage: manabi pack import <dir>
@@ -17,7 +18,8 @@ const USAGE = `Usage: manabi pack import <dir>
        manabi import kanjidic2 <course-key> <file>
        manabi import level-lists <course-key>   (up to LEVEL_CEILING, default N3)
        manabi import jmdict <course-key> <file>
-       manabi import kanjivg <course-key> <file>`;
+       manabi import kanjivg <course-key> <file>
+       manabi import tatoeba <course-key> <dir>`;
 
 /** Picks the command to run, or null for bad arguments. */
 function command([group, name, arg, file]: string[]): ((pool: Pool) => Promise<unknown>) | null {
@@ -32,6 +34,9 @@ function command([group, name, arg, file]: string[]): ((pool: Pool) => Promise<u
   }
   if (group === 'import' && name === 'jmdict' && file) {
     return (pool) => importJmdict(pool, { courseKey: arg, file: resolve(cwd, file) });
+  }
+  if (group === 'import' && name === 'tatoeba' && file) {
+    return (pool) => importTatoeba(pool, { courseKey: arg, file: resolve(cwd, file) });
   }
   if (group === 'import' && name === 'level-lists' && !file) {
     return (pool) => importLevelLists(pool, { courseKey: arg, ceiling: loadConfig().levelCeiling });

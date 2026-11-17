@@ -1,6 +1,7 @@
 import type { Queryable } from '../../db/db';
 import { insertReturning, query } from '../../db/db';
 import type { JsonObject } from '../content/rows';
+import type { SentenceAttribution, Tile } from '@manabi/core';
 import type { ImportedItem, LevelWord } from '@manabi/importers';
 
 // Dataset imports (FR-226, SDD section 10). Nothing here touches a progress table.
@@ -206,4 +207,94 @@ export async function upsertStrokeData(
     [rows.map((r) => r.itemId), rows.map((r) => JSON.stringify(r.strokes))],
   );
   return row!;
+}
+
+/** The ids of the course's items with these keys. */
+export function findItemIds(
+  db: Queryable,
+  i: { courseId: number; keys: string[] },
+): Promise<{ key: string; id: number }[]> {
+  return query(db, `SELECT key, id FROM items WHERE course_id = $1 AND key = ANY($2::text[])`, [
+    i.courseId,
+    i.keys,
+  ]);
+}
+
+export interface ImportedSentence {
+  sourceId: string;
+  text: string;
+  translation: string;
+  tokens: Tile[];
+  attribution: SentenceAttribution;
+  vocabLevel: string | null;
+}
+
+/**
+ * SDD section 10 step 5: upserts imported sentences by (course, source, source id), new ones
+ * unreviewed. DR-11, FR-238: an edited text or translation keeps its value and attribution, and
+ * tiles (with the vocabulary level) an author has edited or reviewed, or whose text was edited,
+ * are kept; an identical re-run writes nothing. Returns each written row and whether its tiles
+ * were written.
+ */
+export function upsertImportedSentences(
+  db: Queryable,
+  i: { courseId: number; source: string; sentences: ImportedSentence[] },
+): Promise<{ id: number; inserted: boolean; retiled: boolean }[]> {
+  const locked = `(s.edited OR s.tokens_edited OR s.review_status = 'reviewed')`;
+  return query(
+    db,
+    `INSERT INTO sentences AS s
+       (course_id, source, source_id, text, translation, tokens, attribution, vocab_level_code)
+     SELECT $1, $2, t.source_id, t.text, t.translation, t.tokens::jsonb, t.attribution::jsonb,
+       t.level
+     FROM unnest($3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[])
+       AS t (source_id, text, translation, tokens, attribution, level)
+     ON CONFLICT (course_id, source, source_id) WHERE source IS NOT NULL DO UPDATE SET
+       text = CASE WHEN s.edited THEN s.text ELSE EXCLUDED.text END,
+       translation = CASE WHEN s.translation_edited THEN s.translation
+         ELSE EXCLUDED.translation END,
+       attribution = EXCLUDED.attribution
+         || CASE WHEN s.edited THEN jsonb_build_object('sentence', s.attribution -> 'sentence')
+            ELSE '{}' END
+         || CASE WHEN s.translation_edited
+            THEN jsonb_build_object('translation', s.attribution -> 'translation') ELSE '{}' END,
+       tokens = CASE WHEN ${locked} THEN s.tokens ELSE EXCLUDED.tokens END,
+       vocab_level_code = CASE WHEN ${locked} THEN s.vocab_level_code
+         ELSE EXCLUDED.vocab_level_code END,
+       updated_at = now()
+     WHERE (NOT s.edited AND (s.text, s.attribution -> 'sentence')
+             IS DISTINCT FROM (EXCLUDED.text, EXCLUDED.attribution -> 'sentence'))
+       OR (NOT s.translation_edited AND (s.translation, s.attribution -> 'translation')
+             IS DISTINCT FROM (EXCLUDED.translation, EXCLUDED.attribution -> 'translation'))
+       OR s.attribution -> 'otherTranslationIds'
+            IS DISTINCT FROM EXCLUDED.attribution -> 'otherTranslationIds'
+       OR (NOT ${locked} AND (s.tokens, s.vocab_level_code)
+             IS DISTINCT FROM (EXCLUDED.tokens, EXCLUDED.vocab_level_code))
+     RETURNING s.id, xmax = 0 AS inserted, NOT ${locked} AS retiled`,
+    [
+      i.courseId,
+      i.source,
+      i.sentences.map((s) => s.sourceId),
+      i.sentences.map((s) => s.text),
+      i.sentences.map((s) => s.translation),
+      i.sentences.map((s) => JSON.stringify(s.tokens)),
+      i.sentences.map((s) => JSON.stringify(s.attribution)),
+      i.sentences.map((s) => s.vocabLevel),
+    ],
+  );
+}
+
+/** Sets each sentence's `sentence_items` to the items its tiles link to. */
+export async function replaceSentenceItems(db: Queryable, sentenceIds: number[]): Promise<void> {
+  await query(db, `DELETE FROM sentence_items WHERE sentence_id = ANY($1::bigint[])`, [
+    sentenceIds,
+  ]);
+  await query(
+    db,
+    `INSERT INTO sentence_items (sentence_id, item_id)
+     SELECT DISTINCT s.id, (tile ->> 'itemId')::bigint
+     FROM sentences s, jsonb_array_elements(s.tokens) AS tile
+     WHERE s.id = ANY($1::bigint[]) AND tile ->> 'itemId' IS NOT NULL`,
+    [sentenceIds],
+  );
 }

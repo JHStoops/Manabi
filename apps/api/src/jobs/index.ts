@@ -3,6 +3,7 @@ import { importJmdictJob } from './importJmdict';
 import { importKanjidic2Job } from './importKanjidic2';
 import { importKanjiVgJob } from './importKanjiVg';
 import { importLevelListsJob } from './importLevelLists';
+import { importTatoebaJob } from './importTatoeba';
 import { purgeExpiredJob } from './purgeExpired';
 
 /**
@@ -15,4 +16,5 @@ export const allJobs: readonly AnyJobDefinition[] = [
   importLevelListsJob,
   importJmdictJob,
   importKanjiVgJob,
+  importTatoebaJob,
 ];

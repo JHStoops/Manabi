@@ -38,7 +38,12 @@ the fixtures in `fixtures/`.
   `stroke_data` for every item with a `character` (kana and kanji), converted to Hanzi Writer data:
   a fixed-width ribbon outline around each centreline plus its median (FR-077). The run summary
   lists characters without KanjiVG strokes in `missing`. Run it after KANJIDIC2.
-- Not yet: Tatoeba.
+- Tatoeba: `npm run manabi -- import tatoeba ja-en packages/importers/datasets/tatoeba`, or the
+  `import-tatoeba` worker job with `{ courseKey, file }` (`file` is that folder: the download
+  script unpacks the `.bz2` exports there with `bunzip2` and `tar`). Keeps the Japanese-English
+  pairs that pass FR-235's filters, with their tiles linked to the course's word items and the
+  attribution of each side; new sentences are unreviewed, and tiles an author edited or reviewed
+  are kept on re-import. Run it after JMdict; the summary counts the sentences each filter dropped.
 
 ## Sentence segmentation
 

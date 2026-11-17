@@ -8,7 +8,9 @@ import {
   parseJmdict,
   parseKanjidic2,
   parseKanjiVg,
+  parseTatoeba,
   readLevelLists,
+  readLevelOrder,
 } from '@manabi/importers';
 import type { DatasetName, ParsedDataset } from '@manabi/importers';
 import type { Queryable } from '../../db/db';
@@ -17,13 +19,16 @@ import { languagePlugins } from '../../plugins';
 import { findCourseByKey } from '../content/queries';
 import {
   findCharacterItems,
+  findItemIds,
   findKeysOwnedElsewhere,
   finishImportRun,
   insertContainsLinks,
   insertImportRun,
   listWantedWords,
+  replaceSentenceItems,
   setImportedItemLevels,
   upsertImportedItems,
+  upsertImportedSentences,
   upsertLevelListWords,
   upsertStrokeData,
 } from './queries';
@@ -208,6 +213,78 @@ export function importKanjiVg(pool: Pool, { courseKey, file }: ImportFile): Prom
         strokesUpdated: counts.updated,
         strokesSkipped: rows.length - counts.added - counts.updated,
         missing,
+      };
+    });
+  });
+}
+
+/**
+ * SDD section 10 step 5, FR-235, FR-238, DR-11: imports the Tatoeba Japanese-English pairs that
+ * pass the sentence filters, unreviewed, with their tiles linked to the course's word items and
+ * per-side attribution. `file` is the folder of unpacked exports. Run it after JMdict. The
+ * summary counts the sentences each filter dropped and the updated ones whose tiles an author
+ * owns (`tilesKept`).
+ */
+export function importTatoeba(pool: Pool, { courseKey, file }: ImportFile): Promise<ImportSummary> {
+  return recordRun(pool, 'tatoeba', async () => {
+    const course = await findCourseByKey(pool, courseKey);
+    if (!course) throw new Error(`No course ${courseKey}: import its content pack first`);
+    const wanted = await listWantedWords(pool, course.id);
+    if (wanted.length === 0) {
+      throw new Error(`No level-list words for ${courseKey}: run the level-list import first`);
+    }
+    const plugin = languagePlugins.get(course.plugin);
+    const parsed = await parseTatoeba(file, plugin, wanted, await readLevelOrder());
+    const { licence, attribution } = datasets.tatoeba;
+    const { datasetVersion } = parsed;
+    const part = ({ sourceId, owner }: { sourceId: string; owner: string | null }) => ({
+      sourceId,
+      owner,
+      url: `https://tatoeba.org/en/sentences/show/${sourceId}`,
+      licence,
+      datasetVersion,
+    });
+    return withTransaction(pool, async (db) => {
+      const keys = parsed.sentences.flatMap((s) => s.tiles.flatMap((t) => t.word ?? []));
+      const ids = new Map(
+        (await findItemIds(db, { courseId: course.id, keys: [...new Set(keys)] })).map((r) => [
+          r.key,
+          r.id,
+        ]),
+      );
+      const written = await upsertImportedSentences(db, {
+        courseId: course.id,
+        source: 'tatoeba',
+        sentences: parsed.sentences.map((s) => ({
+          sourceId: s.sentence.sourceId,
+          text: s.sentence.text,
+          translation: s.translation.text,
+          tokens: s.tiles.map(({ word, ...tile }) => ({
+            ...tile,
+            itemId: word ? (ids.get(word) ?? null) : null,
+          })),
+          attribution: {
+            sentence: part(s.sentence),
+            translation: part(s.translation),
+            otherTranslationIds: s.otherTranslationIds,
+          },
+          vocabLevel: s.vocabLevel,
+        })),
+      });
+      await replaceSentenceItems(
+        db,
+        written.filter((r) => r.retiled).map((r) => r.id),
+      );
+      const added = written.filter((r) => r.inserted).length;
+      return {
+        datasetVersion,
+        licence,
+        attribution,
+        added,
+        updated: written.length - added,
+        skipped: parsed.sentences.length - written.length,
+        tilesKept: written.filter((r) => !r.retiled).length,
+        dropped: parsed.dropped,
       };
     });
   });
