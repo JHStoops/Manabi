@@ -24,8 +24,11 @@ for (const viewport of [
       expect(box?.width).toBeGreaterThanOrEqual(44);
       expect(box?.height).toBeGreaterThanOrEqual(44);
     }
-    await page.keyboard.press('Tab');
-    await expect(tabs.first()).toBeFocused();
+    // Keyboard reaches every tab, in the order they are drawn.
+    for (const tab of await tabs.all()) {
+      await page.keyboard.press('Tab');
+      await expect(tab).toBeFocused();
+    }
     await expect(page.getByRole('heading', { name: 'Learn' })).toBeVisible();
     expect(foreign).toEqual([]);
   });

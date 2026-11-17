@@ -20,8 +20,7 @@ const tabs = ['learn', 'review', 'library', 'social', 'profile'] as const;
 // IF-01: bottom tab bar below 768 px, side rail above.
 const Shell = styled.div<{ wide: boolean }>`
   display: flex;
-  flex-direction: ${({ wide }) => (wide ? 'row' : 'column-reverse')};
-  justify-content: flex-end;
+  flex-direction: ${({ wide }) => (wide ? 'row' : 'column')};
   min-height: 100vh;
   background: ${({ theme }) => theme.colors.background};
   color: ${({ theme }) => theme.colors.text};
@@ -69,21 +68,26 @@ const loading = <p>{t('app.loading')}</p>;
 function Layout() {
   const { user } = useSession();
   const wide = useMediaQuery('(min-width: 768px)');
+  const nav = (
+    <Nav wide={wide} aria-label={t('nav.label')} data-layout={wide ? 'rail' : 'tab-bar'}>
+      {tabs.map((tab) => (
+        <Tab key={tab} to={`/${tab}`}>
+          {t(`area.${tab}`)}
+        </Tab>
+      ))}
+      {user?.role === 'admin' && <Tab to="/admin">{t('area.admin')}</Tab>}
+    </Nav>
+  );
+  // IF-03: DOM order matches visual order, so the rail comes before main and the tab bar after.
   return (
     <Shell wide={wide}>
-      <Nav wide={wide} aria-label={t('nav.label')} data-layout={wide ? 'rail' : 'tab-bar'}>
-        {tabs.map((tab) => (
-          <Tab key={tab} to={`/${tab}`}>
-            {t(`area.${tab}`)}
-          </Tab>
-        ))}
-        {user?.role === 'admin' && <Tab to="/admin">{t('area.admin')}</Tab>}
-      </Nav>
+      {wide && nav}
       <Main>
         <Suspense fallback={loading}>
           <Outlet />
         </Suspense>
       </Main>
+      {!wide && nav}
     </Shell>
   );
 }
