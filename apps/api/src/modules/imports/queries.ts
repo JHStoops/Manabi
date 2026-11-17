@@ -116,3 +116,59 @@ export async function upsertLevelListWords(
   );
   return row!;
 }
+
+/** Keys among `keys` held by an authored item or by another course or source (left alone). */
+export async function findKeysOwnedElsewhere(
+  db: Queryable,
+  i: { courseId: number; source: string; keys: string[] },
+): Promise<string[]> {
+  const rows = await query<{ key: string }>(
+    db,
+    `SELECT key FROM items WHERE key = ANY($3::text[])
+       AND (course_id <> $1 OR source IS DISTINCT FROM $2)
+     ORDER BY key`,
+    [i.courseId, i.source, i.keys],
+  );
+  return rows.map((row) => row.key);
+}
+
+/**
+ * SDD section 10 step 3: the words the JMdict import looks up, from the level lists and the
+ * supplementary words (FR-234). A word on both keeps its level-list level.
+ */
+export function listWantedWords(db: Queryable, courseId: number): Promise<LevelWord[]> {
+  return query<LevelWord>(
+    db,
+    `SELECT DISTINCT ON (written, reading) level, written, reading
+     FROM (SELECT level_code AS level, written, reading, 0 AS rank
+           FROM level_list_words WHERE course_id = $1
+           UNION ALL
+           SELECT level_code, written, reading, 1 FROM supplementary_words WHERE course_id = $1) w
+     ORDER BY written, reading, rank`,
+    [courseId],
+  );
+}
+
+/**
+ * Adds `contains` links from the course's imported words to its kanji items; pairs whose word or
+ * kanji item does not exist are skipped. Returns how many links were added.
+ */
+export async function insertContainsLinks(
+  db: Queryable,
+  i: { courseId: number; source: string; links: { from: string; to: string }[] },
+): Promise<number> {
+  const [row] = await query<{ added: number }>(
+    db,
+    `WITH added AS (
+       INSERT INTO item_links (from_item_id, to_item_id, kind)
+       SELECT w.id, k.id, 'contains'
+       FROM unnest($3::text[], $4::text[]) AS t (word, kanji)
+       JOIN items w ON w.key = t.word AND w.course_id = $1 AND w.source = $2
+       JOIN items k ON k.key = t.kanji AND k.course_id = $1 AND k.type = 'kanji'
+       ON CONFLICT DO NOTHING
+       RETURNING 1)
+     SELECT count(*)::int AS added FROM added`,
+    [i.courseId, i.source, i.links.map((l) => l.from), i.links.map((l) => l.to)],
+  );
+  return row!.added;
+}

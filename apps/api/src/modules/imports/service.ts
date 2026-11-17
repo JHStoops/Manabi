@@ -1,14 +1,18 @@
 import { createReadStream } from 'node:fs';
 import type { Pool } from 'pg';
 import { parseItemData } from '@manabi/core';
-import { datasets, parseKanjidic2, readLevelLists } from '@manabi/importers';
+import { datasets, parseJmdict, parseKanjidic2, readLevelLists } from '@manabi/importers';
 import type { DatasetName, ParsedDataset } from '@manabi/importers';
+import type { Queryable } from '../../db/db';
 import { withTransaction } from '../../db/db';
 import { languagePlugins } from '../../plugins';
 import { findCourseByKey } from '../content/queries';
 import {
+  findKeysOwnedElsewhere,
   finishImportRun,
+  insertContainsLinks,
   insertImportRun,
+  listWantedWords,
   setImportedItemLevels,
   upsertImportedItems,
   upsertLevelListWords,
@@ -46,13 +50,15 @@ async function recordRun(
 
 /**
  * Validates parsed items against the course's plugin (DR-06) and upserts them in one
- * transaction. NFR-62: the dataset's licence and attribution go into the run summary.
+ * transaction, then runs `after` in it. NFR-62: the dataset's licence and attribution go into
+ * the run summary, with the keys skipped because an authored item or another course owns them.
  */
 async function importItems(
   pool: Pool,
   courseKey: string,
   source: DatasetName,
   parsed: ParsedDataset,
+  after?: (db: Queryable, courseId: number) => Promise<object>,
 ): Promise<ImportSummary> {
   return withTransaction(pool, async (db) => {
     const course = await findCourseByKey(db, courseKey);
@@ -68,6 +74,11 @@ async function importItems(
       datasetVersion: parsed.datasetVersion,
       items,
     });
+    const skippedOwned = await findKeysOwnedElsewhere(db, {
+      courseId: course.id,
+      source,
+      keys: items.map((item) => item.key),
+    });
     const { licence, attribution } = datasets[source];
     return {
       datasetVersion: parsed.datasetVersion,
@@ -75,6 +86,8 @@ async function importItems(
       attribution,
       ...counts,
       skipped: parsed.items.length - counts.added - counts.updated,
+      skippedOwned,
+      ...(await after?.(db, course.id)),
     };
   });
 }
@@ -130,6 +143,32 @@ export function importLevelLists(
         updated: kanji + words.updated,
         skipped: lists.kanji.length + lists.words.length - kanji - words.added - words.updated,
       };
+    });
+  });
+}
+
+/**
+ * SDD section 10 step 3: one word item per level-list or supplementary word found in JMdict,
+ * with its list level and `contains` links to the course's kanji items. Run it after the
+ * level-list import (and KANJIDIC2, for the links); the summary lists the words not found.
+ */
+export function importJmdict(pool: Pool, { courseKey, file }: ImportFile): Promise<ImportSummary> {
+  return recordRun(pool, 'jmdict', async () => {
+    const course = await findCourseByKey(pool, courseKey);
+    if (!course) throw new Error(`No course ${courseKey}: import its content pack first`);
+    const wanted = await listWantedWords(pool, course.id);
+    if (wanted.length === 0) {
+      throw new Error(`No level-list words for ${courseKey}: run the level-list import first`);
+    }
+    const parsed = await parseJmdict(createReadStream(file, 'utf8'), wanted);
+    return importItems(pool, courseKey, 'jmdict', parsed, async (db, courseId) => {
+      await setImportedItemLevels(db, { courseId, levels: parsed.levels });
+      const linksAdded = await insertContainsLinks(db, {
+        courseId,
+        source: 'jmdict',
+        links: parsed.links,
+      });
+      return { linksAdded, unmatched: parsed.unmatched };
     });
   });
 }

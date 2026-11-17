@@ -27,7 +27,12 @@ the fixtures in `fixtures/`.
   FR-233) up to `LEVEL_CEILING` (default N3), sets `level_code` on imported kanji items and stores
   the words in `level_list_words`. Run it after KANJIDIC2; raise the ceiling and run it again to
   add a level.
-- Not yet: JMdict, KanjiVG, Tatoeba.
+- JMdict: `npm run manabi -- import jmdict ja-en packages/importers/datasets/jmdict/JMdict_e`, or
+  the `import-jmdict` worker job with `{ courseKey, file }`. Imports one word item per level-list
+  or supplementary word found (`ja:word:<written>:<reading>`) with its list level, and links it to
+  its kanji items. Run it after the level lists; the run summary lists the words not found
+  (`unmatched`) and keys an authored item or another course owns (`skippedOwned`).
+- Not yet: KanjiVG, Tatoeba.
 
 ## Sentence segmentation
 
