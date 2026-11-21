@@ -218,13 +218,13 @@ describeWithDb('content packs', () => {
     const pack = await readPack(FIXTURE);
     await importPack(pool(), pack);
     pack.supplementaryWords = [
-      { level: 'N4', written: '父', reading: 'ちち' },
+      { level: 'N5', written: '父', reading: 'ちち' },
       { level: 'N5', written: 'どんな', reading: 'どんな' },
     ];
     await importPack(pool(), pack);
     expect((await exportPack(pool(), 'ja-en')).supplementaryWords).toEqual([
       { level: 'N5', written: 'どんな', reading: 'どんな' },
-      { level: 'N4', written: '父', reading: 'ちち' },
+      { level: 'N5', written: '父', reading: 'ちち' },
     ]);
   });
 
@@ -318,6 +318,7 @@ describeWithDb('content packs', () => {
     pack.course.sections = pack.course.sections.slice(0, 1);
     pack.items = pack.items.filter((i) => i.key !== 'ja:word:水:みず' && i.type !== 'grammar');
     pack.sentences = [];
+    pack.supplementaryWords = [];
     await importPack(pool(), pack);
 
     expect(await snapshot(pool(), PROGRESS_TABLES)).toEqual(progress);
