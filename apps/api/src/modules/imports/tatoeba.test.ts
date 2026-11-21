@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { query } from '../../db/db';
 import { describeWithDb, useTestDatabase } from '../../test/db';
 import { seedCourse } from '../../test/fixtures';
-import { insertItem } from '../content/queries';
+import { insertItem, replaceSupplementaryWords } from '../content/queries';
 import { upsertLevelListWords } from './queries';
 import { importTatoeba } from './service';
 
@@ -36,6 +36,7 @@ describeWithDb('importTatoeba (FR-226, FR-235, FR-238, DR-11, NFR-62)', () => {
         datasetVersion: '2026-11-17',
       });
     }
+    return courseId;
   }
 
   const sentence = (sourceId: string) =>
@@ -124,6 +125,24 @@ describeWithDb('importTatoeba (FR-226, FR-235, FR-238, DR-11, NFR-62)', () => {
     expect(second).toMatchObject({ added: 0, updated: 0, skipped: 3, tilesKept: 0 });
     expect(await links()).toHaveLength(5);
     expect(await query(pool(), `SELECT count(*)::int AS n FROM sentences`)).toEqual([{ n: 3 }]);
+  });
+
+  it('imports a sentence blocked only by a supplementary word once it is added (FR-234)', async () => {
+    const courseId = await seed();
+    await importTatoeba(pool(), { courseKey: 'ja-en', file: dir });
+    // 私は先生です。 is blocked only by 先生, which the level lists lack.
+    expect(await sentence('155469')).toBeUndefined();
+
+    await replaceSupplementaryWords(pool(), courseId, [
+      { level: 'N5', written: '先生', reading: 'せんせい' },
+    ]);
+    const summary = await importTatoeba(pool(), { courseKey: 'ja-en', file: dir });
+    expect(summary).toMatchObject({ added: 1, dropped: { unknownWords: 0 } });
+    expect(await sentence('155469')).toMatchObject({
+      text: '私は先生です。',
+      review_status: 'unreviewed',
+      vocab_level_code: 'N5',
+    });
   });
 
   it('never overwrites edited or reviewed tiles, or edited text, on re-import', async () => {

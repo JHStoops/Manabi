@@ -77,6 +77,26 @@ describeWithDb('importJmdict (FR-226, FR-234, DR-02, DR-09)', () => {
     expect(await links()).toHaveLength(2);
   });
 
+  it('turns a newly added supplementary word into a word item on re-import (FR-234)', async () => {
+    const courseId = await seed();
+    await importJmdict(pool(), { courseKey: 'ja-en', file });
+    expect(await findItemByKey(pool(), 'ja:word:人:ひと')).toBeNull();
+
+    await query(
+      pool(),
+      `INSERT INTO supplementary_words (course_id, level_code, written, reading)
+       VALUES ($1, 'N4', '人', 'ひと')`,
+      [courseId],
+    );
+    const summary = await importJmdict(pool(), { courseKey: 'ja-en', file });
+    expect(summary).toMatchObject({ added: 1, updated: 0 });
+    expect(await findItemByKey(pool(), 'ja:word:人:ひと')).toMatchObject({
+      type: 'word',
+      level_code: 'N4',
+      source: 'jmdict',
+    });
+  });
+
   it('keeps overrides on re-import and reports keys an authored item owns', async () => {
     const courseId = await seed();
     await insertItem(pool(), {

@@ -9,13 +9,13 @@ import {
   packGrammarFrontMatterSchema,
   packItemsFileSchema,
   packSentencesFileSchema,
+  packSupplementaryWordsFileSchema,
   packUnitSchema,
 } from '@manabi/core';
 import type { ContentPack } from '@manabi/core';
 
 // Reads and writes content pack directories (SDD section 4). Schema errors name the file and the
-// path inside it. STUB: audio/ clips are carried by #66, which owns the media store, and
-// lists/supplementary-words.yaml by #111.
+// path inside it. STUB: audio/ clips are carried by #66, which owns the media store.
 
 const GRAMMAR_TYPE = 'grammar';
 const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
@@ -66,6 +66,7 @@ export async function readPack(dir: string): Promise<ContentPack> {
     items: [],
     sentences: [],
     blockedWords: [],
+    supplementaryWords: [],
   };
   for (const file of await listFiles(dir, 'units', '.yaml')) {
     const unit = check(file, await read(file), packUnitSchema);
@@ -92,6 +93,10 @@ export async function readPack(dir: string): Promise<ContentPack> {
   pack.sentences = check('sentences.yaml', sentences, packSentencesFileSchema) ?? [];
   const blocked = (await readOr('lists/blocked-words.yaml', '[]'))!;
   pack.blockedWords = check('lists/blocked-words.yaml', blocked, packBlockedWordsFileSchema) ?? [];
+  const supplementary = 'lists/supplementary-words.yaml';
+  pack.supplementaryWords =
+    check(supplementary, (await readOr(supplementary, '[]'))!, packSupplementaryWordsFileSchema) ??
+    [];
   if (problems.length > 0 || !course) throw new ContentPackError(problems);
   return { course, ...pack };
 }
@@ -147,4 +152,5 @@ export async function writePack(dir: string, pack: ContentPack): Promise<void> {
   await writeFile(join(dir, 'sentences.yaml'), toYaml(pack.sentences));
   await mkdir(join(dir, 'lists'), { recursive: true });
   await writeFile(join(dir, 'lists', 'blocked-words.yaml'), toYaml(pack.blockedWords));
+  await writeFile(join(dir, 'lists/supplementary-words.yaml'), toYaml(pack.supplementaryWords));
 }

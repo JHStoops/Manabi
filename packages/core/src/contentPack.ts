@@ -141,6 +141,20 @@ export const packSentencesFileSchema = z.array(packSentenceSchema);
 
 /** FR-237: `lists/blocked-words.yaml`, the blocklist of the course's target language. */
 export const packBlockedWordsFileSchema = z.array(nonEmptyTextSchema);
+/**
+ * One entry of `lists/supplementary-words.yaml` (FR-234): a common word the level lists lack,
+ * treated as a level-list word at `level`. A kana-only word has its reading as `written`.
+ */
+export const packSupplementaryWordSchema = z
+  .object({
+    level: levelCodeSchema,
+    written: nonEmptyTextSchema,
+    reading: nonEmptyTextSchema,
+    note: nonEmptyTextSchema.optional(),
+  })
+  .strict();
+export type PackSupplementaryWord = z.infer<typeof packSupplementaryWordSchema>;
+export const packSupplementaryWordsFileSchema = z.array(packSupplementaryWordSchema);
 
 /** A whole pack in memory, as read from (or written to) a pack directory. */
 export interface ContentPack {
@@ -152,6 +166,7 @@ export interface ContentPack {
   sentences: PackSentence[];
   /** FR-237: `lists/blocked-words.yaml`; empty when the file is missing. */
   blockedWords: string[];
+  supplementaryWords: PackSupplementaryWord[];
 }
 
 /** A pack that cannot be read or imported. Each problem names its file or key, and a path. */
