@@ -2,12 +2,7 @@ import type { Exercise } from '@manabi/core';
 import { UnknownLanguagePluginError, createLanguagePluginRegistry } from '@manabi/core';
 import japanese, { NotImplementedError } from './index';
 
-const exercise: Exercise = {
-  id: 'ex-1',
-  type: 'translate',
-  prompt: '日本語',
-  accepted: ['にほんご'],
-};
+const exercise: Exercise = { type: 'translate', payload: { prompt: '日本語' } };
 
 describe('japanese language plugin', () => {
   it('identifies itself as Japanese with its writing systems', () => {
