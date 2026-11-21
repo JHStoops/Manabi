@@ -48,7 +48,20 @@ export async function setActiveCourse(db: Queryable, userId: number, courseId: n
   );
 }
 
-/** One lesson on the path with its unit and section, and the user's first completion. */
+/**
+ * FR-021, FR-232: records that the user finished a unit (its last visible lesson completed, or a
+ * passed test-out). Insert-only; a second call keeps the first completion. Called inside the
+ * lesson-completion (#37) and test-out (#96) transactions.
+ */
+export async function insertUnitCompletion(db: Queryable, userId: number, unitId: number) {
+  await query(
+    db,
+    `INSERT INTO unit_completions (user_id, unit_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+    [userId, unitId],
+  );
+}
+
+/** One lesson on the path with its unit and section, and whether the user completed them. */
 export interface PathRow {
   section_id: number;
   section_key: string;
@@ -63,8 +76,8 @@ export interface PathRow {
   lesson_type: LessonType;
   lesson_title: string;
   lesson_status: PublishStatus;
-  lesson_created_at: Date;
-  completed_at: Date | null;
+  completed: boolean;
+  unit_completed: boolean;
 }
 
 /**
@@ -84,11 +97,12 @@ export function listPathRows(
             u.id AS unit_id, u.key AS unit_key, u.title AS unit_title, u.status AS unit_status,
             l.id AS lesson_id, l.key AS lesson_key, l.type AS lesson_type,
             l.title AS lesson_title, l.status AS lesson_status,
-            l.created_at AS lesson_created_at, p.completed_at
+            p.user_id IS NOT NULL AS completed, uc.user_id IS NOT NULL AS unit_completed
        FROM sections s
        JOIN units u ON u.section_id = s.id AND u.archived_at IS NULL
        JOIN lessons l ON l.unit_id = u.id AND l.archived_at IS NULL
        LEFT JOIN lesson_progress p ON p.lesson_id = l.id AND p.user_id = $2
+       LEFT JOIN unit_completions uc ON uc.unit_id = u.id AND uc.user_id = $2
       WHERE s.course_id = $1 AND s.archived_at IS NULL
         AND ($3 OR (u.status = 'published' AND l.status = 'published'))
       ORDER BY s.position, u.position, l.position`,

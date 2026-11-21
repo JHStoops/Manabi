@@ -141,6 +141,7 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 | --- | --- | --- |
 | `enrollments` | user_id, course_id, started_at, total_xp, level | A learner may enroll in several courses; XP total and level are kept per course here |
 | `lesson_progress` | user_id, lesson_id, completed_at, best_accuracy, times_completed | Drives path unlocking |
+| `unit_completions` | user_id, unit_id, completed_at | Insert-only; written when a unit's last visible lesson is completed or its test-out is passed. Unlocks the next unit for good, so lessons added to the unit later never re-lock it (FR-232) |
 | `lesson_sessions` | id, user_id, lesson_id, unit_id, state (JSONB), expires_at | Resume within 24 hours; a unit challenge session has unit_id set and no lesson_id |
 | `item_progress` | user_id, item_id, facet, stage, due_at, last_reviewed_at, correct_count, wrong_count | One row per review facet; index on (user_id, due_at) |
 | `review_log` | id, user_id, item_id, facet, exercise_type, correct, stage_before, stage_after, answered_at | Append-only; feeds stats and future scheduler tuning |

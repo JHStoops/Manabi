@@ -7,6 +7,7 @@ import { seedUser } from '../../test/fixtures';
 import { SESSION_COOKIE } from '../auth/guard';
 import { hashPassword } from '../auth/passwords';
 import type { NewUser } from '../auth/queries';
+import { insertUnitCompletion } from './queries';
 
 // API tests for the course list, enrollment and path (issue #24): FR-020 to FR-023.
 
@@ -201,7 +202,7 @@ describeWithDb('courses API', () => {
     );
   });
 
-  it('unlocks the next unit from completions and keeps it open when a lesson is added (FR-021, FR-232)', async () => {
+  it('keeps the next unit open when a lesson is added to a completed unit (FR-021, FR-232)', async () => {
     const { courseId, lesson } = await seedCourse('ja-en');
     const learner = await as({ username: 'aiko' });
     const [user] = await query<{ id: number }>(pool(), `SELECT id FROM users`);
@@ -213,14 +214,18 @@ describeWithDb('courses API', () => {
       'u2/l1: available',
       'u2/l2: locked',
     ]);
-
-    // A content update publishes a lesson that was created after the learner finished unit 1.
-    await query(
+    // The lesson-completion transaction records the finished unit (#37).
+    const [unit] = await query<{ unit_id: number }>(
       pool(),
-      `UPDATE lessons SET status = 'published', created_at = now() + interval '1 minute'
-        WHERE id = $1`,
-      [lesson['u1:draft']],
+      `SELECT unit_id FROM lessons WHERE id = $1`,
+      [lesson['u1:l1']],
     );
+    await insertUnitCompletion(pool(), user!.id, unit!.unit_id);
+
+    // A content update publishes a lesson in unit 1 (created before the learner finished it).
+    await query(pool(), `UPDATE lessons SET status = 'published' WHERE id = $1`, [
+      lesson['u1:draft'],
+    ]);
     expect(await states(courseId, learner)).toEqual([
       'u1/l1: completed',
       'u1/l2: completed',

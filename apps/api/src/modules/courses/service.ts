@@ -76,7 +76,8 @@ export async function getPath(
   const states = lessonStates(
     units.map((lessons) => ({
       testedOut: false,
-      lessons: lessons.map((l) => ({ completedAt: l.completed_at, addedAt: l.lesson_created_at })),
+      completed: lessons[0]!.unit_completed,
+      lessons: lessons.map((l) => ({ completed: l.completed })),
     })),
   );
 
