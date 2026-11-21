@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idSchema } from './primitives';
 
 /**
  * Learner settings (Product Spec section 11), stored in `users.settings` (JSONB). Display name,
@@ -68,6 +69,8 @@ export const defaultLearnerSettings = {
   // Social (FR-184): both opt-out.
   appearOnLeaderboard: true,
   allowNudges: true,
+  // FR-023: set by POST /courses/:id/enroll; null until the first enrollment.
+  activeCourseId: null,
 } as const satisfies Record<string, unknown>;
 
 const d = defaultLearnerSettings;
@@ -95,11 +98,15 @@ export const learnerSettingsSchema = z.object({
   reducedMotion: z.boolean().default(d.reducedMotion),
   appearOnLeaderboard: z.boolean().default(d.appearOnLeaderboard),
   allowNudges: z.boolean().default(d.allowNudges),
+  activeCourseId: idSchema.nullable().default(d.activeCourseId),
 });
 export type LearnerSettings = z.infer<typeof learnerSettingsSchema>;
 
-/** A partial settings update (`PATCH /me`): only the fields sent change; unknown keys fail. */
-const settingsShape = learnerSettingsSchema.shape;
+/**
+ * A partial settings update (`PATCH /me`): only the fields sent change; unknown keys fail. The
+ * active course is left out: it changes through `POST /courses/:id/enroll`, which checks the course.
+ */
+const settingsShape = learnerSettingsSchema.omit({ activeCourseId: true }).shape;
 type SettingsShape = typeof settingsShape;
 // Not `.partial()`: zod 4 applies a default even inside `.optional()`, so a partial of the
 // defaulted schema would reset every field the patch leaves out.

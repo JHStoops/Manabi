@@ -130,7 +130,7 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 
 | Table | Key columns | Notes |
 | --- | --- | --- |
-| `users` | id, username, email, password_hash, display_name, role (admin or learner), must_change_password, password_expires_at, time_zone, settings (JSONB), disabled_at | Settings hold avatar color and initial, daily goal, caps, theme and color mode, furigana mode, text size, sound, motion and social toggles; missing keys read as their defaults (learnerSettingsSchema in core); password_expires_at is set with an admin's temporary password |
+| `users` | id, username, email, password_hash, display_name, role (admin or learner), must_change_password, password_expires_at, time_zone, settings (JSONB), disabled_at | Settings hold avatar color and initial, daily goal, caps, theme and color mode, furigana mode, text size, sound, motion and social toggles, and the active course (set by enrolling, FR-023); missing keys read as their defaults (learnerSettingsSchema in core); password_expires_at is set with an admin's temporary password |
 | `invites` | id, token_hash, email, role, created_by, expires_at, used_by, used_at, revoked_at | Single use; email is null when the link was only copied |
 | `sessions` | id, user_id, token_hash, client_kind, expires_at, last_seen_at | Web or mobile |
 | `password_resets` | id, user_id, token_hash, origin, expires_at, used_at | Origin: email or admin issued |
@@ -141,6 +141,7 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 | --- | --- | --- |
 | `enrollments` | user_id, course_id, started_at, total_xp, level | A learner may enroll in several courses; XP total and level are kept per course here |
 | `lesson_progress` | user_id, lesson_id, completed_at, best_accuracy, times_completed | Drives path unlocking |
+| `unit_completions` | user_id, unit_id, completed_at | Insert-only; written when a unit's last visible lesson is completed or its test-out is passed. Unlocks the next unit for good, so lessons added to the unit later never re-lock it (FR-232) |
 | `lesson_sessions` | id, user_id, lesson_id, unit_id, state (JSONB), expires_at | Resume within 24 hours; a unit challenge session has unit_id set and no lesson_id |
 | `item_progress` | user_id, item_id, facet, stage, due_at, last_reviewed_at, correct_count, wrong_count | One row per review facet; index on (user_id, due_at) |
 | `review_log` | id, user_id, item_id, facet, exercise_type, correct, stage_before, stage_after, answered_at | Append-only; feeds stats and future scheduler tuning |

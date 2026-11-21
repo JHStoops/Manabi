@@ -177,7 +177,15 @@
                             "audioAutoplay": { "default": true, "type": "boolean" },
                             "reducedMotion": { "default": false, "type": "boolean" },
                             "appearOnLeaderboard": { "default": true, "type": "boolean" },
-                            "allowNudges": { "default": true, "type": "boolean" }
+                            "allowNudges": { "default": true, "type": "boolean" },
+                            "activeCourseId": {
+                              "default": null,
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": 0,
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991
+                            }
                           },
                           "required": [
                             "avatarColor",
@@ -195,7 +203,8 @@
                             "audioAutoplay",
                             "reducedMotion",
                             "appearOnLeaderboard",
-                            "allowNudges"
+                            "allowNudges",
+                            "activeCourseId"
                           ],
                           "additionalProperties": false
                         },
@@ -591,7 +600,15 @@
                             "audioAutoplay": { "default": true, "type": "boolean" },
                             "reducedMotion": { "default": false, "type": "boolean" },
                             "appearOnLeaderboard": { "default": true, "type": "boolean" },
-                            "allowNudges": { "default": true, "type": "boolean" }
+                            "allowNudges": { "default": true, "type": "boolean" },
+                            "activeCourseId": {
+                              "default": null,
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": 0,
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991
+                            }
                           },
                           "required": [
                             "avatarColor",
@@ -609,7 +626,8 @@
                             "audioAutoplay",
                             "reducedMotion",
                             "appearOnLeaderboard",
-                            "allowNudges"
+                            "allowNudges",
+                            "activeCourseId"
                           ],
                           "additionalProperties": false
                         },
@@ -1096,7 +1114,15 @@
                             "audioAutoplay": { "default": true, "type": "boolean" },
                             "reducedMotion": { "default": false, "type": "boolean" },
                             "appearOnLeaderboard": { "default": true, "type": "boolean" },
-                            "allowNudges": { "default": true, "type": "boolean" }
+                            "allowNudges": { "default": true, "type": "boolean" },
+                            "activeCourseId": {
+                              "default": null,
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": 0,
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991
+                            }
                           },
                           "required": [
                             "avatarColor",
@@ -1114,7 +1140,8 @@
                             "audioAutoplay",
                             "reducedMotion",
                             "appearOnLeaderboard",
-                            "allowNudges"
+                            "allowNudges",
+                            "activeCourseId"
                           ],
                           "additionalProperties": false
                         },
@@ -1896,7 +1923,15 @@
                         "audioAutoplay": { "default": true, "type": "boolean" },
                         "reducedMotion": { "default": false, "type": "boolean" },
                         "appearOnLeaderboard": { "default": true, "type": "boolean" },
-                        "allowNudges": { "default": true, "type": "boolean" }
+                        "allowNudges": { "default": true, "type": "boolean" },
+                        "activeCourseId": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        }
                       },
                       "required": [
                         "avatarColor",
@@ -1914,7 +1949,8 @@
                         "audioAutoplay",
                         "reducedMotion",
                         "appearOnLeaderboard",
-                        "allowNudges"
+                        "allowNudges",
+                        "activeCourseId"
                       ],
                       "additionalProperties": false
                     },
@@ -2270,6 +2306,750 @@
         }
       }
     },
+    "/api/v1/courses": {
+      "get": {
+        "summary": "Published courses, with the caller's enrollments and active course",
+        "tags": ["courses"],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "courses": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991
+                          },
+                          "key": { "type": "string", "maxLength": 200, "pattern": "^\\S+$" },
+                          "targetLang": { "type": "string", "pattern": "^[a-z]{2,3}$" },
+                          "baseLang": { "type": "string", "pattern": "^[a-z]{2,3}$" },
+                          "plugin": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+                          "title": { "type": "string", "minLength": 1 },
+                          "status": { "type": "string", "enum": ["draft", "published"] },
+                          "enrolled": { "type": "boolean" },
+                          "active": { "type": "boolean" }
+                        },
+                        "required": [
+                          "id",
+                          "key",
+                          "targetLang",
+                          "baseLang",
+                          "plugin",
+                          "title",
+                          "status",
+                          "enrolled",
+                          "active"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["courses"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses/{id}/enroll": {
+      "post": {
+        "summary": "Enroll in a published course (once) and make it the active course",
+        "tags": ["courses"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "nullable": true, "type": "object", "properties": {} }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": { "type": "string", "pattern": "^[1-9][0-9]{0,15}$" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991
+                    },
+                    "key": { "type": "string", "maxLength": 200, "pattern": "^\\S+$" },
+                    "targetLang": { "type": "string", "pattern": "^[a-z]{2,3}$" },
+                    "baseLang": { "type": "string", "pattern": "^[a-z]{2,3}$" },
+                    "plugin": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+                    "title": { "type": "string", "minLength": 1 },
+                    "status": { "type": "string", "enum": ["draft", "published"] },
+                    "enrolled": { "type": "boolean" },
+                    "active": { "type": "boolean" }
+                  },
+                  "required": [
+                    "id",
+                    "key",
+                    "targetLang",
+                    "baseLang",
+                    "plugin",
+                    "title",
+                    "status",
+                    "enrolled",
+                    "active"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses/{id}/path": {
+      "get": {
+        "summary": "Sections, units and lessons in order with the caller's lesson states",
+        "tags": ["courses"],
+        "description": "Learners see published units and lessons; `preview=true` (admins only) adds drafts.",
+        "parameters": [
+          {
+            "schema": { "type": "string", "enum": ["true", "false"] },
+            "in": "query",
+            "name": "preview",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "pattern": "^[1-9][0-9]{0,15}$" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "course": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "key": { "type": "string", "maxLength": 200, "pattern": "^\\S+$" },
+                        "targetLang": { "type": "string", "pattern": "^[a-z]{2,3}$" },
+                        "baseLang": { "type": "string", "pattern": "^[a-z]{2,3}$" },
+                        "plugin": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+                        "title": { "type": "string", "minLength": 1 },
+                        "status": { "type": "string", "enum": ["draft", "published"] }
+                      },
+                      "required": [
+                        "id",
+                        "key",
+                        "targetLang",
+                        "baseLang",
+                        "plugin",
+                        "title",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "sections": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991
+                          },
+                          "key": { "type": "string", "maxLength": 200, "pattern": "^\\S+$" },
+                          "title": { "type": "string", "minLength": 1 },
+                          "levelCode": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$"
+                          },
+                          "units": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991
+                                },
+                                "key": { "type": "string", "maxLength": 200, "pattern": "^\\S+$" },
+                                "title": { "type": "string", "minLength": 1 },
+                                "status": { "type": "string", "enum": ["draft", "published"] },
+                                "lessons": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "exclusiveMinimum": true,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "key": {
+                                        "type": "string",
+                                        "maxLength": 200,
+                                        "pattern": "^\\S+$"
+                                      },
+                                      "type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "kana",
+                                          "vocabulary",
+                                          "kanji",
+                                          "grammar",
+                                          "listening",
+                                          "unit_review"
+                                        ]
+                                      },
+                                      "title": { "type": "string", "minLength": 1 },
+                                      "status": {
+                                        "type": "string",
+                                        "enum": ["draft", "published"]
+                                      },
+                                      "state": {
+                                        "type": "string",
+                                        "enum": ["locked", "available", "completed"]
+                                      }
+                                    },
+                                    "required": ["id", "key", "type", "title", "status", "state"],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": ["id", "key", "title", "status", "lessons"],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": ["id", "key", "title", "levelCode", "units"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["course", "sections"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/users": {
       "get": {
         "summary": "Every user with role, last active day and streak",
@@ -2365,7 +3145,15 @@
                               "audioAutoplay": { "default": true, "type": "boolean" },
                               "reducedMotion": { "default": false, "type": "boolean" },
                               "appearOnLeaderboard": { "default": true, "type": "boolean" },
-                              "allowNudges": { "default": true, "type": "boolean" }
+                              "allowNudges": { "default": true, "type": "boolean" },
+                              "activeCourseId": {
+                                "default": null,
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": 0,
+                                "exclusiveMinimum": true,
+                                "maximum": 9007199254740991
+                              }
                             },
                             "required": [
                               "avatarColor",
@@ -2383,7 +3171,8 @@
                               "audioAutoplay",
                               "reducedMotion",
                               "appearOnLeaderboard",
-                              "allowNudges"
+                              "allowNudges",
+                              "activeCourseId"
                             ],
                             "additionalProperties": false
                           },
@@ -2745,7 +3534,15 @@
                         "audioAutoplay": { "default": true, "type": "boolean" },
                         "reducedMotion": { "default": false, "type": "boolean" },
                         "appearOnLeaderboard": { "default": true, "type": "boolean" },
-                        "allowNudges": { "default": true, "type": "boolean" }
+                        "allowNudges": { "default": true, "type": "boolean" },
+                        "activeCourseId": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        }
                       },
                       "required": [
                         "avatarColor",
@@ -2763,7 +3560,8 @@
                         "audioAutoplay",
                         "reducedMotion",
                         "appearOnLeaderboard",
-                        "allowNudges"
+                        "allowNudges",
+                        "activeCourseId"
                       ],
                       "additionalProperties": false
                     },
