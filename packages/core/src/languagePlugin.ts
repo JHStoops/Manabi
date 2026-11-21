@@ -1,12 +1,10 @@
 import type { ZodTypeAny } from 'zod';
 import type { Course, Item } from './content';
+import type { Exercise } from './exerciseRegistry';
 import type { Tile } from './sentence';
 
 // NOTE: Several types below are placeholders. They will be replaced by the real
-// domain types (exercises, learner state) as the corresponding features land.
-
-/** Placeholder for an exercise presented to the learner. */
-export type Exercise = { id: string; type: string; prompt: unknown; accepted: unknown };
+// domain types (learner state) as the corresponding features land.
 
 /** Placeholder for context passed to answer normalization (exercise, locale, settings). */
 export type AnswerContext = { exercise?: Exercise; [key: string]: unknown };
