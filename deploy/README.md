@@ -30,7 +30,7 @@ docker compose exec app node dist/download.js /datasets
 docker compose exec app node dist/cli.js import jmdict ja-en /datasets/jmdict/JMdict_e
 ```
 
-Run `node dist/cli.js` without arguments for the other import commands. The datasets can be downloaded again at any time, so they need no backup. Outside Docker the same script is `npm run download --workspace @manabi/importers -- <dir>`.
+Admins can also run or re-run an import from Admin > Imports; its file path is relative to `/datasets` and defaults to where the download script puts the dataset. Run `node dist/cli.js` without arguments for the other import commands. The datasets can be downloaded again at any time, so they need no backup. Outside Docker the same script is `npm run download --workspace @manabi/importers -- <dir>`.
 
 ## Nginx Proxy Manager
 

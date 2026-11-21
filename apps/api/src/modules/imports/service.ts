@@ -1,4 +1,6 @@
 import { createReadStream } from 'node:fs';
+import { realpath } from 'node:fs/promises';
+import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
 import type { Pool } from 'pg';
 import { parseItemData } from '@manabi/core';
 import {
@@ -107,6 +109,39 @@ async function importItems(
       ...(await after?.(db, course.id)),
     };
   });
+}
+
+/**
+ * Where `npm run download --workspace @manabi/importers` puts a dataset, relative to the datasets
+ * directory: `<name>/<file>` with `.gz` dropped, or the whole folder for Tatoeba's several files.
+ */
+export function defaultDatasetFile(name: DatasetName): string {
+  if (name === 'tatoeba') return name;
+  return `${name}/${basename(datasets[name].urls[0]!, '.gz')}`;
+}
+
+function inside(root: string, path: string): boolean {
+  const rel = relative(root, path);
+  return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+}
+
+/**
+ * The absolute path of `file` in the datasets directory. Refuses a path that leaves it, through
+ * `..` or a symbolic link. A file that does not exist yet passes; reading it fails the run.
+ */
+export async function datasetPath(datasetsDir: string, file: string): Promise<string> {
+  const root = resolve(datasetsDir);
+  const path = resolve(root, file);
+  let real: string | null = null;
+  try {
+    real = await realpath(path);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+  }
+  if (!inside(root, path) || (real && !inside(await realpath(root), real))) {
+    throw new Error(`${file} is outside the datasets directory`);
+  }
+  return path;
 }
 
 export interface ImportFile {
