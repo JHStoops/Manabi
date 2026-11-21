@@ -394,6 +394,8 @@ export async function setTemporaryPassword(
       return false;
     }
     await q.deleteSessionsOfUser(client, userId);
+    // An older emailed reset link must not override the admin's temporary password.
+    await q.markPasswordResetsUsed(client, userId);
     return true;
   });
 }

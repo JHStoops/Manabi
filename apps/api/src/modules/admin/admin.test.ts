@@ -10,10 +10,12 @@ import type { Logger } from '../../logger';
 import { testApp } from '../../test/app';
 import type { TestApp } from '../../test/app';
 import { describeWithDb, testDatabaseUrl, useTestDatabase } from '../../test/db';
-import { seedUser } from '../../test/fixtures';
+import { seedUser, tokenHash } from '../../test/fixtures';
 import { SESSION_COOKIE } from '../auth/guard';
 import { hashPassword } from '../auth/passwords';
 import type { NewUser } from '../auth/queries';
+import type { ScopedUserId } from '../auth/service';
+import { updateUser } from './service';
 
 // API tests for the admin console and password resets (issue #23): FR-002, FR-005, FR-200,
 // FR-226, IF-10.
@@ -254,6 +256,41 @@ describeWithDb('admin console API', () => {
         409,
         'conflict',
       );
+    });
+
+    it('refuses to demote or disable the last enabled admin', async () => {
+      // Reached when another admin disabled the caller concurrently; called directly here.
+      const only = await user({ username: 'only', role: 'admin' });
+      const gone = 999 as ScopedUserId;
+      for (const change of [{ disabled: true }, { role: 'learner' as const }]) {
+        await expect(updateUser(pool(), gone, only.id, change)).rejects.toMatchObject({
+          code: 'conflict',
+        });
+      }
+      const second = await user({ username: 'second', role: 'admin' });
+      await expect(updateUser(pool(), gone, second.id, { disabled: true })).resolves.toMatchObject({
+        username: 'second',
+      });
+    });
+
+    it('uses up outstanding reset links when setting a temporary password', async () => {
+      const app = await start();
+      const as = await asAdmin(app);
+      const hana = await user({ username: 'hana' });
+      await query(
+        pool(),
+        `INSERT INTO password_resets (user_id, token_hash, origin, expires_at)
+         VALUES ($1, $2, 'email', now() + interval '1 hour')`,
+        [hana.id, tokenHash(1)],
+      );
+      await as('POST', `/admin/users/${hana.id}/temporary-password`, {
+        password: 'temporary pass 1',
+      });
+      const open = await queryOne<{ n: number }>(
+        pool(),
+        `SELECT count(*) AS n FROM password_resets WHERE used_at IS NULL`,
+      );
+      expect(open!.n).toBe(0);
     });
 
     it('sets a temporary password that must be changed', async () => {

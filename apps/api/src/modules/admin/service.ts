@@ -83,6 +83,13 @@ export async function updateUser(
     throw new AppError('conflict', 'You cannot change your own role or disable your own account');
   }
   return withTransaction(pool, async (client) => {
+    // Locking the enabled admins serializes concurrent changes, so two admins disabling each
+    // other at once cannot leave the server with none.
+    const admins = await q.lockEnabledAdmins(client);
+    const removesAdmin = body.disabled === true || body.role === 'learner';
+    if (removesAdmin && admins.length === 1 && admins[0] === id) {
+      throw new AppError('conflict', 'This is the last enabled admin');
+    }
     const found = await q.updateUser(client, id, {
       role: body.role ?? null,
       disabled: body.disabled ?? null,

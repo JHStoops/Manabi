@@ -48,6 +48,15 @@ export async function updateUser(
   return rows.length > 0;
 }
 
+/** FR-200: the ids of the enabled admins, locked until the transaction ends. */
+export async function lockEnabledAdmins(db: Queryable): Promise<number[]> {
+  const rows = await query<{ id: number }>(
+    db,
+    `SELECT id FROM users WHERE role = 'admin' AND disabled_at IS NULL ORDER BY id FOR UPDATE`,
+  );
+  return rows.map((r) => r.id);
+}
+
 /** An invite plus whether it has expired. */
 export interface InviteWithExpiry extends InviteRow {
   expired: boolean;
