@@ -1,8 +1,5 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
-import {
-  hasZodFastifySchemaValidationErrors,
-  isResponseSerializationError,
-} from 'fastify-type-provider-zod';
+import { isResponseSerializationError } from 'fastify-type-provider-zod';
 import { errorCodeForStatus, errorStatus } from '@manabi/core';
 import type { ApiError, ErrorCode } from '@manabi/core';
 
@@ -40,17 +37,15 @@ function body(code: ErrorCode, message: string, details: unknown = null): ApiErr
 
 function validationIssues(error: FastifyError): ValidationIssue[] {
   const location = error.validationContext ?? 'request';
-  if (hasZodFastifySchemaValidationErrors(error)) {
-    return error.validation.map((v) => ({
-      location,
-      path: v.params.issue.path,
-      message: v.params.issue.message,
-    }));
-  }
-  // Validation by a non-Zod schema (none are registered, but Fastify's own checks use AJV shapes).
+  // Zod issues and Fastify's own (AJV-shaped) checks both carry the path as '/a/0/b'.
+  // shortcut: a digit-only object key comes back as a number like an array index; no request
+  // schema has such keys, revisit if one does.
   return (error.validation ?? []).map((v) => ({
     location,
-    path: v.instancePath.split('/').filter(Boolean),
+    path: v.instancePath
+      .split('/')
+      .filter(Boolean)
+      .map((s) => (/^\d+$/.test(s) ? Number(s) : s)),
     message: v.message ?? 'Invalid value',
   }));
 }

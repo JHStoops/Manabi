@@ -65,7 +65,7 @@ describe('request validation', () => {
         schema: {
           params: z.object({ id: z.coerce.number().int().positive() }),
           querystring: z.object({ limit: z.coerce.number().int().max(5).optional() }),
-          body: z.object({ name: z.string().min(1) }),
+          body: z.object({ name: z.string().min(1), tags: z.array(z.string()).optional() }),
         },
       },
       async (request) => ({ id: request.params.id, name: request.body.name }),
@@ -86,6 +86,8 @@ describe('request validation', () => {
 
   it.each([
     ['body', '/api/v1/test/items/7', { name: '' }, 'body', ['name']],
+    // Array indices stay numbers in the path.
+    ['body array item', '/api/v1/test/items/7', { name: 'a', tags: ['x', 1] }, 'body', ['tags', 1]],
     ['query', '/api/v1/test/items/7?limit=99', { name: 'a' }, 'querystring', ['limit']],
     ['path params', '/api/v1/test/items/abc', { name: 'a' }, 'params', ['id']],
   ])(

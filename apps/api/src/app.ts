@@ -7,7 +7,11 @@ import fastifyCookie from '@fastify/cookie';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyStatic from '@fastify/static';
 import fastifySwagger from '@fastify/swagger';
-import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
+import {
+  jsonSchemaTransform,
+  serializerCompiler,
+  validatorCompiler,
+} from 'fastify-type-provider-zod';
 import type { FastifyPluginAsyncZod, ZodTypeProvider } from 'fastify-type-provider-zod';
 import type { Pool } from 'pg';
 import { emptyQuerySchema } from '@manabi/core';
@@ -16,7 +20,6 @@ import { apiNotFound, errorHandler } from './errors';
 import { allJobs } from './jobs';
 import { createJobQueue } from './jobs/queue';
 import { REDACT_PATHS } from './logger';
-import { openApiTransform } from './openApiTransform';
 import { featureModules } from './modules';
 import { authGuard } from './modules/auth/guard';
 import { AttemptLimiter } from './rateLimit';
@@ -166,7 +169,9 @@ export async function buildApp({ config, pool, logStream }: AppOptions): Promise
       openapi: '3.0.3',
       info: { title: 'Manabi API', version: '1.0.0' },
     },
-    transform: openApiTransform,
+    // IF-05: request parts are documented by their input side (what the client sends), so a
+    // piped schema such as `idParamSchema` reads as a digit string; responses by their output.
+    transform: jsonSchemaTransform,
   });
 
   app.setErrorHandler(errorHandler);
