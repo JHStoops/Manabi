@@ -18,7 +18,12 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-async function renderApp(path: string, role: User['role'] | null, wide = false) {
+async function renderApp(
+  path: string,
+  role: User['role'] | null,
+  wide = false,
+  mustChangePassword = false,
+) {
   const rtl = await import('@testing-library/react/pure');
   const { MemoryRouter } = await import('react-router-dom');
   const { App } = await import('./App');
@@ -33,7 +38,10 @@ async function renderApp(path: string, role: User['role'] | null, wide = false) 
     removeEventListener() {},
   })) as unknown as typeof window.matchMedia;
   const api = {
-    GET: () => (role ? Promise.resolve({ role } as User) : Promise.reject(new Error('401'))),
+    GET: () =>
+      role
+        ? Promise.resolve({ role, mustChangePassword } as User)
+        : Promise.reject(new Error('401')),
   } as unknown as ApiClient;
   rtl.render(
     <ApiContext.Provider value={api}>
@@ -93,5 +101,20 @@ describe('App shell', () => {
     await renderApp('/learn', null);
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeTruthy();
     expect(screen.queryByRole('navigation')).toBeNull();
+  });
+
+  // FR-005
+  it.each(['/learn', '/profile', '/admin', '/lesson/1', '/nowhere'])(
+    'sends a session with a temporary password from %s to change-password',
+    async (path) => {
+      await renderApp(path, 'admin', false, true);
+      expect(await screen.findByRole('heading', { name: 'Choose a new password' })).toBeTruthy();
+      expect(screen.queryByRole('navigation')).toBeNull();
+    },
+  );
+
+  it('shows the accept-invite page to signed-out visitors without signing in', async () => {
+    await renderApp('/invite/some-token', null);
+    expect(await screen.findByRole('heading', { name: 'Create your account' })).toBeTruthy();
   });
 });

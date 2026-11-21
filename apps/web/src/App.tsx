@@ -1,6 +1,6 @@
 import { Suspense, lazy } from 'react';
 import styled from '@emotion/styled';
-import { NavLink, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { NavLink, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import './i18n';
 import { useSession } from './state/session';
@@ -15,6 +15,10 @@ const SocialPage = lazy(() => import('./features/social/SocialPage'));
 const ProfilePage = lazy(() => import('./features/profile/ProfilePage'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
 const AuthoringPage = lazy(() => import('./features/authoring/AuthoringPage'));
+
+const SignInPage = lazy(() => import('./features/auth/SignInPage'));
+const AcceptInvitePage = lazy(() => import('./features/auth/AcceptInvitePage'));
+const ChangePasswordPage = lazy(() => import('./features/auth/ChangePasswordPage'));
 
 const tabs = ['learn', 'review', 'library', 'social', 'profile'] as const;
 
@@ -98,19 +102,19 @@ function Layout() {
 }
 
 function RequireSignedIn() {
-  const { status } = useSession();
+  const { status, user } = useSession();
+  const { pathname } = useLocation();
   if (status === 'loading') return <Loading />;
-  return status === 'signedIn' ? <Outlet /> : <Navigate to="/sign-in" replace />;
+  if (status !== 'signedIn') return <Navigate to="/sign-in" replace />;
+  // FR-005: a temporary password must be changed before anything else.
+  if (user.mustChangePassword && pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
+  return <Outlet />;
 }
 
 function RequireAdmin() {
   return useSession().user?.role === 'admin' ? <Outlet /> : <Navigate to="/learn" replace />;
-}
-
-// Stub: the sign-in screen comes with #22.
-function SignInPage() {
-  const { t } = useTranslation();
-  return <h1>{t('area.signIn')}</h1>;
 }
 
 export function App() {
@@ -118,9 +122,11 @@ export function App() {
     <Suspense fallback={<Loading />}>
       <Routes>
         <Route path="/sign-in" element={<SignInPage />} />
+        <Route path="/invite/:token" element={<AcceptInvitePage />} />
         <Route element={<RequireSignedIn />}>
           {/* Full screen, outside the tab layout (Product Spec section 2). */}
           <Route path="/lesson/:lessonId" element={<LessonPlayerPage />} />
+          <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route element={<Layout />}>
             <Route path="/learn" element={<LearnPage />} />
             <Route path="/review" element={<ReviewPage />} />
