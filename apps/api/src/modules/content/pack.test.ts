@@ -1,4 +1,4 @@
-import { cp, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Pool } from 'pg';
@@ -27,6 +27,7 @@ const CONTENT_TABLES: Record<string, string> = {
   sentences: 'id',
   sentence_items: 'sentence_id, item_id',
   blocked_words: 'id',
+  supplementary_words: 'id',
 };
 
 const PROGRESS_TABLES: Record<string, string> = {
@@ -124,6 +125,7 @@ function otherCourse(pack: ContentPack, keep: 'unit' | 'lesson'): ContentPack {
     items: [],
     sentences: [],
     blockedWords: pack.blockedWords,
+    supplementaryWords: [],
   };
 }
 
@@ -204,6 +206,26 @@ describeWithDb('content packs', () => {
 
     expect(await snapshot(pool(), CONTENT_TABLES)).toEqual(before);
     expect(await exportPack(pool(), 'ja-en')).toEqual(exported);
+    // FR-234: the supplementary-words list comes back unchanged, byte for byte.
+    const list = 'lists/supplementary-words.yaml';
+    expect(before.supplementary_words).toHaveLength(3);
+    expect(await readFile(join(dir, list), 'utf8')).toBe(
+      await readFile(join(FIXTURE, list), 'utf8'),
+    );
+  });
+
+  it('replaces the supplementary words with the pack list (FR-234)', async () => {
+    const pack = await readPack(FIXTURE);
+    await importPack(pool(), pack);
+    pack.supplementaryWords = [
+      { level: 'N5', written: '父', reading: 'ちち' },
+      { level: 'N5', written: 'どんな', reading: 'どんな' },
+    ];
+    await importPack(pool(), pack);
+    expect((await exportPack(pool(), 'ja-en')).supplementaryWords).toEqual([
+      { level: 'N5', written: 'どんな', reading: 'どんな' },
+      { level: 'N5', written: '父', reading: 'ちち' },
+    ]);
   });
 
   it('round trips the blocklist unchanged and drops words removed from the pack (FR-237)', async () => {
@@ -296,6 +318,7 @@ describeWithDb('content packs', () => {
     pack.course.sections = pack.course.sections.slice(0, 1);
     pack.items = pack.items.filter((i) => i.key !== 'ja:word:水:みず' && i.type !== 'grammar');
     pack.sentences = [];
+    pack.supplementaryWords = [];
     await importPack(pool(), pack);
 
     expect(await snapshot(pool(), PROGRESS_TABLES)).toEqual(progress);
@@ -535,6 +558,11 @@ describeWithDb('content packs', () => {
       'duplicate sentence tatoeba:4702',
     ],
     ['a duplicate blocked word', (p) => p.blockedWords.push('ばか'), 'duplicate blocked word ばか'],
+    [
+      'a supplementary word at a level no section has',
+      (p) => p.supplementaryWords.push({ level: 'n4', written: '母', reading: 'はは' }),
+      'supplementary word 母:はは: no section has level n4',
+    ],
     [
       'a unit key that belongs to another course',
       () => {},

@@ -30,9 +30,11 @@ import {
   listBlockedWords,
   listPackItems,
   replaceBlockedWords,
+  listSupplementaryWords,
   replaceLessonItems,
   replaceRelatedLinks,
   replaceSentenceItems,
+  replaceSupplementaryWords,
   setImportedItemOverrides,
   updatePackSentence,
   upsertAuthoredItem,
@@ -101,6 +103,15 @@ export async function importPack(pool: Pool, pack: ContentPack): Promise<void> {
     pack.sentences.map((s) => (s.source ? `${s.source}:${s.sourceId}` : s.text)),
   );
   checkUnique('blocked word', pack.blockedWords);
+  checkUnique(
+    'supplementary word',
+    pack.supplementaryWords.map((w) => `${w.written}:${w.reading}`),
+  );
+  const levels = new Set(course.sections.map((s) => s.level));
+  for (const w of pack.supplementaryWords) {
+    if (!levels.has(w.level))
+      fail(`supplementary word ${w.written}:${w.reading}: no section has level ${w.level}`);
+  }
 
   await withTransaction(pool, async (db) => {
     await deferPositionChecks(db);
@@ -199,6 +210,7 @@ export async function importPack(pool: Pool, pack: ContentPack): Promise<void> {
     // shortcut: the blocklist is per language, so the last imported pack of a language sets it
     // for every course in that language; fine while each language has one course (FR-237).
     await replaceBlockedWords(db, course.targetLang, pack.blockedWords);
+    await replaceSupplementaryWords(db, courseId, pack.supplementaryWords);
   });
 }
 
@@ -210,6 +222,7 @@ export async function exportPack(db: Queryable, courseKey: string): Promise<Cont
   const lessons = await listActiveLessons(db, course.id);
   const items = await listPackItems(db, course.id);
   const sentences = await listPackSentences(db, course.id);
+  const supplementaryWords = await listSupplementaryWords(db, course.id);
   const keyOf = new Map((await listActiveItemKeys(db, course.id)).map((r) => [r.id, r.key]));
   const blockedWords = await listBlockedWords(db, course.target_lang);
 
@@ -273,5 +286,6 @@ export async function exportPack(db: Queryable, courseKey: string): Promise<Cont
       tokensEdited: s.tokens_edited,
     })),
     blockedWords,
+    supplementaryWords: supplementaryWords.map(({ note, ...w }) => (note ? { ...w, note } : w)),
   };
 }

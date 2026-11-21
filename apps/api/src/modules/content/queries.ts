@@ -593,3 +593,45 @@ export function listPackSentences(db: Queryable, courseId: number): Promise<Sent
     [courseId],
   );
 }
+
+// FR-234: the course's supplementary words, from `lists/supplementary-words.yaml`. Nothing
+// references their rows, so words dropped from the pack are deleted.
+
+export async function replaceSupplementaryWords(
+  db: Queryable,
+  courseId: number,
+  words: { level: string; written: string; reading: string; note?: string }[],
+): Promise<void> {
+  const written = words.map((w) => w.written);
+  const reading = words.map((w) => w.reading);
+  await query(
+    db,
+    `DELETE FROM supplementary_words WHERE course_id = $1
+       AND (written, reading) NOT IN (SELECT * FROM unnest($2::text[], $3::text[]))`,
+    [courseId, written, reading],
+  );
+  await query(
+    db,
+    `INSERT INTO supplementary_words (course_id, level_code, written, reading, note)
+     SELECT $1, t.level, t.written, t.reading, t.note
+     FROM unnest($2::text[], $3::text[], $4::text[], $5::text[]) AS t (level, written, reading, note)
+     ON CONFLICT (course_id, written, reading) DO UPDATE
+       SET level_code = EXCLUDED.level_code, note = EXCLUDED.note
+     WHERE (supplementary_words.level_code, supplementary_words.note)
+       IS DISTINCT FROM (EXCLUDED.level_code, EXCLUDED.note)`,
+    [courseId, words.map((w) => w.level), written, reading, words.map((w) => w.note ?? null)],
+  );
+}
+
+/** In pack order: easiest level first (`N5` sorts after `N4` as text), then by written form. */
+export function listSupplementaryWords(
+  db: Queryable,
+  courseId: number,
+): Promise<{ level: string; written: string; reading: string; note: string | null }[]> {
+  return query(
+    db,
+    `SELECT level_code AS level, written, reading, note FROM supplementary_words
+     WHERE course_id = $1 ORDER BY level_code DESC, written COLLATE "C", reading COLLATE "C"`,
+    [courseId],
+  );
+}
