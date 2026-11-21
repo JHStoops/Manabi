@@ -28,6 +28,20 @@ export interface Config {
   trustProxy: TrustProxy;
   /** Highest level the level-list import reads (SDD section 10 step 2); raise it to add a level. */
   levelCeiling: string;
+  /** Folder of downloaded open datasets; admin-started imports only read files inside it. */
+  datasetsDir: string;
+  /** IF-10: the only way email leaves the server; null when SMTP_HOST is unset (no email). */
+  smtp: SmtpConfig | null;
+}
+
+export interface SmtpConfig {
+  host: string;
+  port: number;
+  /** Empty when the server needs no sign-in. */
+  user: string;
+  password: string;
+  /** The From address of every email. */
+  from: string;
 }
 
 /** Thrown by `loadConfig` when the environment is invalid. The message never contains values. */
@@ -83,11 +97,24 @@ const envSchema = z
     // also stops other LAN peers from faking X-Forwarded-Proto.
     TRUST_PROXY: trustProxySchema.default('1'),
     LEVEL_CEILING: levelCodeSchema.default('N3'),
+    DATASETS_DIR: z.string().min(1).default('./datasets'),
+    SMTP_HOST: z.string().optional(),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+    SMTP_USER: optionalText,
+    SMTP_PASSWORD: optionalText,
+    SMTP_FROM: z.string().optional(),
   })
   .superRefine((env, ctx) => {
     // Tests that need a database get their own URL; everything else needs one to start.
     if (env.NODE_ENV !== 'test' && !env.DATABASE_URL) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['DATABASE_URL'], message: 'Required' });
+    }
+    if (env.SMTP_HOST && !env.SMTP_FROM) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SMTP_FROM'],
+        message: 'Required when SMTP_HOST is set',
+      });
     }
     if (env.NODE_ENV === 'production') {
       if (env.SESSION_SECRET.length < 32) {
@@ -135,5 +162,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     logLevel: e.LOG_LEVEL ?? (e.NODE_ENV === 'test' ? 'silent' : 'info'),
     trustProxy: e.TRUST_PROXY,
     levelCeiling: e.LEVEL_CEILING,
+    datasetsDir: e.DATASETS_DIR,
+    smtp: e.SMTP_HOST
+      ? {
+          host: e.SMTP_HOST,
+          port: e.SMTP_PORT,
+          user: e.SMTP_USER,
+          password: e.SMTP_PASSWORD,
+          from: e.SMTP_FROM ?? '',
+        }
+      : null,
   };
 }

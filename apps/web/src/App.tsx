@@ -15,6 +15,9 @@ const SocialPage = lazy(() => import('./features/social/SocialPage'));
 const ProfilePage = lazy(() => import('./features/profile/ProfilePage'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
 const AuthoringPage = lazy(() => import('./features/authoring/AuthoringPage'));
+// Password reset by emailed link (#23).
+const ForgotPasswordPage = lazy(() => import('./features/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./features/auth/ResetPasswordPage'));
 
 const SignInPage = lazy(() => import('./features/auth/SignInPage'));
 const AcceptInvitePage = lazy(() => import('./features/auth/AcceptInvitePage'));
@@ -123,6 +126,9 @@ export function App() {
       <Routes>
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/invite/:token" element={<AcceptInvitePage />} />
+        {/* Password reset by emailed link (#23). */}
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route element={<RequireSignedIn />}>
           {/* Full screen, outside the tab layout (Product Spec section 2). */}
           <Route path="/lesson/:lessonId" element={<LessonPlayerPage />} />

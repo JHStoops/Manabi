@@ -8,11 +8,14 @@ import {
   emptyQuerySchema,
   loginRequestSchema,
   opaqueTokenSchema,
+  passwordResetConfirmSchema,
+  passwordResetRequestSchema,
   sessionListSchema,
   sessionParamsSchema,
   userSchema,
   z,
 } from '@manabi/core';
+import { sendMail } from '../../mailer';
 import { clearSessionCookie, deliverSession, requireAuth, SESSION_COOKIE } from './guard';
 import { prepareDummyHash } from './passwords';
 import * as auth from './service';
@@ -125,6 +128,58 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
         request.body,
       );
       return deliverSession(request, reply, issued);
+    },
+  );
+
+  // FR-005, IF-10, NFR-12
+  app.post(
+    '/auth/password-reset',
+    {
+      config: { public: true },
+      schema: {
+        summary: 'Email a password-reset link (needs SMTP); answers alike for unknown accounts',
+        tags: ['auth'],
+        querystring: emptyQuerySchema,
+        body: passwordResetRequestSchema,
+        response: { 202: noContent, 400: apiErrorSchema, 429: apiErrorSchema, 503: apiErrorSchema },
+      },
+    },
+    async (request, reply) => {
+      const { smtp, publicUrl } = app.config;
+      const mail = await auth.requestPasswordReset(
+        app.db,
+        app.attemptLimiter,
+        request.ip,
+        smtp,
+        publicUrl,
+        request.body,
+      );
+      // Sent after answering, so the response time does not reveal whether the account exists.
+      if (mail && smtp) {
+        sendMail(smtp, mail).catch((err: unknown) =>
+          request.log.error({ err }, 'password reset email not sent'),
+        );
+      }
+      return reply.status(202).send(null);
+    },
+  );
+
+  // FR-005, NFR-12
+  app.post(
+    '/auth/password-reset/confirm',
+    {
+      config: { public: true },
+      schema: {
+        summary: 'Choose a new password with an emailed reset token; signs out every session',
+        tags: ['auth'],
+        querystring: emptyQuerySchema,
+        body: passwordResetConfirmSchema,
+        response: { 204: noContent, ...errors },
+      },
+    },
+    async (request, reply) => {
+      await auth.confirmPasswordReset(app.db, app.attemptLimiter, request.ip, request.body);
+      return reply.status(204).send(null);
     },
   );
 

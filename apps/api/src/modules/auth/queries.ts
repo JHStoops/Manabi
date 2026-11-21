@@ -1,7 +1,7 @@
 import type { Queryable } from '../../db/db';
 import { insertReturning, query, queryOne } from '../../db/db';
 import type { ClientKind, Role } from '@manabi/core';
-import type { InviteRow, SessionRow, UserRow } from './rows';
+import type { InviteRow, PasswordResetOrigin, PasswordResetRow, SessionRow, UserRow } from './rows';
 
 // Hand-written, parameterized SQL for the account tables. Every time comparison uses the
 // database clock (now()), so expiry does not depend on the API host's clock.
@@ -238,4 +238,45 @@ export function findInviteForUpdate(
 
 export async function markInviteUsed(db: Queryable, id: number, userId: number) {
   await query(db, `UPDATE invites SET used_by = $2, used_at = now() WHERE id = $1`, [id, userId]);
+}
+
+// Password resets (FR-005)
+
+export function insertPasswordReset(
+  db: Queryable,
+  r: { userId: number; tokenHash: string; origin: PasswordResetOrigin; ttlMinutes: number },
+): Promise<PasswordResetRow> {
+  return insertReturning<PasswordResetRow>(
+    db,
+    `INSERT INTO password_resets (user_id, token_hash, origin, expires_at)
+     VALUES ($1, $2, $3, now() + make_interval(mins => $4))
+     RETURNING *`,
+    [r.userId, r.tokenHash, r.origin, r.ttlMinutes],
+  );
+}
+
+/** A reset token plus whether it has expired, locked until the transaction ends. */
+export interface PasswordResetWithExpiry extends PasswordResetRow {
+  expired: boolean;
+}
+
+export function findPasswordResetForUpdate(
+  db: Queryable,
+  tokenHash: string,
+): Promise<PasswordResetWithExpiry | null> {
+  return queryOne<PasswordResetWithExpiry>(
+    db,
+    `SELECT *, expires_at <= now() AS expired FROM password_resets
+      WHERE token_hash = $1 FOR UPDATE`,
+    [tokenHash],
+  );
+}
+
+/** Uses up every outstanding reset token of the user, so each link works once at most. */
+export async function markPasswordResetsUsed(db: Queryable, userId: number): Promise<void> {
+  await query(
+    db,
+    `UPDATE password_resets SET used_at = now() WHERE user_id = $1 AND used_at IS NULL`,
+    [userId],
+  );
 }

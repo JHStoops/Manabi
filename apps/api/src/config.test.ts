@@ -17,7 +17,16 @@ describe('loadConfig', () => {
       logLevel: 'silent',
       trustProxy: 1,
       levelCeiling: 'N3',
+      datasetsDir: './datasets',
+      smtp: null,
     });
+  });
+
+  it('reads SMTP settings and needs a From address with a host (IF-10)', () => {
+    expect(
+      loadConfig({ NODE_ENV: 'test', SMTP_HOST: 'mail', SMTP_FROM: 'manabi@example.com' }).smtp,
+    ).toEqual({ host: 'mail', port: 587, user: '', password: '', from: 'manabi@example.com' });
+    expect(() => loadConfig({ NODE_ENV: 'test', SMTP_HOST: 'mail' })).toThrow(/SMTP_FROM/);
   });
 
   it('reads a production environment', () => {

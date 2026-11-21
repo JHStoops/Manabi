@@ -5,13 +5,17 @@ import type {
   ChangePasswordRequest,
   ClientKind,
   LoginRequest,
+  PasswordResetConfirm,
+  PasswordResetRequest,
   Role,
   Session,
   User,
 } from '@manabi/core';
 import type { Queryable } from '../../db/db';
 import { withTransaction } from '../../db/db';
+import type { SmtpConfig } from '../../config';
 import { AppError } from '../../errors';
+import type { Mail } from '../../mailer';
 import type { AttemptLimiter } from '../../rateLimit';
 import { ipKey } from '../../rateLimit';
 import {
@@ -36,6 +40,13 @@ export const SESSION_TOUCH_INTERVAL_SECONDS = 60 * 60;
 export const INVITE_TTL_DAYS = 7;
 /** SDD section 11: an admin-set temporary password expires after 7 days. */
 export const TEMP_PASSWORD_TTL_DAYS = 7;
+/** FR-005: an emailed reset link works for an hour. */
+export const PASSWORD_RESET_TTL_MINUTES = 60;
+
+/** A link into the web app, such as `/invite/<token>` (FR-002) or `/reset-password?token=…`. */
+export function appLink(publicUrl: string, path: string): string {
+  return `${publicUrl.replace(/\/+$/, '')}${path}`;
+}
 
 declare const scopedUserIdBrand: unique symbol;
 
@@ -384,5 +395,85 @@ export async function setTemporaryPassword(
     }
     await q.deleteSessionsOfUser(client, userId);
     return true;
+  });
+}
+
+/** IF-10: the error a feature that needs email returns when no SMTP server is configured. */
+export function emailNotConfigured(): AppError {
+  return new AppError('service_unavailable', 'Email is not set up on this server', {
+    reason: 'email_not_configured',
+  });
+}
+
+/**
+ * FR-005: makes a reset token for the account a username or email names and returns the email to
+ * send, or null when there is no such enabled account with an address. The caller answers the
+ * same either way and sends the email in the background, so the response does not reveal
+ * whether the account exists.
+ */
+export async function requestPasswordReset(
+  db: Queryable,
+  limiter: AttemptLimiter,
+  ip: string,
+  smtp: SmtpConfig | null,
+  publicUrl: string,
+  body: PasswordResetRequest,
+): Promise<Mail | null> {
+  if (!smtp) throw emailNotConfigured();
+  limit(limiter, [`reset:ip:${ipKey(ip)}`, `reset:name:${body.identifier.toLowerCase()}`]);
+  const user = await q.findUserByLogin(db, body.identifier);
+  if (!user?.email || user.disabled_at) return null;
+  const token = newToken();
+  await q.insertPasswordReset(db, {
+    userId: user.id,
+    tokenHash: hashToken(token),
+    origin: 'email',
+    ttlMinutes: PASSWORD_RESET_TTL_MINUTES,
+  });
+  return {
+    to: user.email,
+    subject: 'Reset your Manabi password',
+    text:
+      `Hello ${user.display_name},\n\n` +
+      `Someone asked to reset the password of your Manabi account (${user.username}). ` +
+      `To choose a new password, open this link within an hour:\n\n` +
+      `${appLink(publicUrl, `/reset-password?token=${token}`)}\n\n` +
+      `If you did not ask for this, ignore this email; your password stays the same.\n`,
+  };
+}
+
+/**
+ * FR-005, SDD section 11: sets the password chosen through an emailed link, uses up the user's
+ * reset tokens and signs the account out everywhere, in one transaction. The token row is
+ * locked, so the same link cannot be used twice concurrently. The user then signs in.
+ */
+export async function confirmPasswordReset(
+  pool: Pool,
+  limiter: AttemptLimiter,
+  ip: string,
+  body: PasswordResetConfirm,
+): Promise<void> {
+  limit(limiter, [`reset:ip:${ipKey(ip)}`]);
+  await withTransaction(pool, async (client) => {
+    const reset = await q.findPasswordResetForUpdate(client, hashToken(body.token));
+    const user = reset && (await q.findUserById(client, reset.user_id));
+    const problem =
+      !reset || !user
+        ? 'invalid'
+        : reset.used_at
+          ? 'used'
+          : reset.expired
+            ? 'expired'
+            : user.disabled_at
+              ? 'disabled'
+              : null;
+    if (problem || !user) {
+      throw new AppError('not_found', 'This reset link is not valid', { reason: problem });
+    }
+    checkNewPassword(body.newPassword, user.username, 'newPassword');
+    // Hashing holds the token's row lock for tens of milliseconds; only this link waits on it.
+    await q.setChosenPassword(client, user.id, await hashPassword(body.newPassword));
+    await q.markPasswordResetsUsed(client, user.id);
+    await q.deleteSessionsOfUser(client, user.id);
   });
 }

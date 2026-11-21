@@ -1,3 +1,4 @@
+import { importLevelListsJobSchema } from '@manabi/core';
 import { loadConfig } from '../config';
 import { importLevelLists } from '../modules/imports/service';
 import { defineJob } from './define';
@@ -7,7 +8,8 @@ export const importLevelListsJob = defineJob<{ courseKey: string }>({
   name: 'import-level-lists',
   // A failed import is already recorded in import_runs; retrying would only add failed rows.
   queue: { retryLimit: 0 },
-  handler: async ({ courseKey }, { db, log }) => {
+  handler: async (data, { db, log }) => {
+    const { courseKey } = importLevelListsJobSchema.parse(data);
     const ceiling = loadConfig().levelCeiling;
     const summary = await importLevelLists(db, { courseKey, ceiling });
     log.info({ job: 'import-level-lists', ...summary }, 'imported level lists');
