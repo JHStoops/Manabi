@@ -25,6 +25,7 @@ describe('parseTatoeba (FR-235, FR-238, DR-11)', () => {
       latin: 1, // 2975959: Tシャツ
       tooLong: 1, // 4740
       notNative: 2, // 112085 has no owner; bourdu declares no native Japanese
+      blocked: 0,
       unknownWords: 1, // 155469: 先生
     });
     expect(parsed.sentences.map((s) => s.sentence.sourceId)).toEqual([
@@ -98,6 +99,15 @@ describe('parseTatoeba (FR-235, FR-238, DR-11)', () => {
       expect(parsed.challenging).toEqual(challenging);
     },
   );
+
+  it('drops a sentence whose conjugated verb is blocked by its base form (FR-237)', async () => {
+    // 水をください。: the tile ください has the base form くださる.
+    const parsed = await parseTatoeba(dir, japanese, wanted, levels, [], new Set(['くださる']));
+
+    expect(parsed.dropped).toMatchObject({ blocked: 1, unknownWords: 1 });
+    expect(parsed.blockedIds).toEqual(['143718']);
+    expect(parsed.sentences.map((s) => s.sentence.sourceId)).toEqual(['157843', '171592']);
+  });
 
   it('fails without a dataset version', async () => {
     await expect(parseTatoeba(__dirname, japanese, wanted, levels, [])).rejects.toThrow();

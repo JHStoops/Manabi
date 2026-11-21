@@ -2,6 +2,7 @@ import { createReadStream } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
+import { findBlockedWords } from '@manabi/core';
 import type { GrammarPointPatterns, LanguagePlugin } from '@manabi/core';
 import type { LevelWord } from './levelLists';
 import { segmentSentence } from './segmentation';
@@ -42,8 +43,12 @@ export interface ParsedTatoeba {
     latin: number;
     tooLong: number;
     notNative: number;
+    /** FR-237: sentences with a word on the language's blocklist. */
+    blocked: number;
     unknownWords: number;
   };
+  /** FR-237: source ids of the sentences dropped for a blocked word. */
+  blockedIds: string[];
   /**
    * FR-236: kept sentences detected as challenging in this run (detected grammar level above the
    * vocabulary level), counted by grammar level. Not the stored status: locked sentences keep
@@ -75,6 +80,7 @@ const owner = (value: string | undefined): string | null =>
  * Japanese (level 5) in the user languages export, and every tile the plugin counts matches a
  * wanted word by its base form, as written or as read. `levels` orders the levels, easiest first.
  * FR-236: no sentence is dropped for its grammar; each records the `points` detected in it.
+ * FR-237: a sentence with a `blocked` word in its tiles is dropped before the coverage check.
  */
 export async function parseTatoeba(
   dir: string,
@@ -82,6 +88,7 @@ export async function parseTatoeba(
   wanted: LevelWord[],
   levels: string[],
   points: readonly LevelledGrammarPoint[],
+  blocked: ReadonlySet<string> = new Set(),
 ): Promise<ParsedTatoeba> {
   const manifest = JSON.parse(await readFile(join(dir, 'manifest.json'), 'utf8')) as {
     version?: string;
@@ -115,7 +122,15 @@ export async function parseTatoeba(
   const result: ParsedTatoeba = {
     datasetVersion: manifest.version,
     sentences: [],
-    dropped: { noTranslation: 0, latin: 0, tooLong: 0, notNative: 0, unknownWords: 0 },
+    dropped: {
+      noTranslation: 0,
+      latin: 0,
+      tooLong: 0,
+      notNative: 0,
+      blocked: 0,
+      unknownWords: 0,
+    },
+    blockedIds: [],
     challenging: {},
   };
   for await (const [id, , text, user] of rows(join(dir, 'jpn_sentences_detailed.tsv'))) {
@@ -131,9 +146,14 @@ export async function parseTatoeba(
       result.dropped.tooLong++;
     } else if (!sentenceOwner || !native.has(sentenceOwner)) result.dropped.notNative++;
     else {
+      const segmented = await segmentSentence(plugin, text, points);
+      if (findBlockedWords(segmented.tiles, blocked).length > 0) {
+        result.dropped.blocked++;
+        result.blockedIds.push(id);
+        continue;
+      }
       let worst = -1;
       let covered = true;
-      const segmented = await segmentSentence(plugin, text, points);
       const tiles = segmented.tiles.map(({ counted, ...tile }) => {
         if (!counted) return { ...tile, word: null };
         // shortcut: homographs (いる 居る/要る) pick the word whose reading matches the tile, then
