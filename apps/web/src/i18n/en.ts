@@ -24,6 +24,7 @@ export const en = {
     identifier: 'Username or email',
     required: 'Enter your username or email and your password.',
     forgot: 'Forgot password?',
+    invalid: 'Wrong username or password.',
   },
   signOut: 'Sign out',
   invite: {
@@ -59,7 +60,7 @@ export const en = {
     temporaryPasswordExpired: 'This temporary password has expired. Ask an admin for a new one.',
     bad_request: 'The request was not valid.',
     validation_failed: 'Please check your details and try again.',
-    unauthenticated: 'Wrong username or password.',
+    unauthenticated: 'Your session has ended. Sign in again.',
     password_change_required: 'Choose a new password first.',
     forbidden: 'You are not allowed to do that.',
     not_found: 'That no longer exists.',

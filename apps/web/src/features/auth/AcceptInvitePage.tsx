@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ApiRequestError } from '@manabi/api-client';
-import { MIN_PASSWORD_LENGTH, usernameSchema } from '@manabi/core';
+import { MIN_PASSWORD_LENGTH, opaqueTokenSchema, usernameSchema } from '@manabi/core';
 import { useApi, useSession, useSessionDispatch } from '../../state/session';
 import { Card, Field, Form } from './ui';
 
@@ -22,6 +22,16 @@ export default function AcceptInvitePage() {
   const [dailyGoal, setDailyGoal] = useState<(typeof GOALS)[number]>(20);
 
   if (session.status === 'signedIn') return <Navigate to="/learn" replace />;
+
+  // A link cut short by a mail client: say so before the form is filled.
+  if (!opaqueTokenSchema.safeParse(token).success) {
+    return (
+      <Card>
+        <h1>{t('invite.title')}</h1>
+        <p role="alert">{t('invite.invalid')}</p>
+      </Card>
+    );
+  }
 
   function validate() {
     if (!usernameSchema.safeParse(username).success) return t('invite.badUsername');

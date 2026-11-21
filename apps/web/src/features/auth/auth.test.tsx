@@ -133,7 +133,7 @@ describe('SignInPage', () => {
 describe('AcceptInvitePage', () => {
   const TOKEN = 'q7Xb3mZp0kLr8sTv2wYc5nHd9fGj4aEu6iOx1yRz0Bw';
   // The token comes from the route, so mount the page on its real path.
-  const mount = (post: jest.Mock) => {
+  const mount = (post: jest.Mock, urlToken = TOKEN) => {
     const api = {
       GET: () => Promise.reject(apiError(401, 'unauthenticated')),
       POST: post,
@@ -141,7 +141,7 @@ describe('AcceptInvitePage', () => {
     render(
       <ApiContext.Provider value={api}>
         <AppThemeProvider>
-          <MemoryRouter initialEntries={[`/invite/${TOKEN}`]}>
+          <MemoryRouter initialEntries={[`/invite/${urlToken}`]}>
             <SessionProvider>
               <Routes>
                 <Route path="/invite/:token" element={<AcceptInvitePage />} />
@@ -209,6 +209,12 @@ describe('AcceptInvitePage', () => {
         clientKind: 'web',
       }),
     });
+  });
+
+  it('shows the invalid-link message up front for a malformed token', async () => {
+    mount(jest.fn(), 'cut-short');
+    expect((await screen.findByRole('alert')).textContent).toMatch(/invite link is not valid/);
+    expect(screen.queryByLabelText('Username')).toBeNull();
   });
 
   it('explains an invalid invite link', async () => {
@@ -303,7 +309,31 @@ describe('SignOutButton', () => {
   });
 });
 
+describe('SignOutButton on a 401', () => {
+  it('treats an already-ended session as signed out', async () => {
+    renderAt(
+      '/x',
+      <>
+        <SignOutButton />
+        <SessionGate />
+      </>,
+      { me: learner, post: jest.fn().mockRejectedValue(apiError(401, 'unauthenticated')) },
+    );
+    submit('Sign out');
+    expect(await screen.findByText('status: signedOut')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
 describe('SessionsList', () => {
+  it('says the session ended on a 401', async () => {
+    const get = jest.fn().mockRejectedValue(apiError(401, 'unauthenticated'));
+    renderAt('/x', <SessionsList />, { me: learner, get });
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Your session has ended. Sign in again.',
+    );
+  });
+
   const sessions = [
     { id: 1, clientKind: 'web', lastSeenAt: '2026-01-02T03:04:05Z', current: true },
     { id: 2, clientKind: 'mobile', lastSeenAt: '2026-01-01T03:04:05Z', current: false },

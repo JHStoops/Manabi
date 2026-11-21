@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ApiRequestError } from '@manabi/api-client';
 import { useApi, useSession, useSessionDispatch } from '../../state/session';
 import { Card, Field, Form } from './ui';
 
@@ -22,10 +23,18 @@ export default function SignInPage() {
         submitLabel={t('area.signIn')}
         validate={() => (identifier.trim() && password ? null : t('signIn.required'))}
         submit={async () => {
-          const { user } = await api.POST('/api/v1/auth/login', {
-            body: { identifier: identifier.trim(), password, clientKind: 'web' },
-          });
-          dispatch({ type: 'signedIn', user });
+          try {
+            const { user } = await api.POST('/api/v1/auth/login', {
+              body: { identifier: identifier.trim(), password, clientKind: 'web' },
+            });
+            dispatch({ type: 'signedIn', user });
+          } catch (err) {
+            // A 401 without a reason is a wrong name or password, not an ended session.
+            if (err instanceof ApiRequestError && err.code === 'unauthenticated' && !err.details) {
+              throw new ApiRequestError(401, 'validation_failed', t('signIn.invalid'));
+            }
+            throw err;
+          }
         }}
       >
         <Field
