@@ -65,8 +65,16 @@ describeWithDb('importTatoeba (FR-226, FR-235, FR-238, DR-11, NFR-62)', () => {
       updated: 0,
       skipped: 0,
       tilesKept: 0,
-      dropped: { noTranslation: 1, latin: 1, tooLong: 1, notNative: 2, unknownWords: 1 },
+      dropped: {
+        noTranslation: 1,
+        latin: 1,
+        tooLong: 1,
+        notNative: 2,
+        blocked: 0,
+        unknownWords: 1,
+      },
       challenging: {},
+      archivedBlocked: 0,
     });
     const water = await sentence('143718');
     const ids = new Map(
@@ -160,6 +168,42 @@ describeWithDb('importTatoeba (FR-226, FR-235, FR-238, DR-11, NFR-62)', () => {
     });
     expect((await sentence('171592'))?.tokens).toEqual([]);
     expect(await links()).toEqual([]);
+  });
+
+  it('never imports a sentence with a blocked word (FR-237)', async () => {
+    await seed();
+    await query(pool(), `INSERT INTO blocked_words (lang, word) VALUES ('ja', 'くださる')`);
+    const summary = await importTatoeba(pool(), { courseKey: 'ja-en', file: dir });
+    expect(summary).toMatchObject({ added: 2, dropped: { blocked: 1 }, archivedBlocked: 0 });
+    expect(await sentence('143718')).toBeUndefined();
+  });
+
+  it('skips blocked sentences and archives only untouched imported ones on re-import (FR-237)', async () => {
+    await seed();
+    await importTatoeba(pool(), { courseKey: 'ja-en', file: dir });
+    await query(
+      pool(),
+      `UPDATE sentences SET review_status = 'reviewed' WHERE source_id = '171592'`,
+    );
+    // くださる is found in its conjugated form ください (143718); 暑い is in reviewed 171592.
+    await query(
+      pool(),
+      `INSERT INTO blocked_words (lang, word) VALUES ('ja', 'くださる'), ('ja', '暑い')`,
+    );
+
+    const summary = await importTatoeba(pool(), { courseKey: 'ja-en', file: dir });
+
+    expect(summary).toMatchObject({ dropped: { blocked: 2 }, archivedBlocked: 1 });
+    expect(
+      await query(
+        pool(),
+        `SELECT source_id, archived_at IS NOT NULL AS archived FROM sentences ORDER BY source_id`,
+      ),
+    ).toEqual([
+      { source_id: '143718', archived: true },
+      { source_id: '157843', archived: false },
+      { source_id: '171592', archived: false },
+    ]);
   });
 
   it('fails the run when the level lists have not been imported', async () => {

@@ -4,6 +4,7 @@ import { parse, stringify } from 'yaml';
 import type { z } from 'zod';
 import {
   ContentPackError,
+  packBlockedWordsFileSchema,
   packCourseSchema,
   packGrammarFrontMatterSchema,
   packItemsFileSchema,
@@ -13,8 +14,8 @@ import {
 import type { ContentPack } from '@manabi/core';
 
 // Reads and writes content pack directories (SDD section 4). Schema errors name the file and the
-// path inside it. STUB: audio/ clips are carried by #66, which owns the media store, and lists/
-// by #112 and the level-list importer.
+// path inside it. STUB: audio/ clips are carried by #66, which owns the media store, and
+// lists/supplementary-words.yaml by #111.
 
 const GRAMMAR_TYPE = 'grammar';
 const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
@@ -60,7 +61,12 @@ export async function readPack(dir: string): Promise<ContentPack> {
   const courseText = await readOr('course.yaml', null);
   const course =
     courseText === null ? undefined : check('course.yaml', courseText, packCourseSchema);
-  const pack: Omit<ContentPack, 'course'> = { units: [], items: [], sentences: [] };
+  const pack: Omit<ContentPack, 'course'> = {
+    units: [],
+    items: [],
+    sentences: [],
+    blockedWords: [],
+  };
   for (const file of await listFiles(dir, 'units', '.yaml')) {
     const unit = check(file, await read(file), packUnitSchema);
     if (unit) pack.units.push(unit);
@@ -84,6 +90,8 @@ export async function readPack(dir: string): Promise<ContentPack> {
   }
   const sentences = (await readOr('sentences.yaml', '[]'))!;
   pack.sentences = check('sentences.yaml', sentences, packSentencesFileSchema) ?? [];
+  const blocked = (await readOr('lists/blocked-words.yaml', '[]'))!;
+  pack.blockedWords = check('lists/blocked-words.yaml', blocked, packBlockedWordsFileSchema) ?? [];
   if (problems.length > 0 || !course) throw new ContentPackError(problems);
   return { course, ...pack };
 }
@@ -137,4 +145,6 @@ export async function writePack(dir: string, pack: ContentPack): Promise<void> {
     await writeFile(join(dir, 'items', `${type}.yaml`), toYaml(entries));
   }
   await writeFile(join(dir, 'sentences.yaml'), toYaml(pack.sentences));
+  await mkdir(join(dir, 'lists'), { recursive: true });
+  await writeFile(join(dir, 'lists', 'blocked-words.yaml'), toYaml(pack.blockedWords));
 }

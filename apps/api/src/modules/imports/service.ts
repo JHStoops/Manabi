@@ -16,8 +16,9 @@ import type { DatasetName, ParsedDataset } from '@manabi/importers';
 import type { Queryable } from '../../db/db';
 import { withTransaction } from '../../db/db';
 import { languagePlugins } from '../../plugins';
-import { findCourseByKey } from '../content/queries';
+import { findCourseByKey, listBlockedWords } from '../content/queries';
 import {
+  archiveBlockedSentences,
   findCharacterItems,
   findItemIds,
   findKeysOwnedElsewhere,
@@ -227,6 +228,8 @@ export function importKanjiVg(pool: Pool, { courseKey, file }: ImportFile): Prom
  * counts the sentences each filter dropped, the updated ones whose tiles an author owns
  * (`tilesKept`) and the sentences detected as challenging in this run, by grammar level
  * (`challenging`; not the stored status, which keeps locked rows and `challenge_override`).
+ * FR-237: sentences with a blocked word are dropped (`dropped.blocked`), and those already
+ * imported and untouched by an author are archived (`archivedBlocked`).
  */
 export function importTatoeba(pool: Pool, { courseKey, file }: ImportFile): Promise<ImportSummary> {
   return recordRun(pool, 'tatoeba', async () => {
@@ -238,7 +241,15 @@ export function importTatoeba(pool: Pool, { courseKey, file }: ImportFile): Prom
     }
     const plugin = languagePlugins.get(course.plugin);
     const points = await listGrammarPoints(pool, course.id);
-    const parsed = await parseTatoeba(file, plugin, wanted, await readLevelOrder(), points);
+    const blocked = new Set(await listBlockedWords(pool, course.target_lang));
+    const parsed = await parseTatoeba(
+      file,
+      plugin,
+      wanted,
+      await readLevelOrder(),
+      points,
+      blocked,
+    );
     const { licence, attribution } = datasets.tatoeba;
     const { datasetVersion } = parsed;
     const part = ({ sourceId, owner }: { sourceId: string; owner: string | null }) => ({
@@ -281,6 +292,11 @@ export function importTatoeba(pool: Pool, { courseKey, file }: ImportFile): Prom
         db,
         written.filter((r) => r.retiled).map((r) => r.id),
       );
+      const archivedBlocked = await archiveBlockedSentences(db, {
+        courseId: course.id,
+        source: 'tatoeba',
+        sourceIds: parsed.blockedIds,
+      });
       const added = written.filter((r) => r.inserted).length;
       return {
         datasetVersion,
@@ -292,6 +308,7 @@ export function importTatoeba(pool: Pool, { courseKey, file }: ImportFile): Prom
         tilesKept: written.filter((r) => !r.retiled).length,
         dropped: parsed.dropped,
         challenging: parsed.challenging,
+        archivedBlocked,
       };
     });
   });

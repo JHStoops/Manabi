@@ -27,7 +27,9 @@ import {
   listActiveSections,
   listPackSentences,
   listActiveUnits,
+  listBlockedWords,
   listPackItems,
+  replaceBlockedWords,
   replaceLessonItems,
   replaceRelatedLinks,
   replaceSentenceItems,
@@ -98,6 +100,7 @@ export async function importPack(pool: Pool, pack: ContentPack): Promise<void> {
     'sentence',
     pack.sentences.map((s) => (s.source ? `${s.source}:${s.sourceId}` : s.text)),
   );
+  checkUnique('blocked word', pack.blockedWords);
 
   await withTransaction(pool, async (db) => {
     await deferPositionChecks(db);
@@ -192,6 +195,10 @@ export async function importPack(pool: Pool, pack: ContentPack): Promise<void> {
       await replaceSentenceItems(db, stored.id, linked);
     }
     await archiveAuthoredSentencesExcept(db, courseId, sentenceIds);
+
+    // shortcut: the blocklist is per language, so the last imported pack of a language sets it
+    // for every course in that language; fine while each language has one course (FR-237).
+    await replaceBlockedWords(db, course.targetLang, pack.blockedWords);
   });
 }
 
@@ -204,6 +211,7 @@ export async function exportPack(db: Queryable, courseKey: string): Promise<Cont
   const items = await listPackItems(db, course.id);
   const sentences = await listPackSentences(db, course.id);
   const keyOf = new Map((await listActiveItemKeys(db, course.id)).map((r) => [r.id, r.key]));
+  const blockedWords = await listBlockedWords(db, course.target_lang);
 
   return {
     course: {
@@ -264,5 +272,6 @@ export async function exportPack(db: Queryable, courseKey: string): Promise<Cont
       translationEdited: s.translation_edited,
       tokensEdited: s.tokens_edited,
     })),
+    blockedWords,
   };
 }

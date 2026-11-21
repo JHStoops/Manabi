@@ -26,6 +26,7 @@ const CONTENT_TABLES: Record<string, string> = {
   lesson_items: 'lesson_id, item_id',
   sentences: 'id',
   sentence_items: 'sentence_id, item_id',
+  blocked_words: 'id',
 };
 
 const PROGRESS_TABLES: Record<string, string> = {
@@ -122,6 +123,7 @@ function otherCourse(pack: ContentPack, keep: 'unit' | 'lesson'): ContentPack {
     })),
     items: [],
     sentences: [],
+    blockedWords: pack.blockedWords,
   };
 }
 
@@ -202,6 +204,20 @@ describeWithDb('content packs', () => {
 
     expect(await snapshot(pool(), CONTENT_TABLES)).toEqual(before);
     expect(await exportPack(pool(), 'ja-en')).toEqual(exported);
+  });
+
+  it('round trips the blocklist unchanged and drops words removed from the pack (FR-237)', async () => {
+    const pack = await readPack(FIXTURE);
+    expect(pack.blockedWords).toEqual(['ばか', '殺す']);
+    await importPack(pool(), pack);
+    const dir = await tmp();
+    await writePack(dir, await exportPack(pool(), 'ja-en'));
+    expect((await readPack(dir)).blockedWords).toEqual(['ばか', '殺す']);
+
+    await importPack(pool(), { ...pack, blockedWords: ['殺す'] });
+    expect(await query(pool(), 'SELECT lang, word FROM blocked_words')).toEqual([
+      { lang: 'ja', word: '殺す' },
+    ]);
   });
 
   it('archives a lesson removed from the pack and leaves progress unchanged', async () => {
@@ -518,6 +534,7 @@ describeWithDb('content packs', () => {
       (p) => p.sentences.push({ ...p.sentences[0]!, text: '水を。' }),
       'duplicate sentence tatoeba:4702',
     ],
+    ['a duplicate blocked word', (p) => p.blockedWords.push('ばか'), 'duplicate blocked word ばか'],
     [
       'a unit key that belongs to another course',
       () => {},

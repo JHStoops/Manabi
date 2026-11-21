@@ -139,6 +139,9 @@ export const packSentenceSchema = z
 export type PackSentence = z.infer<typeof packSentenceSchema>;
 export const packSentencesFileSchema = z.array(packSentenceSchema);
 
+/** FR-237: `lists/blocked-words.yaml`, the blocklist of the course's target language. */
+export const packBlockedWordsFileSchema = z.array(nonEmptyTextSchema);
+
 /** A whole pack in memory, as read from (or written to) a pack directory. */
 export interface ContentPack {
   course: PackCourse;
@@ -147,6 +150,8 @@ export interface ContentPack {
   /** Entries of items/*.yaml plus the grammar points, each as an authored item. */
   items: (PackItem & { related?: string[] })[];
   sentences: PackSentence[];
+  /** FR-237: `lists/blocked-words.yaml`; empty when the file is missing. */
+  blockedWords: string[];
 }
 
 /** A pack that cannot be read or imported. Each problem names its file or key, and a path. */

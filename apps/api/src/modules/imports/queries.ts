@@ -311,6 +311,27 @@ export function upsertImportedSentences(
   );
 }
 
+/**
+ * FR-237: archives the course's imported sentences with these source ids that no author has
+ * touched (unreviewed, text and tiles unedited); reviewed sentences are never archived. Returns
+ * how many were archived.
+ */
+export async function archiveBlockedSentences(
+  db: Queryable,
+  i: { courseId: number; source: string; sourceIds: string[] },
+): Promise<number> {
+  const rows = await query(
+    db,
+    `UPDATE sentences SET archived_at = now(), updated_at = now()
+     WHERE course_id = $1 AND source = $2 AND source_id = ANY($3::text[])
+       AND review_status = 'unreviewed' AND NOT edited AND NOT tokens_edited
+       AND archived_at IS NULL
+     RETURNING id`,
+    [i.courseId, i.source, i.sourceIds],
+  );
+  return rows.length;
+}
+
 /** Sets each sentence's `sentence_items` to the items its tiles link to. */
 export async function replaceSentenceItems(db: Queryable, sentenceIds: number[]): Promise<void> {
   await query(db, `DELETE FROM sentence_items WHERE sentence_id = ANY($1::bigint[])`, [

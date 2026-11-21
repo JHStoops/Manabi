@@ -498,6 +498,33 @@ export function findCourseByKey(db: Queryable, key: string): Promise<CourseRow |
   return queryOne<CourseRow>(db, `SELECT * FROM courses WHERE key = $1`, [key]);
 }
 
+/** FR-237: a language's blocklist, in word order. */
+export async function listBlockedWords(db: Queryable, lang: string): Promise<string[]> {
+  const rows = await query<{ word: string }>(
+    db,
+    `SELECT word FROM blocked_words WHERE lang = $1 ORDER BY word`,
+    [lang],
+  );
+  return rows.map((r) => r.word);
+}
+
+/** FR-237: makes a language's blocklist exactly `words`, keeping the rows of words it already has. */
+export async function replaceBlockedWords(
+  db: Queryable,
+  lang: string,
+  words: string[],
+): Promise<void> {
+  await query(db, `DELETE FROM blocked_words WHERE lang = $1 AND NOT word = ANY($2::text[])`, [
+    lang,
+    words,
+  ]);
+  await query(
+    db,
+    `INSERT INTO blocked_words (lang, word) SELECT $1, unnest($2::text[]) ON CONFLICT DO NOTHING`,
+    [lang, words],
+  );
+}
+
 export function listActiveSections(db: Queryable, courseId: number): Promise<SectionRow[]> {
   return query<SectionRow>(
     db,
