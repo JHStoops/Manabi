@@ -505,7 +505,7 @@ describeWithDb('content packs', () => {
     expect(err).toBeInstanceOf(ContentPackError);
     const problems = (err as ContentPackError).problems;
     expect(problems).toEqual([
-      expect.stringMatching(/^units\/02-ordering\.yaml: lessons\.0\.type: Invalid enum value/),
+      expect.stringMatching(/^units\/02-ordering\.yaml: lessons\.0\.type: Invalid option/),
       expect.stringMatching(/^items\/word\.yaml: /),
       'grammar/broken.md: (root): expected YAML front matter between --- lines',
     ]);
@@ -525,7 +525,7 @@ describeWithDb('content packs', () => {
     [
       'item data the plugin rejects',
       (p) => (p.items[0]!.data = { character: 'あ', script: 'hiragana' }),
-      'item ja:kana:あ: data.romaji: Required',
+      'item ja:kana:あ: data.romaji: Invalid input: expected string, received undefined',
     ],
     [
       'an item type the plugin lacks',

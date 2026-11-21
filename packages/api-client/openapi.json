@@ -81,10 +81,9 @@
                 "properties": {
                   "identifier": { "type": "string", "minLength": 1, "maxLength": 254 },
                   "password": { "type": "string", "minLength": 1, "maxLength": 256 },
-                  "clientKind": { "type": "string", "enum": ["web", "mobile"], "default": "web" }
+                  "clientKind": { "default": "web", "type": "string", "enum": ["web", "mobile"] }
                 },
-                "required": ["identifier", "password"],
-                "additionalProperties": false
+                "required": ["identifier", "password"]
               }
             }
           }
@@ -102,16 +101,16 @@
                       "properties": {
                         "id": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
                           "minimum": 0,
+                          "exclusiveMinimum": true,
                           "maximum": 9007199254740991
                         },
                         "username": { "type": "string", "pattern": "^[^\\s@]{1,64}$" },
                         "email": {
+                          "nullable": true,
                           "type": "string",
                           "maxLength": 254,
-                          "pattern": "^[^\\s@]+@[^\\s@]+$",
-                          "nullable": true
+                          "pattern": "^[^\\s@]+@[^\\s@]+$"
                         },
                         "displayName": { "type": "string", "minLength": 1 },
                         "role": { "type": "string", "enum": ["admin", "learner"] },
@@ -121,68 +120,91 @@
                           "type": "object",
                           "properties": {
                             "avatarColor": {
-                              "type": "string",
-                              "pattern": "^#[0-9a-f]{6}$",
+                              "default": null,
                               "nullable": true,
-                              "default": null
+                              "type": "string",
+                              "pattern": "^#[0-9a-f]{6}$"
                             },
                             "avatarInitial": {
-                              "type": "string",
+                              "default": null,
                               "nullable": true,
-                              "default": null
+                              "type": "string"
                             },
                             "dailyGoal": {
+                              "default": 20,
                               "anyOf": [
                                 { "type": "number", "enum": [10] },
                                 { "type": "number", "enum": [20] },
                                 { "type": "number", "enum": [30] },
                                 { "type": "number", "enum": [50] }
-                              ],
-                              "default": 20
+                              ]
                             },
                             "newItemCap": {
+                              "default": 20,
                               "type": "integer",
                               "minimum": 0,
-                              "maximum": 200,
-                              "default": 20
+                              "maximum": 200
                             },
                             "reviewCap": {
+                              "default": 100,
                               "type": "integer",
                               "minimum": 1,
-                              "maximum": 1000,
-                              "default": 100
+                              "maximum": 1000
                             },
-                            "drawingExercises": { "type": "boolean", "default": true },
-                            "preferWordBank": { "type": "boolean", "default": false },
+                            "drawingExercises": { "default": true, "type": "boolean" },
+                            "preferWordBank": { "default": false, "type": "boolean" },
                             "theme": {
+                              "default": "sakura",
                               "type": "string",
-                              "enum": ["sakura", "matcha", "umi", "yuyake", "sumi"],
-                              "default": "sakura"
+                              "enum": ["sakura", "matcha", "umi", "yuyake", "sumi"]
                             },
                             "colorMode": {
+                              "default": "system",
                               "type": "string",
-                              "enum": ["system", "light", "dark"],
-                              "default": "system"
+                              "enum": ["system", "light", "dark"]
                             },
                             "readingAnnotations": {
+                              "default": "unlearned",
                               "type": "string",
-                              "enum": ["always", "unlearned", "never"],
-                              "default": "unlearned"
+                              "enum": ["always", "unlearned", "never"]
                             },
                             "targetTextSize": {
+                              "default": "normal",
                               "type": "string",
-                              "enum": ["normal", "large"],
-                              "default": "normal"
+                              "enum": ["normal", "large"]
                             },
-                            "soundEffects": { "type": "boolean", "default": true },
-                            "audioAutoplay": { "type": "boolean", "default": true },
-                            "reducedMotion": { "type": "boolean", "default": false },
-                            "appearOnLeaderboard": { "type": "boolean", "default": true },
-                            "allowNudges": { "type": "boolean", "default": true }
+                            "soundEffects": { "default": true, "type": "boolean" },
+                            "audioAutoplay": { "default": true, "type": "boolean" },
+                            "reducedMotion": { "default": false, "type": "boolean" },
+                            "appearOnLeaderboard": { "default": true, "type": "boolean" },
+                            "allowNudges": { "default": true, "type": "boolean" }
                           },
+                          "required": [
+                            "avatarColor",
+                            "avatarInitial",
+                            "dailyGoal",
+                            "newItemCap",
+                            "reviewCap",
+                            "drawingExercises",
+                            "preferWordBank",
+                            "theme",
+                            "colorMode",
+                            "readingAnnotations",
+                            "targetTextSize",
+                            "soundEffects",
+                            "audioAutoplay",
+                            "reducedMotion",
+                            "appearOnLeaderboard",
+                            "allowNudges"
+                          ],
                           "additionalProperties": false
                         },
-                        "disabledAt": { "type": "string", "format": "date-time", "nullable": true }
+                        "disabledAt": {
+                          "nullable": true,
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
                       },
                       "required": [
                         "id",
@@ -472,11 +494,10 @@
                       { "type": "number", "enum": [50] }
                     ]
                   },
-                  "timeZone": { "type": "string", "default": "UTC" },
-                  "clientKind": { "type": "string", "enum": ["web", "mobile"], "default": "web" }
+                  "timeZone": { "default": "UTC", "type": "string" },
+                  "clientKind": { "default": "web", "type": "string", "enum": ["web", "mobile"] }
                 },
-                "required": ["token", "username", "displayName", "password", "dailyGoal"],
-                "additionalProperties": false
+                "required": ["token", "username", "displayName", "password", "dailyGoal"]
               }
             }
           }
@@ -494,16 +515,16 @@
                       "properties": {
                         "id": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
                           "minimum": 0,
+                          "exclusiveMinimum": true,
                           "maximum": 9007199254740991
                         },
                         "username": { "type": "string", "pattern": "^[^\\s@]{1,64}$" },
                         "email": {
+                          "nullable": true,
                           "type": "string",
                           "maxLength": 254,
-                          "pattern": "^[^\\s@]+@[^\\s@]+$",
-                          "nullable": true
+                          "pattern": "^[^\\s@]+@[^\\s@]+$"
                         },
                         "displayName": { "type": "string", "minLength": 1 },
                         "role": { "type": "string", "enum": ["admin", "learner"] },
@@ -513,68 +534,91 @@
                           "type": "object",
                           "properties": {
                             "avatarColor": {
-                              "type": "string",
-                              "pattern": "^#[0-9a-f]{6}$",
+                              "default": null,
                               "nullable": true,
-                              "default": null
+                              "type": "string",
+                              "pattern": "^#[0-9a-f]{6}$"
                             },
                             "avatarInitial": {
-                              "type": "string",
+                              "default": null,
                               "nullable": true,
-                              "default": null
+                              "type": "string"
                             },
                             "dailyGoal": {
+                              "default": 20,
                               "anyOf": [
                                 { "type": "number", "enum": [10] },
                                 { "type": "number", "enum": [20] },
                                 { "type": "number", "enum": [30] },
                                 { "type": "number", "enum": [50] }
-                              ],
-                              "default": 20
+                              ]
                             },
                             "newItemCap": {
+                              "default": 20,
                               "type": "integer",
                               "minimum": 0,
-                              "maximum": 200,
-                              "default": 20
+                              "maximum": 200
                             },
                             "reviewCap": {
+                              "default": 100,
                               "type": "integer",
                               "minimum": 1,
-                              "maximum": 1000,
-                              "default": 100
+                              "maximum": 1000
                             },
-                            "drawingExercises": { "type": "boolean", "default": true },
-                            "preferWordBank": { "type": "boolean", "default": false },
+                            "drawingExercises": { "default": true, "type": "boolean" },
+                            "preferWordBank": { "default": false, "type": "boolean" },
                             "theme": {
+                              "default": "sakura",
                               "type": "string",
-                              "enum": ["sakura", "matcha", "umi", "yuyake", "sumi"],
-                              "default": "sakura"
+                              "enum": ["sakura", "matcha", "umi", "yuyake", "sumi"]
                             },
                             "colorMode": {
+                              "default": "system",
                               "type": "string",
-                              "enum": ["system", "light", "dark"],
-                              "default": "system"
+                              "enum": ["system", "light", "dark"]
                             },
                             "readingAnnotations": {
+                              "default": "unlearned",
                               "type": "string",
-                              "enum": ["always", "unlearned", "never"],
-                              "default": "unlearned"
+                              "enum": ["always", "unlearned", "never"]
                             },
                             "targetTextSize": {
+                              "default": "normal",
                               "type": "string",
-                              "enum": ["normal", "large"],
-                              "default": "normal"
+                              "enum": ["normal", "large"]
                             },
-                            "soundEffects": { "type": "boolean", "default": true },
-                            "audioAutoplay": { "type": "boolean", "default": true },
-                            "reducedMotion": { "type": "boolean", "default": false },
-                            "appearOnLeaderboard": { "type": "boolean", "default": true },
-                            "allowNudges": { "type": "boolean", "default": true }
+                            "soundEffects": { "default": true, "type": "boolean" },
+                            "audioAutoplay": { "default": true, "type": "boolean" },
+                            "reducedMotion": { "default": false, "type": "boolean" },
+                            "appearOnLeaderboard": { "default": true, "type": "boolean" },
+                            "allowNudges": { "default": true, "type": "boolean" }
                           },
+                          "required": [
+                            "avatarColor",
+                            "avatarInitial",
+                            "dailyGoal",
+                            "newItemCap",
+                            "reviewCap",
+                            "drawingExercises",
+                            "preferWordBank",
+                            "theme",
+                            "colorMode",
+                            "readingAnnotations",
+                            "targetTextSize",
+                            "soundEffects",
+                            "audioAutoplay",
+                            "reducedMotion",
+                            "appearOnLeaderboard",
+                            "allowNudges"
+                          ],
                           "additionalProperties": false
                         },
-                        "disabledAt": { "type": "string", "format": "date-time", "nullable": true }
+                        "disabledAt": {
+                          "nullable": true,
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
                       },
                       "required": [
                         "id",
@@ -848,24 +892,18 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "anyOf": [
-                  { "not": {} },
-                  {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": false,
-                    "nullable": true
-                  }
-                ]
-              }
+              "schema": { "nullable": true, "type": "object", "properties": {} }
             }
           }
         },
         "responses": {
           "204": {
             "description": "Default Response",
-            "content": { "application/json": { "schema": { "enum": ["null"], "nullable": true } } }
+            "content": {
+              "application/json": {
+                "schema": { "type": "string", "nullable": true, "enum": [null] }
+              }
+            }
           },
           "401": {
             "description": "Default Response",
@@ -964,8 +1002,7 @@
                   "currentPassword": { "type": "string", "minLength": 1, "maxLength": 256 },
                   "newPassword": { "type": "string", "minLength": 10, "maxLength": 256 }
                 },
-                "required": ["currentPassword", "newPassword"],
-                "additionalProperties": false
+                "required": ["currentPassword", "newPassword"]
               }
             }
           }
@@ -983,16 +1020,16 @@
                       "properties": {
                         "id": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
                           "minimum": 0,
+                          "exclusiveMinimum": true,
                           "maximum": 9007199254740991
                         },
                         "username": { "type": "string", "pattern": "^[^\\s@]{1,64}$" },
                         "email": {
+                          "nullable": true,
                           "type": "string",
                           "maxLength": 254,
-                          "pattern": "^[^\\s@]+@[^\\s@]+$",
-                          "nullable": true
+                          "pattern": "^[^\\s@]+@[^\\s@]+$"
                         },
                         "displayName": { "type": "string", "minLength": 1 },
                         "role": { "type": "string", "enum": ["admin", "learner"] },
@@ -1002,68 +1039,91 @@
                           "type": "object",
                           "properties": {
                             "avatarColor": {
-                              "type": "string",
-                              "pattern": "^#[0-9a-f]{6}$",
+                              "default": null,
                               "nullable": true,
-                              "default": null
+                              "type": "string",
+                              "pattern": "^#[0-9a-f]{6}$"
                             },
                             "avatarInitial": {
-                              "type": "string",
+                              "default": null,
                               "nullable": true,
-                              "default": null
+                              "type": "string"
                             },
                             "dailyGoal": {
+                              "default": 20,
                               "anyOf": [
                                 { "type": "number", "enum": [10] },
                                 { "type": "number", "enum": [20] },
                                 { "type": "number", "enum": [30] },
                                 { "type": "number", "enum": [50] }
-                              ],
-                              "default": 20
+                              ]
                             },
                             "newItemCap": {
+                              "default": 20,
                               "type": "integer",
                               "minimum": 0,
-                              "maximum": 200,
-                              "default": 20
+                              "maximum": 200
                             },
                             "reviewCap": {
+                              "default": 100,
                               "type": "integer",
                               "minimum": 1,
-                              "maximum": 1000,
-                              "default": 100
+                              "maximum": 1000
                             },
-                            "drawingExercises": { "type": "boolean", "default": true },
-                            "preferWordBank": { "type": "boolean", "default": false },
+                            "drawingExercises": { "default": true, "type": "boolean" },
+                            "preferWordBank": { "default": false, "type": "boolean" },
                             "theme": {
+                              "default": "sakura",
                               "type": "string",
-                              "enum": ["sakura", "matcha", "umi", "yuyake", "sumi"],
-                              "default": "sakura"
+                              "enum": ["sakura", "matcha", "umi", "yuyake", "sumi"]
                             },
                             "colorMode": {
+                              "default": "system",
                               "type": "string",
-                              "enum": ["system", "light", "dark"],
-                              "default": "system"
+                              "enum": ["system", "light", "dark"]
                             },
                             "readingAnnotations": {
+                              "default": "unlearned",
                               "type": "string",
-                              "enum": ["always", "unlearned", "never"],
-                              "default": "unlearned"
+                              "enum": ["always", "unlearned", "never"]
                             },
                             "targetTextSize": {
+                              "default": "normal",
                               "type": "string",
-                              "enum": ["normal", "large"],
-                              "default": "normal"
+                              "enum": ["normal", "large"]
                             },
-                            "soundEffects": { "type": "boolean", "default": true },
-                            "audioAutoplay": { "type": "boolean", "default": true },
-                            "reducedMotion": { "type": "boolean", "default": false },
-                            "appearOnLeaderboard": { "type": "boolean", "default": true },
-                            "allowNudges": { "type": "boolean", "default": true }
+                            "soundEffects": { "default": true, "type": "boolean" },
+                            "audioAutoplay": { "default": true, "type": "boolean" },
+                            "reducedMotion": { "default": false, "type": "boolean" },
+                            "appearOnLeaderboard": { "default": true, "type": "boolean" },
+                            "allowNudges": { "default": true, "type": "boolean" }
                           },
+                          "required": [
+                            "avatarColor",
+                            "avatarInitial",
+                            "dailyGoal",
+                            "newItemCap",
+                            "reviewCap",
+                            "drawingExercises",
+                            "preferWordBank",
+                            "theme",
+                            "colorMode",
+                            "readingAnnotations",
+                            "targetTextSize",
+                            "soundEffects",
+                            "audioAutoplay",
+                            "reducedMotion",
+                            "appearOnLeaderboard",
+                            "allowNudges"
+                          ],
                           "additionalProperties": false
                         },
-                        "disabledAt": { "type": "string", "format": "date-time", "nullable": true }
+                        "disabledAt": {
+                          "nullable": true,
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
                       },
                       "required": [
                         "id",
@@ -1342,8 +1402,7 @@
                 "properties": {
                   "identifier": { "type": "string", "minLength": 1, "maxLength": 254 }
                 },
-                "required": ["identifier"],
-                "additionalProperties": false
+                "required": ["identifier"]
               }
             }
           }
@@ -1351,7 +1410,11 @@
         "responses": {
           "202": {
             "description": "Default Response",
-            "content": { "application/json": { "schema": { "enum": ["null"], "nullable": true } } }
+            "content": {
+              "application/json": {
+                "schema": { "type": "string", "nullable": true, "enum": [null] }
+              }
+            }
           },
           "400": {
             "description": "Default Response",
@@ -1490,8 +1553,7 @@
                   "token": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" },
                   "newPassword": { "type": "string", "minLength": 10, "maxLength": 256 }
                 },
-                "required": ["token", "newPassword"],
-                "additionalProperties": false
+                "required": ["token", "newPassword"]
               }
             }
           }
@@ -1499,7 +1561,11 @@
         "responses": {
           "204": {
             "description": "Default Response",
-            "content": { "application/json": { "schema": { "enum": ["null"], "nullable": true } } }
+            "content": {
+              "application/json": {
+                "schema": { "type": "string", "nullable": true, "enum": [null] }
+              }
+            }
           },
           "400": {
             "description": "Default Response",
@@ -1758,16 +1824,16 @@
                   "properties": {
                     "id": {
                       "type": "integer",
-                      "exclusiveMinimum": true,
                       "minimum": 0,
+                      "exclusiveMinimum": true,
                       "maximum": 9007199254740991
                     },
                     "username": { "type": "string", "pattern": "^[^\\s@]{1,64}$" },
                     "email": {
+                      "nullable": true,
                       "type": "string",
                       "maxLength": 254,
-                      "pattern": "^[^\\s@]+@[^\\s@]+$",
-                      "nullable": true
+                      "pattern": "^[^\\s@]+@[^\\s@]+$"
                     },
                     "displayName": { "type": "string", "minLength": 1 },
                     "role": { "type": "string", "enum": ["admin", "learner"] },
@@ -1777,64 +1843,87 @@
                       "type": "object",
                       "properties": {
                         "avatarColor": {
-                          "type": "string",
-                          "pattern": "^#[0-9a-f]{6}$",
+                          "default": null,
                           "nullable": true,
-                          "default": null
+                          "type": "string",
+                          "pattern": "^#[0-9a-f]{6}$"
                         },
-                        "avatarInitial": { "type": "string", "nullable": true, "default": null },
+                        "avatarInitial": { "default": null, "nullable": true, "type": "string" },
                         "dailyGoal": {
+                          "default": 20,
                           "anyOf": [
                             { "type": "number", "enum": [10] },
                             { "type": "number", "enum": [20] },
                             { "type": "number", "enum": [30] },
                             { "type": "number", "enum": [50] }
-                          ],
-                          "default": 20
+                          ]
                         },
                         "newItemCap": {
+                          "default": 20,
                           "type": "integer",
                           "minimum": 0,
-                          "maximum": 200,
-                          "default": 20
+                          "maximum": 200
                         },
                         "reviewCap": {
+                          "default": 100,
                           "type": "integer",
                           "minimum": 1,
-                          "maximum": 1000,
-                          "default": 100
+                          "maximum": 1000
                         },
-                        "drawingExercises": { "type": "boolean", "default": true },
-                        "preferWordBank": { "type": "boolean", "default": false },
+                        "drawingExercises": { "default": true, "type": "boolean" },
+                        "preferWordBank": { "default": false, "type": "boolean" },
                         "theme": {
+                          "default": "sakura",
                           "type": "string",
-                          "enum": ["sakura", "matcha", "umi", "yuyake", "sumi"],
-                          "default": "sakura"
+                          "enum": ["sakura", "matcha", "umi", "yuyake", "sumi"]
                         },
                         "colorMode": {
+                          "default": "system",
                           "type": "string",
-                          "enum": ["system", "light", "dark"],
-                          "default": "system"
+                          "enum": ["system", "light", "dark"]
                         },
                         "readingAnnotations": {
+                          "default": "unlearned",
                           "type": "string",
-                          "enum": ["always", "unlearned", "never"],
-                          "default": "unlearned"
+                          "enum": ["always", "unlearned", "never"]
                         },
                         "targetTextSize": {
+                          "default": "normal",
                           "type": "string",
-                          "enum": ["normal", "large"],
-                          "default": "normal"
+                          "enum": ["normal", "large"]
                         },
-                        "soundEffects": { "type": "boolean", "default": true },
-                        "audioAutoplay": { "type": "boolean", "default": true },
-                        "reducedMotion": { "type": "boolean", "default": false },
-                        "appearOnLeaderboard": { "type": "boolean", "default": true },
-                        "allowNudges": { "type": "boolean", "default": true }
+                        "soundEffects": { "default": true, "type": "boolean" },
+                        "audioAutoplay": { "default": true, "type": "boolean" },
+                        "reducedMotion": { "default": false, "type": "boolean" },
+                        "appearOnLeaderboard": { "default": true, "type": "boolean" },
+                        "allowNudges": { "default": true, "type": "boolean" }
                       },
+                      "required": [
+                        "avatarColor",
+                        "avatarInitial",
+                        "dailyGoal",
+                        "newItemCap",
+                        "reviewCap",
+                        "drawingExercises",
+                        "preferWordBank",
+                        "theme",
+                        "colorMode",
+                        "readingAnnotations",
+                        "targetTextSize",
+                        "soundEffects",
+                        "audioAutoplay",
+                        "reducedMotion",
+                        "appearOnLeaderboard",
+                        "allowNudges"
+                      ],
                       "additionalProperties": false
                     },
-                    "disabledAt": { "type": "string", "format": "date-time", "nullable": true }
+                    "disabledAt": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
                   },
                   "required": [
                     "id",
@@ -1914,14 +2003,26 @@
                         "properties": {
                           "id": {
                             "type": "integer",
-                            "exclusiveMinimum": true,
                             "minimum": 0,
+                            "exclusiveMinimum": true,
                             "maximum": 9007199254740991
                           },
                           "clientKind": { "type": "string", "enum": ["web", "mobile"] },
-                          "createdAt": { "type": "string", "format": "date-time" },
-                          "lastSeenAt": { "type": "string", "format": "date-time" },
-                          "expiresAt": { "type": "string", "format": "date-time" },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "lastSeenAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "expiresAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
                           "current": { "type": "boolean" }
                         },
                         "required": [
@@ -2040,7 +2141,11 @@
         "responses": {
           "204": {
             "description": "Default Response",
-            "content": { "application/json": { "schema": { "enum": ["null"], "nullable": true } } }
+            "content": {
+              "application/json": {
+                "schema": { "type": "string", "nullable": true, "enum": [null] }
+              }
+            }
           },
           "401": {
             "description": "Default Response",
@@ -2184,16 +2289,16 @@
                         "properties": {
                           "id": {
                             "type": "integer",
-                            "exclusiveMinimum": true,
                             "minimum": 0,
+                            "exclusiveMinimum": true,
                             "maximum": 9007199254740991
                           },
                           "username": { "type": "string", "pattern": "^[^\\s@]{1,64}$" },
                           "email": {
+                            "nullable": true,
                             "type": "string",
                             "maxLength": 254,
-                            "pattern": "^[^\\s@]+@[^\\s@]+$",
-                            "nullable": true
+                            "pattern": "^[^\\s@]+@[^\\s@]+$"
                           },
                           "displayName": { "type": "string", "minLength": 1 },
                           "role": { "type": "string", "enum": ["admin", "learner"] },
@@ -2203,79 +2308,107 @@
                             "type": "object",
                             "properties": {
                               "avatarColor": {
-                                "type": "string",
-                                "pattern": "^#[0-9a-f]{6}$",
+                                "default": null,
                                 "nullable": true,
-                                "default": null
+                                "type": "string",
+                                "pattern": "^#[0-9a-f]{6}$"
                               },
                               "avatarInitial": {
-                                "type": "string",
+                                "default": null,
                                 "nullable": true,
-                                "default": null
+                                "type": "string"
                               },
                               "dailyGoal": {
+                                "default": 20,
                                 "anyOf": [
                                   { "type": "number", "enum": [10] },
                                   { "type": "number", "enum": [20] },
                                   { "type": "number", "enum": [30] },
                                   { "type": "number", "enum": [50] }
-                                ],
-                                "default": 20
+                                ]
                               },
                               "newItemCap": {
+                                "default": 20,
                                 "type": "integer",
                                 "minimum": 0,
-                                "maximum": 200,
-                                "default": 20
+                                "maximum": 200
                               },
                               "reviewCap": {
+                                "default": 100,
                                 "type": "integer",
                                 "minimum": 1,
-                                "maximum": 1000,
-                                "default": 100
+                                "maximum": 1000
                               },
-                              "drawingExercises": { "type": "boolean", "default": true },
-                              "preferWordBank": { "type": "boolean", "default": false },
+                              "drawingExercises": { "default": true, "type": "boolean" },
+                              "preferWordBank": { "default": false, "type": "boolean" },
                               "theme": {
+                                "default": "sakura",
                                 "type": "string",
-                                "enum": ["sakura", "matcha", "umi", "yuyake", "sumi"],
-                                "default": "sakura"
+                                "enum": ["sakura", "matcha", "umi", "yuyake", "sumi"]
                               },
                               "colorMode": {
+                                "default": "system",
                                 "type": "string",
-                                "enum": ["system", "light", "dark"],
-                                "default": "system"
+                                "enum": ["system", "light", "dark"]
                               },
                               "readingAnnotations": {
+                                "default": "unlearned",
                                 "type": "string",
-                                "enum": ["always", "unlearned", "never"],
-                                "default": "unlearned"
+                                "enum": ["always", "unlearned", "never"]
                               },
                               "targetTextSize": {
+                                "default": "normal",
                                 "type": "string",
-                                "enum": ["normal", "large"],
-                                "default": "normal"
+                                "enum": ["normal", "large"]
                               },
-                              "soundEffects": { "type": "boolean", "default": true },
-                              "audioAutoplay": { "type": "boolean", "default": true },
-                              "reducedMotion": { "type": "boolean", "default": false },
-                              "appearOnLeaderboard": { "type": "boolean", "default": true },
-                              "allowNudges": { "type": "boolean", "default": true }
+                              "soundEffects": { "default": true, "type": "boolean" },
+                              "audioAutoplay": { "default": true, "type": "boolean" },
+                              "reducedMotion": { "default": false, "type": "boolean" },
+                              "appearOnLeaderboard": { "default": true, "type": "boolean" },
+                              "allowNudges": { "default": true, "type": "boolean" }
                             },
+                            "required": [
+                              "avatarColor",
+                              "avatarInitial",
+                              "dailyGoal",
+                              "newItemCap",
+                              "reviewCap",
+                              "drawingExercises",
+                              "preferWordBank",
+                              "theme",
+                              "colorMode",
+                              "readingAnnotations",
+                              "targetTextSize",
+                              "soundEffects",
+                              "audioAutoplay",
+                              "reducedMotion",
+                              "appearOnLeaderboard",
+                              "allowNudges"
+                            ],
                             "additionalProperties": false
                           },
                           "disabledAt": {
+                            "nullable": true,
                             "type": "string",
                             "format": "date-time",
-                            "nullable": true
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                           },
                           "lastActiveDate": {
+                            "nullable": true,
                             "type": "string",
                             "format": "date",
-                            "nullable": true
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
                           },
-                          "currentStreak": { "type": "integer", "minimum": 0 },
-                          "createdAt": { "type": "string", "format": "date-time" }
+                          "currentStreak": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
                         },
                         "required": [
                           "id",
@@ -2517,8 +2650,7 @@
                 "properties": {
                   "role": { "type": "string", "enum": ["admin", "learner"] },
                   "disabled": { "type": "boolean" }
-                },
-                "additionalProperties": false
+                }
               }
             }
           }
@@ -2541,16 +2673,16 @@
                   "properties": {
                     "id": {
                       "type": "integer",
-                      "exclusiveMinimum": true,
                       "minimum": 0,
+                      "exclusiveMinimum": true,
                       "maximum": 9007199254740991
                     },
                     "username": { "type": "string", "pattern": "^[^\\s@]{1,64}$" },
                     "email": {
+                      "nullable": true,
                       "type": "string",
                       "maxLength": 254,
-                      "pattern": "^[^\\s@]+@[^\\s@]+$",
-                      "nullable": true
+                      "pattern": "^[^\\s@]+@[^\\s@]+$"
                     },
                     "displayName": { "type": "string", "minLength": 1 },
                     "role": { "type": "string", "enum": ["admin", "learner"] },
@@ -2560,67 +2692,103 @@
                       "type": "object",
                       "properties": {
                         "avatarColor": {
-                          "type": "string",
-                          "pattern": "^#[0-9a-f]{6}$",
+                          "default": null,
                           "nullable": true,
-                          "default": null
+                          "type": "string",
+                          "pattern": "^#[0-9a-f]{6}$"
                         },
-                        "avatarInitial": { "type": "string", "nullable": true, "default": null },
+                        "avatarInitial": { "default": null, "nullable": true, "type": "string" },
                         "dailyGoal": {
+                          "default": 20,
                           "anyOf": [
                             { "type": "number", "enum": [10] },
                             { "type": "number", "enum": [20] },
                             { "type": "number", "enum": [30] },
                             { "type": "number", "enum": [50] }
-                          ],
-                          "default": 20
+                          ]
                         },
                         "newItemCap": {
+                          "default": 20,
                           "type": "integer",
                           "minimum": 0,
-                          "maximum": 200,
-                          "default": 20
+                          "maximum": 200
                         },
                         "reviewCap": {
+                          "default": 100,
                           "type": "integer",
                           "minimum": 1,
-                          "maximum": 1000,
-                          "default": 100
+                          "maximum": 1000
                         },
-                        "drawingExercises": { "type": "boolean", "default": true },
-                        "preferWordBank": { "type": "boolean", "default": false },
+                        "drawingExercises": { "default": true, "type": "boolean" },
+                        "preferWordBank": { "default": false, "type": "boolean" },
                         "theme": {
+                          "default": "sakura",
                           "type": "string",
-                          "enum": ["sakura", "matcha", "umi", "yuyake", "sumi"],
-                          "default": "sakura"
+                          "enum": ["sakura", "matcha", "umi", "yuyake", "sumi"]
                         },
                         "colorMode": {
+                          "default": "system",
                           "type": "string",
-                          "enum": ["system", "light", "dark"],
-                          "default": "system"
+                          "enum": ["system", "light", "dark"]
                         },
                         "readingAnnotations": {
+                          "default": "unlearned",
                           "type": "string",
-                          "enum": ["always", "unlearned", "never"],
-                          "default": "unlearned"
+                          "enum": ["always", "unlearned", "never"]
                         },
                         "targetTextSize": {
+                          "default": "normal",
                           "type": "string",
-                          "enum": ["normal", "large"],
-                          "default": "normal"
+                          "enum": ["normal", "large"]
                         },
-                        "soundEffects": { "type": "boolean", "default": true },
-                        "audioAutoplay": { "type": "boolean", "default": true },
-                        "reducedMotion": { "type": "boolean", "default": false },
-                        "appearOnLeaderboard": { "type": "boolean", "default": true },
-                        "allowNudges": { "type": "boolean", "default": true }
+                        "soundEffects": { "default": true, "type": "boolean" },
+                        "audioAutoplay": { "default": true, "type": "boolean" },
+                        "reducedMotion": { "default": false, "type": "boolean" },
+                        "appearOnLeaderboard": { "default": true, "type": "boolean" },
+                        "allowNudges": { "default": true, "type": "boolean" }
                       },
+                      "required": [
+                        "avatarColor",
+                        "avatarInitial",
+                        "dailyGoal",
+                        "newItemCap",
+                        "reviewCap",
+                        "drawingExercises",
+                        "preferWordBank",
+                        "theme",
+                        "colorMode",
+                        "readingAnnotations",
+                        "targetTextSize",
+                        "soundEffects",
+                        "audioAutoplay",
+                        "reducedMotion",
+                        "appearOnLeaderboard",
+                        "allowNudges"
+                      ],
                       "additionalProperties": false
                     },
-                    "disabledAt": { "type": "string", "format": "date-time", "nullable": true },
-                    "lastActiveDate": { "type": "string", "format": "date", "nullable": true },
-                    "currentStreak": { "type": "integer", "minimum": 0 },
-                    "createdAt": { "type": "string", "format": "date-time" }
+                    "disabledAt": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "lastActiveDate": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "currentStreak": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
                   },
                   "required": [
                     "id",
@@ -2857,8 +3025,7 @@
                 "properties": {
                   "password": { "type": "string", "minLength": 10, "maxLength": 256 }
                 },
-                "required": ["password"],
-                "additionalProperties": false
+                "required": ["password"]
               }
             }
           }
@@ -2874,7 +3041,11 @@
         "responses": {
           "204": {
             "description": "Default Response",
-            "content": { "application/json": { "schema": { "enum": ["null"], "nullable": true } } }
+            "content": {
+              "application/json": {
+                "schema": { "type": "string", "nullable": true, "enum": [null] }
+              }
+            }
           },
           "400": {
             "description": "Default Response",
@@ -3098,23 +3269,31 @@
                         "properties": {
                           "id": {
                             "type": "integer",
-                            "exclusiveMinimum": true,
                             "minimum": 0,
+                            "exclusiveMinimum": true,
                             "maximum": 9007199254740991
                           },
                           "email": {
+                            "nullable": true,
                             "type": "string",
                             "maxLength": 254,
-                            "pattern": "^[^\\s@]+@[^\\s@]+$",
-                            "nullable": true
+                            "pattern": "^[^\\s@]+@[^\\s@]+$"
                           },
                           "role": { "type": "string", "enum": ["admin", "learner"] },
                           "status": {
                             "type": "string",
                             "enum": ["pending", "used", "revoked", "expired"]
                           },
-                          "createdAt": { "type": "string", "format": "date-time" },
-                          "expiresAt": { "type": "string", "format": "date-time" }
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "expiresAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
                         },
                         "required": ["id", "email", "role", "status", "createdAt", "expiresAt"],
                         "additionalProperties": false
@@ -3339,11 +3518,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "role": { "type": "string", "enum": ["admin", "learner"], "default": "learner" },
+                  "role": { "default": "learner", "type": "string", "enum": ["admin", "learner"] },
                   "email": { "type": "string", "maxLength": 254, "pattern": "^[^\\s@]+@[^\\s@]+$" },
-                  "expiresInDays": { "type": "integer", "minimum": 1, "maximum": 30, "default": 7 }
-                },
-                "additionalProperties": false
+                  "expiresInDays": { "default": 7, "type": "integer", "minimum": 1, "maximum": 30 }
+                }
               }
             }
           }
@@ -3361,23 +3539,31 @@
                       "properties": {
                         "id": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
                           "minimum": 0,
+                          "exclusiveMinimum": true,
                           "maximum": 9007199254740991
                         },
                         "email": {
+                          "nullable": true,
                           "type": "string",
                           "maxLength": 254,
-                          "pattern": "^[^\\s@]+@[^\\s@]+$",
-                          "nullable": true
+                          "pattern": "^[^\\s@]+@[^\\s@]+$"
                         },
                         "role": { "type": "string", "enum": ["admin", "learner"] },
                         "status": {
                           "type": "string",
                           "enum": ["pending", "used", "revoked", "expired"]
                         },
-                        "createdAt": { "type": "string", "format": "date-time" },
-                        "expiresAt": { "type": "string", "format": "date-time" }
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "expiresAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
                       },
                       "required": ["id", "email", "role", "status", "createdAt", "expiresAt"],
                       "additionalProperties": false
@@ -3609,7 +3795,11 @@
         "responses": {
           "204": {
             "description": "Default Response",
-            "content": { "application/json": { "schema": { "enum": ["null"], "nullable": true } } }
+            "content": {
+              "application/json": {
+                "schema": { "type": "string", "nullable": true, "enum": [null] }
+              }
+            }
           },
           "400": {
             "description": "Default Response",
@@ -3833,8 +4023,8 @@
                         "properties": {
                           "id": {
                             "type": "integer",
-                            "exclusiveMinimum": true,
                             "minimum": 0,
+                            "exclusiveMinimum": true,
                             "maximum": 9007199254740991
                           },
                           "importer": { "type": "string" },
@@ -3842,11 +4032,16 @@
                             "type": "string",
                             "enum": ["running", "succeeded", "failed"]
                           },
-                          "startedAt": { "type": "string", "format": "date-time" },
-                          "finishedAt": {
+                          "startedAt": {
                             "type": "string",
                             "format": "date-time",
-                            "nullable": true
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "finishedAt": {
+                            "nullable": true,
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                           },
                           "summary": { "type": "object", "additionalProperties": {} }
                         },
@@ -4087,8 +4282,7 @@
                   "courseKey": { "type": "string", "maxLength": 200, "pattern": "^\\S+$" },
                   "file": { "type": "string", "minLength": 1, "maxLength": 512 }
                 },
-                "required": ["importer", "courseKey"],
-                "additionalProperties": false
+                "required": ["importer", "courseKey"]
               }
             }
           }

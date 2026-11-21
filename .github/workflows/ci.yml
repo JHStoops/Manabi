@@ -62,6 +62,8 @@ jobs:
       - name: Smoke test the web app
         if: false
         run: npm run e2e --workspace @manabi/web
+      # Report only by decision (#119): findings that stay are listed with a reason and review
+      # date under "Dependency audit" in SDD section 11 (docs/03-software-design-document.md).
       - name: npm audit (report only)
         if: ${{ !cancelled() }}
         continue-on-error: true

@@ -28,9 +28,6 @@ export interface MigrateOptions {
   lockTimeoutMs?: number;
 }
 
-// node-pg-migrate expects 13- or 17-digit timestamp prefixes and logs an error for our
-// four-digit ones before falling back to numeric order, which is the order we want.
-const ignoredMessage = /^Can't determine timestamp for \d+$/;
 const LOCK_BUSY = 'Another migration is already running';
 // node-pg-migrate's cleanup logs this after failing to take the lock (it never held it).
 const UNLOCK_FAILED = 'Failed to release migration lock';
@@ -53,14 +50,16 @@ export async function runMigrations(options: MigrateOptions): Promise<string[]> 
     const emit = (msg: unknown): void => {
       const text = String(msg);
       if (text === UNLOCK_FAILED) unlockFailed = true;
-      else if (!ignoredMessage.test(text)) log(text);
+      else log(text);
     };
     try {
       const applied = await runOnce(options, emit);
       if (unlockFailed) log(UNLOCK_FAILED);
       return applied;
     } catch (err) {
-      const busy = err instanceof Error && err.message === LOCK_BUSY;
+      // node-pg-migrate 9 appends ". Advisory lock mode is set to 'fail'.". No instanceof: under
+      // Jest the error comes from Node's own realm (jest.node-pg-migrate.cjs).
+      const busy = (err as Error | null)?.message?.startsWith(LOCK_BUSY) === true;
       if (!busy) {
         if (unlockFailed) log(UNLOCK_FAILED);
         throw err;

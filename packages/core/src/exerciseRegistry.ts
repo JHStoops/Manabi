@@ -25,9 +25,9 @@ export interface ExerciseTypeDefinition<Payload = unknown, Response = unknown> {
   /** Type id stored in `exercises.type`, `review_log.exercise_type` and reports. */
   id: string;
   /** Validates the stored JSONB payload (prompt, options, accept list with tiles, refs). */
-  payloadSchema: z.ZodType<Payload, z.ZodTypeDef, unknown>;
+  payloadSchema: z.ZodType<Payload, unknown>;
   /** Validates the learner's response as the client reports it (NFR-13). */
-  responseSchema: z.ZodType<Response, z.ZodTypeDef, unknown>;
+  responseSchema: z.ZodType<Response, unknown>;
   /** Grades a response against a payload. Declared as a method so definitions can be stored together. */
   grade(payload: Payload, response: Response, context: GraderContext): GradeResult;
 }

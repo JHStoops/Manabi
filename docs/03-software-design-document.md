@@ -313,6 +313,12 @@ The app is internet-facing but invite-only, so the design aims at keeping strang
 
 Public registration does not exist as a route; without a valid invite token there is no way to create an account.
 
+**Dependency audit.** CI runs `npm audit` on every push, report only: it never fails the build. Findings are triaged by hand; each one that stays is listed below with its reason, exposure and a date to look again. State on 2026-11-21 (#119): `npm audit` reports 3 moderate, 0 high, 0 critical, all three in runtime dependencies (`npm audit --omit=dev` gives the same 3); dev-only tooling reports none.
+
+| Finding | Reason it stays | Exposure | Review by |
+| --- | --- | --- | --- |
+| `glob` 13.0.x (GHSA-3g3m-2fjr-6pw4, AbortSignal bypass) and `minimatch` (GHSA-g3hv-75wg-m249, globparts DoS), both moderate, pulled in by `node-pg-migrate` 9.0.0, which pins `glob ~13.0.0`; `npm audit` also flags `node-pg-migrate` itself for them | No fixed `node-pg-migrate` release exists (9.0.0 is the latest; npm's suggested "fix" is a downgrade to 7.6.1). Forcing `glob` 14 with an override would run it under a major version `node-pg-migrate` is not tested with | Our migration runner (`apps/api/src/db/migrate.ts`) does not set `useGlob`, so `node-pg-migrate` lists the fixed migrations directory with `readdir` and never calls `glob`. Only the developer CLI (`npm run migrate:create`) would, and only for a directory pattern containing `*`. No user input reaches either | 2027-02-21, or as soon as a `node-pg-migrate` release moves to a fixed `glob` |
+
 ## 12. Deployment and operations
 
 The whole app runs from one Compose file in a Proxmox LXC (nesting enabled so Docker can run), started with `docker compose up -d` (PR-85).

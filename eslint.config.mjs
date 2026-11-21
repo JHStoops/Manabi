@@ -41,7 +41,8 @@ export default tseslint.config(
       '**/dist/**',
       '**/coverage/**',
       '**/playwright-report/**',
-      '**/jest.config*.js',
+      // Jest config and setup files (CommonJS, run by Jest itself).
+      '**/jest.*.{js,cjs}',
       // Throwaway spike code (own package.json, not workspaces) stays out of all checks.
       'spikes/**',
     ],

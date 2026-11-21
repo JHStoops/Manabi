@@ -34,7 +34,7 @@ async function listFiles(dir: string, sub: string, ext: string): Promise<string[
 
 export async function readPack(dir: string): Promise<ContentPack> {
   const problems: string[] = [];
-  function check<T>(file: string, yamlText: string, schema: z.ZodType<T, z.ZodTypeDef, unknown>) {
+  function check<T>(file: string, yamlText: string, schema: z.ZodType<T, unknown>) {
     let value: unknown;
     try {
       value = parse(yamlText);

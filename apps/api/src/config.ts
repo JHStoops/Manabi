@@ -95,7 +95,7 @@ const envSchema = z
     // IF-08: by default trust one hop, Nginx Proxy Manager, so request.ip is the address it saw
     // and clients cannot spoof it with their own X-Forwarded-For. Setting NPM's address instead
     // also stops other LAN peers from faking X-Forwarded-Proto.
-    TRUST_PROXY: trustProxySchema.default('1'),
+    TRUST_PROXY: trustProxySchema.prefault('1'),
     LEVEL_CEILING: levelCodeSchema.default('N3'),
     DATASETS_DIR: z.string().min(1).default('./datasets'),
     SMTP_HOST: z.string().optional(),

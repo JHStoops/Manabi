@@ -652,7 +652,7 @@ export interface paths {
       };
       requestBody: {
         content: {
-          'application/json': unknown | (Record<string, never> | null);
+          'application/json': Record<string, never> | null;
         };
       };
       responses: {
@@ -1029,7 +1029,7 @@ export interface paths {
             [name: string]: unknown;
           };
           content: {
-            'application/json': 'null' | null;
+            'application/json': null;
           };
         };
         /** @description Default Response */

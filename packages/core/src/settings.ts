@@ -99,5 +99,15 @@ export const learnerSettingsSchema = z.object({
 export type LearnerSettings = z.infer<typeof learnerSettingsSchema>;
 
 /** A partial settings update (`PATCH /me`): only the fields sent change; unknown keys fail. */
-export const learnerSettingsPatchSchema = learnerSettingsSchema.partial().strict();
+const settingsShape = learnerSettingsSchema.shape;
+type SettingsShape = typeof settingsShape;
+// Not `.partial()`: zod 4 applies a default even inside `.optional()`, so a partial of the
+// defaulted schema would reset every field the patch leaves out.
+export const learnerSettingsPatchSchema = z
+  .object(
+    Object.fromEntries(
+      Object.entries(settingsShape).map(([key, field]) => [key, field.unwrap().optional()]),
+    ) as { [K in keyof SettingsShape]: z.ZodOptional<ReturnType<SettingsShape[K]['unwrap']>> },
+  )
+  .strict();
 export type LearnerSettingsPatch = z.infer<typeof learnerSettingsPatchSchema>;
