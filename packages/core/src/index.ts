@@ -10,6 +10,7 @@ export * from './auth';
 export * from './blockedWords';
 export * from './apiError';
 export * from './content';
+export * from './coursePath';
 export * from './contentPack';
 export * from './exerciseRegistry';
 export * from './http';

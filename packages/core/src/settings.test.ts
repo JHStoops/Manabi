@@ -36,12 +36,13 @@ describe('learner setting defaults (Product Spec sections 7, 8, 10, 11)', () => 
     ['allowNudges', true],
     ['avatarColor', null],
     ['avatarInitial', null],
+    ['activeCourseId', null],
   ] as const)('defaults %s to %p', (key, value) => {
     expect(parsed[key]).toBe(value);
   });
 
   it('has a test for every default', () => {
-    expect(Object.keys(defaultLearnerSettings)).toHaveLength(16);
+    expect(Object.keys(defaultLearnerSettings)).toHaveLength(17);
   });
 
   it('keeps stored values, fills missing ones and drops unknown keys', () => {
@@ -80,6 +81,7 @@ describeSchema(
   ],
   [
     ['an unknown key', { furigana: 'never' }],
+    ['the active course, which only enrollment sets', { activeCourseId: 1 }],
     ['a bad value', { readingAnnotations: 'sometimes' }],
   ],
 );

@@ -130,7 +130,7 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 
 | Table | Key columns | Notes |
 | --- | --- | --- |
-| `users` | id, username, email, password_hash, display_name, role (admin or learner), must_change_password, password_expires_at, time_zone, settings (JSONB), disabled_at | Settings hold avatar color and initial, daily goal, caps, theme and color mode, furigana mode, text size, sound, motion and social toggles; missing keys read as their defaults (learnerSettingsSchema in core); password_expires_at is set with an admin's temporary password |
+| `users` | id, username, email, password_hash, display_name, role (admin or learner), must_change_password, password_expires_at, time_zone, settings (JSONB), disabled_at | Settings hold avatar color and initial, daily goal, caps, theme and color mode, furigana mode, text size, sound, motion and social toggles, and the active course (set by enrolling, FR-023); missing keys read as their defaults (learnerSettingsSchema in core); password_expires_at is set with an admin's temporary password |
 | `invites` | id, token_hash, email, role, created_by, expires_at, used_by, used_at, revoked_at | Single use; email is null when the link was only copied |
 | `sessions` | id, user_id, token_hash, client_kind, expires_at, last_seen_at | Web or mobile |
 | `password_resets` | id, user_id, token_hash, origin, expires_at, used_at | Origin: email or admin issued |
