@@ -10,13 +10,12 @@ type KanaInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange' | '
 
 /**
  * FR-142: a text field that converts romaji to kana as the learner types, using the plugin's
- * `convertInput`. Text from a device IME is left alone while it is being composed. Renders
- * nothing for a plugin without input conversion (FR-241); callers then use a plain field.
+ * `convertInput`. Text from a device IME is left alone while it is being composed. For a plugin
+ * without input conversion (FR-241) it is a plain text field.
  */
 export function KanaInput({ plugin, onChange, ...rest }: KanaInputProps) {
   const [value, setValue] = useState('');
   const composing = useRef(false);
-  if (!plugin.features.inputConversion) return null;
 
   const update = (text: string) => {
     setValue(text);
@@ -36,7 +35,9 @@ export function KanaInput({ plugin, onChange, ...rest }: KanaInputProps) {
         // shortcut: converting the whole value moves the caret to the end when editing mid-text;
         // upgrade if learners edit inside long answers.
         update(
-          composing.current || (event.nativeEvent as InputEvent).isComposing
+          !plugin.features.inputConversion ||
+            composing.current ||
+            (event.nativeEvent as InputEvent).isComposing
             ? text
             : plugin.convertInput(text, 'romaji'),
         );

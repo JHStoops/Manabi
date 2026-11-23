@@ -37,11 +37,13 @@ describe('KanaInput (FR-142)', () => {
     expect(input.value).toBe('かか');
   });
 
-  it('renders nothing for a plugin without input conversion', () => {
+  it('is a plain text field for a plugin without input conversion', () => {
     const plugin = { ...japanese, features: { ...japanese.features, inputConversion: false } };
-    const { container } = render(
-      <KanaInput plugin={plugin as LanguagePlugin} aria-label="answer" onChange={jest.fn()} />,
-    );
-    expect(container.firstChild).toBeNull();
+    const onChange = jest.fn();
+    render(<KanaInput plugin={plugin as LanguagePlugin} aria-label="answer" onChange={onChange} />);
+    const input = screen.getByLabelText('answer') as HTMLInputElement;
+    type(input, 'ka');
+    expect(input.value).toBe('ka');
+    expect(onChange).toHaveBeenLastCalledWith('ka');
   });
 });
