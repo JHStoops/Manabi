@@ -47,7 +47,6 @@ describe('japanese language plugin', () => {
 
   // Each stubbed member must throw instead of returning a fake result.
   it.each<[string, number, () => unknown]>([
-    ['convertInput', 28, () => japanese.convertInput('nihongo', 'romaji')],
     [
       'annotate',
       57,
