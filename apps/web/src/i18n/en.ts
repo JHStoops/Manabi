@@ -13,6 +13,13 @@ export const en = {
     lesson: 'Lesson',
     signIn: 'Sign in',
   },
+  // FR-160, FR-162: the lesson results screen.
+  results: {
+    xpEarned: '+{{count}} XP',
+    level: 'Level {{level}}',
+    levelProgress: 'Progress to level {{next}}',
+    toNextLevel: '{{into}} / {{span}} XP to level {{next}}',
+  },
   // FR-001, FR-003, FR-004, FR-005: sign-in, invite, password and session screens.
   field: {
     password: 'Password',
