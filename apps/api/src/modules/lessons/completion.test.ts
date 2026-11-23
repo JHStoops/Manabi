@@ -234,7 +234,7 @@ describeWithDb('lesson completion API', () => {
     expect(await counts()).toEqual({ progress: 1, xp: 2, items: 0, keys: 1, sessions: 0 });
   });
 
-  it("refuses another learner's session and malformed responses (NFR-14)", async () => {
+  it("refuses another learner's session and malformed responses, and completes an expired one (NFR-14)", async () => {
     const { courseId, lesson } = await seed();
     const aiko = await learner('aiko', courseId);
     const ben = await learner('ben', courseId);
@@ -242,6 +242,14 @@ describeWithDb('lesson completion API', () => {
 
     const stolen = await complete(sessionId, ben.session, { responses: responses() });
     expect(stolen.statusCode).toBe(404);
+    // Expired, but its row is still there: completion only needs the session to exist.
+    await sql(
+      `UPDATE lesson_sessions SET created_at = now() - interval '25 hours',
+                                  expires_at = now() - interval '1 hour'`,
+    );
+    expect((await complete(sessionId, ben.session, { responses: responses() })).statusCode).toBe(
+      404,
+    );
 
     const short = await complete(sessionId, aiko.session, { responses: responses().slice(1) });
     expect(short.statusCode).toBe(400);
@@ -252,6 +260,9 @@ describeWithDb('lesson completion API', () => {
     const badKey = await complete(sessionId, aiko.session, { responses: responses() }, 'a b');
     expect(badKey.statusCode).toBe(400);
     expect(await counts()).toEqual({ progress: 0, xp: 0, items: 0, keys: 0, sessions: 1 });
+    expect((await complete(sessionId, aiko.session, { responses: responses() })).statusCode).toBe(
+      200,
+    );
 
     expect(
       (

@@ -55,8 +55,9 @@ function toItem(row: ItemRow): Item {
 }
 
 /**
- * FR-041, FR-050: the learner's unexpired session for the lesson, or a new one built and saved
- * for 24 hours. Only lessons the learner can see and has unlocked can be started.
+ * FR-041, FR-050: the learner's unexpired session for the lesson, kept 24 more hours, or a new one
+ * built and saved for 24 hours. Only lessons the learner can see, has unlocked and whose course
+ * they are enrolled in can be started.
  */
 export async function startSession(
   db: Pool,
@@ -72,11 +73,15 @@ export async function startSession(
     .find((l) => l.id === lessonId)?.state;
   if (!state) throw new AppError('not_found', 'Lesson not found');
   if (state === 'locked') throw new AppError('forbidden', 'This lesson is still locked');
+  // Same error as an XP award without enrollment (courses awardXp), checked before any work.
+  if (!(await q.isEnrolled(db, userId, lesson.course_id))) {
+    throw new AppError('conflict', 'Not enrolled in this course');
+  }
 
   const row = await withTransaction(db, async (client) => {
     await q.lockLessonSessions(client, userId, lessonId);
     return (
-      (await q.findOpenSession(client, userId, lessonId)) ??
+      (await q.resumeOpenSession(client, userId, lessonId)) ??
       q.insertSession(client, userId, lessonId, await buildState(client, lesson))
     );
   });

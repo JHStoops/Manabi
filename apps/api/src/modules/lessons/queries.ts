@@ -35,20 +35,36 @@ export async function lockLessonSessions(db: Queryable, userId: number, lessonId
   ]);
 }
 
-/** FR-050: the learner's newest unexpired session for the lesson. */
-export function findOpenSession(
+/**
+ * FR-050: the learner's newest unexpired session for the lesson, kept for another 24 hours from
+ * now, since the 24 hours count from when the learner last came back to it.
+ */
+export function resumeOpenSession(
   db: Queryable,
   userId: number,
   lessonId: number,
 ): Promise<LessonSessionRow | null> {
   return queryOne<LessonSessionRow>(
     db,
-    `SELECT * FROM lesson_sessions
-      WHERE user_id = $1 AND lesson_id = $2 AND expires_at > now()
-      ORDER BY id DESC
-      LIMIT 1`,
+    `UPDATE lesson_sessions
+        SET expires_at = now() + interval '24 hours', updated_at = now()
+      WHERE id = (SELECT id FROM lesson_sessions
+                   WHERE user_id = $1 AND lesson_id = $2 AND expires_at > now()
+                   ORDER BY id DESC
+                   LIMIT 1)
+      RETURNING *`,
     [userId, lessonId],
   );
+}
+
+/** FR-023: whether the learner is enrolled in the course. */
+export async function isEnrolled(db: Queryable, userId: number, courseId: number) {
+  const row = await queryOne(
+    db,
+    `SELECT 1 AS enrolled FROM enrollments WHERE user_id = $1 AND course_id = $2`,
+    [userId, courseId],
+  );
+  return row !== null;
 }
 
 /** FR-050: a new session, resumable for 24 hours. */
@@ -158,7 +174,10 @@ export function listSentences(
   );
 }
 
-/** FR-051: locks the learner's unexpired session for completion; null for anyone else's (NFR-14). */
+/**
+ * FR-051: locks the learner's session for completion; null for anyone else's (NFR-14). An expired
+ * session still completes while its row exists: expiry (FR-050) only limits resuming.
+ */
 export function lockOwnSession(
   db: Queryable,
   userId: number,
@@ -167,7 +186,7 @@ export function lockOwnSession(
   return queryOne<LessonSessionRow>(
     db,
     `SELECT * FROM lesson_sessions
-      WHERE id = $1 AND user_id = $2 AND expires_at > now()
+      WHERE id = $1 AND user_id = $2
       FOR UPDATE`,
     [sessionId, userId],
   );
