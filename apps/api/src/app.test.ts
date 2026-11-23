@@ -278,13 +278,14 @@ describe('behind Nginx Proxy Manager', () => {
   async function seen(
     headers: Record<string, string>,
     env: NodeJS.ProcessEnv = {},
+    remoteAddress?: string,
   ): Promise<{ protocol: string; ip: string }> {
     const { app } = await start({ env });
     let result = { protocol: '', ip: '' };
     app.addHook('onRequest', async (request) => {
       result = { protocol: request.protocol, ip: request.ip };
     });
-    await app.inject({ method: 'GET', url: '/api/v1/healthz', headers });
+    await app.inject({ method: 'GET', url: '/api/v1/healthz', headers, remoteAddress });
     return result;
   }
 
@@ -313,6 +314,27 @@ describe('behind Nginx Proxy Manager', () => {
   it('ignores forwarded headers from peers that are not trusted', async () => {
     const result = await seen({ 'x-forwarded-proto': 'https' }, { TRUST_PROXY: '10.0.0.2' });
     expect(result.protocol).toBe('http');
+  });
+
+  // IF-08, NFR-15: with TRUST_PROXY set to Nginx Proxy Manager's address, only that peer's
+  // X-Forwarded-* headers count; any other LAN machine gets its socket address and plain http.
+  describe('with TRUST_PROXY set to one address', () => {
+    const forged = { 'x-forwarded-for': '203.0.113.9', 'x-forwarded-proto': 'https' };
+    const env = { TRUST_PROXY: '192.168.0.7' };
+
+    it('takes ip and protocol from the socket for any other peer', async () => {
+      expect(await seen(forged, env, '192.168.0.50')).toEqual({
+        protocol: 'http',
+        ip: '192.168.0.50',
+      });
+    });
+
+    it('takes ip and protocol from the headers for the trusted peer', async () => {
+      expect(await seen(forged, env, '192.168.0.7')).toEqual({
+        protocol: 'https',
+        ip: '203.0.113.9',
+      });
+    });
   });
 
   it('sets the security headers on every response', async () => {
