@@ -1,10 +1,27 @@
 # Manabi
 
-Manabi is a self-hosted, Duolingo-style language learning web app. Japanese comes first; other languages are added through content packs plus language plugins. It is built to run on a home server for family and friends.
+Manabi is a self-hosted, Duolingo-style language learning web app. Japanese comes first; other languages are added through content packs plus language plugins. It is built to run on a home server for family and friends: one admin invites learners, and everyone's progress stays on your own machine.
 
-> Status: initial scaffold only. No features are implemented. The scaffold has **not been installed or built yet**: run `npm install` once at the repo root to generate `package-lock.json` (and commit it) before anything else. Dependency versions were written by hand and are unverified.
+> Status: early development, not yet ready for learners. Accounts, invites, the admin console and dictionary imports work. Lessons, exercises and the course content are still being built. Expect breaking changes before 1.0.
 
-## Stack
+## Run your own
+
+You need a Linux machine with Docker and the Compose plugin, and a reverse proxy that serves the app over HTTPS. [deploy/README.md](deploy/README.md) walks through setup, the first admin account, importing the dictionary data, backups and restore. Release images are public at `ghcr.io/jhstoops/manabi`, so you don't need to build anything.
+
+## Contributing
+
+Contributions are welcome. To keep things easy for everyone:
+
+- **Start with an issue.** Look through the [open issues](https://github.com/JHStoops/Manabi/issues) or open a new one to describe a bug or proposal before writing a lot of code, so we can agree on the approach first.
+- **Work on a branch** named `issue-<number>-<short-slug>`, and open a pull request against `main` that says `Closes #<number>` and fills in the pull request template.
+- **Follow the fixed design decisions** in [CLAUDE.md](CLAUDE.md). They apply to people as well as coding agents. For example: no ORM, only hand-written parameterized SQL; no state library beyond `useReducer`/`useContext`; and language-specific logic goes only through the `LanguagePlugin` interface.
+- **Add tests with your change**, and make sure `npm run lint`, `npm run format:check`, `npm run typecheck` and `npm test` pass (see [Running checks locally](#running-checks-locally)). CI runs the same checks on every pull request.
+- **New languages** are a content pack in `content/` plus a plugin in `packages/lang-*`. Open an issue first, since this is the largest kind of change.
+- **Security problems:** please don't open a public issue. Report them privately through the repository's Security tab ("Report a vulnerability").
+
+The sections below cover the stack and the local development setup.
+
+### Stack
 
 - TypeScript (strict) everywhere, Node current LTS (see `.nvmrc`), npm workspaces
 - Web: React, Vite, React Router, Emotion (ThemeProvider), `useReducer`/`useContext` for state
@@ -14,7 +31,7 @@ Manabi is a self-hosted, Duolingo-style language learning web app. Japanese come
 - Tests: Jest + ts-jest, @testing-library/react, Playwright (end-to-end, placeholder)
 - Deployment: Docker Compose in a Proxmox LXC behind Nginx Proxy Manager
 
-## Layout
+### Layout
 
 ```
 apps/web/           React + Vite frontend
@@ -30,11 +47,11 @@ docs/               Planning documents index
 
 Workspace packages are consumed as TypeScript source (their `main` points at `src/index.ts`); only `apps/*` produce build output.
 
-## Getting started
+### Getting started
 
 ```sh
 nvm use            # Node version from .nvmrc
-npm install        # first run generates package-lock.json
+npm install
 npm run typecheck
 npm run lint
 npm test
@@ -42,7 +59,7 @@ npm run dev:api    # Fastify on :3000 (needs no database yet)
 npm run dev:web    # Vite on :5173, proxies /api to :3000
 ```
 
-## Running checks locally
+### Running checks locally
 
 CI (`.github/workflows/ci.yml`) runs these on every pull request and on every push to `main`. Run them from the repo root before opening a pull request:
 
@@ -68,3 +85,7 @@ Apply database migrations with `npm run migrate` (needs `DATABASE_URL`). Migrati
 ## Docs
 
 Planning documents (PRD, Product Spec, SDD, SRS) are indexed in [docs/README.md](docs/README.md). Deployment is described in [deploy/README.md](deploy/README.md). Coding agents: read [CLAUDE.md](CLAUDE.md).
+
+## License
+
+Manabi's code is released under the [MIT License](LICENSE). The third-party datasets it imports or bundles (JMdict, KANJIDIC2, KanjiVG, Tatoeba and the JLPT level lists) keep their own licenses.
