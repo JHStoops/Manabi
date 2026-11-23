@@ -40,6 +40,12 @@ jobs:
         run: npm run format:check
       - name: Type check
         run: npm run typecheck
+      # FR-228, SDD section 13: file checks only. The database checks need imported datasets, so
+      # they run locally in the pre-push hook (.githooks/pre-push) instead.
+      - name: Content lint
+        env:
+          DATABASE_URL: ''
+        run: npm run manabi -- pack lint content/ja-en
       # IF-05: packages/api-client is generated from the routes' OpenAPI document and committed.
       - name: Check the generated API client is up to date
         run: |

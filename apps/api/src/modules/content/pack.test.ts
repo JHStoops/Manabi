@@ -491,7 +491,7 @@ describeWithDb('content packs', () => {
     });
   });
 
-  it('reports schema errors with file and path', async () => {
+  it('reports schema errors with file, line and path', async () => {
     const dir = await tmp();
     await cp(FIXTURE, dir, { recursive: true });
     await writeFile(
@@ -505,8 +505,8 @@ describeWithDb('content packs', () => {
     expect(err).toBeInstanceOf(ContentPackError);
     const problems = (err as ContentPackError).problems;
     expect(problems).toEqual([
-      expect.stringMatching(/^units\/02-ordering\.yaml: lessons\.0\.type: Invalid option/),
-      expect.stringMatching(/^items\/word\.yaml: /),
+      expect.stringMatching(/^units\/02-ordering\.yaml:5: lessons\.0\.type: Invalid option/),
+      expect.stringMatching(/^items\/word\.yaml:1: Flow sequence/),
       'grammar/broken.md: (root): expected YAML front matter between --- lines',
     ]);
   });

@@ -7,6 +7,7 @@ import { loadConfig } from './config';
 import { createPool } from './db/pool';
 import { AppError } from './errors';
 import { createAdmin } from './modules/auth/service';
+import { lintPack } from './modules/content/lint';
 import { readPack, writePack } from './modules/content/packFiles';
 import { rebuildXpTotals } from './modules/courses/service';
 import { exportPack, importPack } from './modules/content/service';
@@ -18,7 +19,8 @@ import {
   importTatoeba,
 } from './modules/imports/service';
 
-const USAGE = `Usage: manabi pack import <dir>
+const USAGE = `Usage: manabi pack lint <dir>   (database checks too when DATABASE_URL is set)
+       manabi pack import <dir>
        manabi pack export <dir>   (the folder name is the course key, for example content/ja-en)
        manabi import kanjidic2 <course-key> <file>
        manabi import level-lists <course-key>   (up to LEVEL_CEILING, default N3)
@@ -104,10 +106,33 @@ function readLine(prompt: string): Promise<string> {
 }
 
 /**
- * `manabi pack import|export` (FR-227), `manabi import <dataset>` (FR-226) and
+ * FR-228: lints a pack, printing one `file:line: problem` per line; exit code 1 on problems. The
+ * stroke and imported-item checks need the database, so they run only when DATABASE_URL is set
+ * (read directly: lint needs none of loadConfig's other settings).
+ */
+async function lint(dir: string): Promise<void> {
+  const url = process.env.DATABASE_URL;
+  const pool = url ? createPool(url) : null;
+  try {
+    if (!pool) console.error('DATABASE_URL is not set: skipping the database checks');
+    const problems = await lintPack(dir, pool);
+    for (const problem of problems) console.log(problem);
+    console.error(`${dir}: ${problems.length} problem(s)`);
+    if (problems.length > 0) process.exitCode = 1;
+  } finally {
+    await pool?.end();
+  }
+}
+
+/**
+ * `manabi pack lint` (FR-228), `manabi pack import|export` (FR-227), `manabi import <dataset>` (FR-226) and
  * `manabi create-admin` (FR-009) and `manabi rebuild-xp` (DR-04) on DATABASE_URL.
  */
 async function main(args: string[]): Promise<void> {
+  const [group, name, dir, extra] = args;
+  if (group === 'pack' && name === 'lint' && dir && !extra) {
+    return lint(resolve(process.env.INIT_CWD ?? process.cwd(), dir));
+  }
   const run = command(args);
   if (!run) {
     console.error(USAGE);

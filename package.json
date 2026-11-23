@@ -22,7 +22,8 @@
     "migrate": "npm run migrate --workspace @manabi/api",
     "manabi": "npm run manabi --workspace @manabi/api --",
     "format": "prettier --write .",
-    "generate:client": "npm run generate:client --workspace @manabi/api"
+    "generate:client": "npm run generate:client --workspace @manabi/api",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "devDependencies": {
     "@eslint/js": "^9.14.0",
