@@ -1,11 +1,13 @@
 import type { LanguagePlugin } from '@manabi/core';
 import { checkAnswer, normalizeAnswer } from './answer';
+import { convertInput } from './convertInput';
 import { detectGrammar } from './grammar';
 import { itemSchemas } from './itemSchemas';
 import { segment } from './segment';
 import { readingOf, tokenize } from './tokenize';
 
 export { checkAnswer, normalizeAnswer } from './answer';
+export { convertInput } from './convertInput';
 export { detectGrammar } from './grammar';
 export * from './itemSchemas';
 export { courseKana } from './kana';
@@ -47,7 +49,7 @@ export const japanese: LanguagePlugin = {
   itemSchemas,
   normalizeAnswer,
   checkAnswer,
-  convertInput: () => notImplemented('convertInput', 28),
+  convertInput,
   tokenize,
   annotate: () => notImplemented('annotate', 57),
   // Generators are added by #30 (kana and vocabulary) and #53 (kanji).
