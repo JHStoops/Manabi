@@ -18,6 +18,15 @@ import * as q from './queries';
 
 // Lesson sessions: build, save and resume (FR-041, FR-048, FR-050, FR-056; SDD section 6).
 
+/** JSON with object keys sorted, so equal values compare equal (jsonb reorders keys). */
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1)))
+      : v,
+  );
+}
+
 function toItem(row: ItemRow): Item {
   return {
     id: row.id,
@@ -79,10 +88,21 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
   const usesTaughtOnly = (payload: unknown) =>
     payloadItemIds(payload).every((id) => taught.has(id));
 
-  const exercises: SessionExercise[] = (await q.listStoredExercises(db, lesson.id))
-    .filter((e) => (e.item_id === null || taught.has(e.item_id)) && usesTaughtOnly(e.payload))
-    .slice(0, LESSON_MAX_EXERCISES)
-    .map((e) => ({ type: e.type, payload: e.payload }));
+  // No two exercises in a session are identical (same type and deeply equal payload).
+  const exercises: SessionExercise[] = [];
+  const seen = new Set<string>();
+  const add = (e: SessionExercise) => {
+    const key = stableJson(e);
+    if (seen.has(key) || exercises.length >= LESSON_MAX_EXERCISES) return false;
+    seen.add(key);
+    exercises.push(e);
+    return true;
+  };
+  for (const e of await q.listStoredExercises(db, lesson.id)) {
+    if ((e.item_id === null || taught.has(e.item_id)) && usesTaughtOnly(e.payload)) {
+      add({ type: e.type, payload: e.payload });
+    }
+  }
 
   const generators = lessonRecipes[lesson.type].flatMap((type) =>
     Object.hasOwn(plugin.generators, type) ? [plugin.generators[type]!] : [],
@@ -96,16 +116,15 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
       [...taught],
     );
     const context = { sectionLevel: lesson.level_code, taughtItems, sentences };
-    // Rounds over the recipe's types and the new items until full, or a round adds nothing.
+    // Rounds over the recipe's types and the new items until full, or a round adds nothing new.
     for (let added = true; added && exercises.length < LESSON_MIN_EXERCISES;) {
       added = false;
       for (const generate of generators) {
         for (const item of newItems) {
-          const room = LESSON_MIN_EXERCISES - exercises.length;
-          if (room <= 0) break;
-          const made = generate(item, context).filter((e) => usesTaughtOnly(e.payload));
-          exercises.push(...(made.slice(0, room) as SessionExercise[]));
-          added ||= made.length > 0;
+          for (const e of generate(item, context) as SessionExercise[]) {
+            if (exercises.length >= LESSON_MIN_EXERCISES) break;
+            if (usesTaughtOnly(e.payload) && add(e)) added = true;
+          }
         }
       }
     }

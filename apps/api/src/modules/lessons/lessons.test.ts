@@ -18,12 +18,12 @@ import { hashPassword } from '../auth/passwords';
 jest.mock('../../plugins', () => {
   const core = jest.requireActual<typeof Core>('@manabi/core');
   const { japanese } = jest.requireActual<typeof LangJa>('@manabi/lang-ja');
-  const choice: ExerciseGenerator = (item, { taughtItems }) => [
-    {
+  // Deterministic: the same `data.variants` (default 9) distinct exercises on every call.
+  const choice: ExerciseGenerator = (item, { taughtItems }) =>
+    Array.from({ length: Number(item.data.variants ?? 9) }, (_, variant) => ({
       type: 'choice',
-      payload: { prompt: item.key, options: taughtItems.map((i) => ({ itemId: i.id })) },
-    },
-  ];
+      payload: { prompt: item.key, variant, options: taughtItems.map((i) => ({ itemId: i.id })) },
+    }));
   const wordBank: ExerciseGenerator = (item, { sentences }) =>
     sentences
       .filter((s) => s.tokens.some((t) => t.itemId === item.id))
@@ -185,6 +185,7 @@ describeWithDb('lesson sessions API', () => {
     const { courseId, lesson, item } = await seed();
     const { userId, session } = await signIn('aiko');
     await complete(userId, lesson.l1!);
+    await sql(`UPDATE items SET data = '{"variants": 8}' WHERE id = $1`, [item.w3]);
     const ok = await sentence(courseId, [item.w3!, item.w1!], { vocab: 'N5', grammar: 'N5' });
     const unlevelled = await sentence(courseId, [item.w3!], { vocab: null, grammar: null });
     await sentence(courseId, [item.w3!], { vocab: 'N5', grammar: 'N4' });
@@ -224,6 +225,37 @@ describeWithDb('lesson sessions API', () => {
     );
     const fresh = (await start(lesson.l1!, session)).json<LessonSession>();
     expect(fresh.id).not.toBe(first.id);
+  });
+
+  it('never repeats an identical exercise, and refuses a lesson left too short', async () => {
+    const { lesson, item } = await seed();
+    const setVariants = (n: number) =>
+      sql(`UPDATE items SET data = jsonb_build_object('variants', $1::int)`, [n]);
+    // 5 distinct choice exercises per item, one of them also stored: 10 distinct in all.
+    await setVariants(5);
+    await sql(
+      `INSERT INTO exercises (lesson_id, type, payload, origin) VALUES ($1, 'choice', $2, 'authored')`,
+      [
+        lesson.l1,
+        { prompt: 'w1', variant: 0, options: [{ itemId: item.w1 }, { itemId: item.w2 }] },
+      ],
+    );
+    const aiko = await signIn('aiko');
+    const response = await start(lesson.l1!, aiko.session);
+    expect(response.statusCode).toBe(200);
+    const keys = response
+      .json<LessonSession>()
+      .exercises.map((e) => JSON.stringify([e.type, e.payload.prompt, e.payload.variant]));
+    expect(keys).toHaveLength(10);
+    expect(new Set(keys).size).toBe(keys.length);
+
+    // One distinct exercise per item, generated again every round: too few, so nothing is saved.
+    await setVariants(1);
+    const ben = await signIn('ben');
+    expect((await start(lesson.l1!, ben.session)).statusCode).toBe(409);
+    expect(await sql(`SELECT id FROM lesson_sessions WHERE user_id = $1`, [ben.userId])).toEqual(
+      [],
+    );
   });
 
   it('refuses locked, unknown and under-filled lessons', async () => {
