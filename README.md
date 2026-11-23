@@ -85,3 +85,7 @@ Apply database migrations with `npm run migrate` (needs `DATABASE_URL`). Migrati
 ## Docs
 
 Planning documents (PRD, Product Spec, SDD, SRS) are indexed in [docs/README.md](docs/README.md). Deployment is described in [deploy/README.md](deploy/README.md). Coding agents: read [CLAUDE.md](CLAUDE.md).
+
+## License
+
+Manabi's code is released under the [MIT License](LICENSE). The third-party datasets it imports or bundles (JMdict, KANJIDIC2, KanjiVG, Tatoeba and the JLPT level lists) keep their own licenses.
