@@ -70,6 +70,15 @@ describe('pack lint file checks', () => {
     ]);
   });
 
+  it('reports grammar data problems at the front matter', async () => {
+    const dir = await fixture(['grammar/wo-kudasai.md', 'pattern: 〜をください', 'pattern: 123']);
+    expect(await lintPack(dir, null)).toEqual([
+      expect.stringMatching(
+        /^grammar\/wo-kudasai\.md:2: item ja:grammar:wo-kudasai: data\.pattern: /,
+      ),
+    ]);
+  });
+
   it('reports a blocked word in an authored sentence, not in an imported one', async () => {
     // です is in the authored sentence 水です。; を only in the imported 水をください。.
     const dir = await fixture(['lists/blocked-words.yaml', '- 殺す', '- 殺す\n- です\n- を']);
@@ -194,6 +203,18 @@ describeWithDb('pack lint database checks', () => {
     expect(await lintPack(dir, pool())).toEqual([
       'items/word.yaml:1: item ja:kanji:火: no imported kanji item with this key',
       expect.stringMatching(/^items\/word\.yaml:5: item ja:kanji:水: data\.strokeCount: /),
+    ]);
+  });
+
+  it('reports overrides for an item the pack authored before, as import does', async () => {
+    await importFixture();
+    const dir = await fixture([
+      'items/kana.yaml',
+      '  level: kana\n  data: { character: あ, script: hiragana, romaji: a }\n',
+      '',
+    ]);
+    expect(await lintPack(dir, pool())).toEqual([
+      'items/kana.yaml:1: item ja:kana:あ: no imported kana item with this key',
     ]);
   });
 

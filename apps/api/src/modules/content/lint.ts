@@ -107,7 +107,8 @@ export async function lintPack(dir: string, db: Queryable | null): Promise<strin
   for (const item of overridden.values()) {
     where.set(item.key, { at: item, field: 'overrides' });
     const row = rows.get(item.key);
-    if (row?.type !== item.type) {
+    // As setImportedItemOverrides: only an item a dataset importer created takes overrides.
+    if (row?.type !== item.type || row.source === null) {
       const message = `item ${item.key}: no imported ${item.type} item with this key`;
       problems.push({ message, at: item, field: 'key' });
     } else {

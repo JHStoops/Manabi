@@ -20,9 +20,13 @@ import type { ContentPack } from '@manabi/core';
 /** `file:line` of each object readPack returned, and of each of its fields (FR-228 lint). */
 const origins = new WeakMap<object, Map<string | number | undefined, string>>();
 
-/** Where `value` (or its `field`) was read from, as `file:line`; undefined if not read by readPack. */
+/**
+ * Where `value` (or its `field`) was read from, as `file:line`; a field with no line of its own
+ * (a grammar point's `data`, spread over its front matter) gets its object's. Undefined if
+ * readPack did not read `value`.
+ */
 export function originOf(value: object, field?: string | number): string | undefined {
-  return origins.get(value)?.get(field);
+  return origins.get(value)?.get(field) ?? origins.get(value)?.get(undefined);
 }
 
 /** Records the origin of `value` and everything in it, walking its YAML node alongside. */

@@ -642,11 +642,18 @@ export function findLintItems(
   courseId: number,
   keys: string[],
 ): Promise<
-  { key: string; type: string; data: JsonObject; overrides: JsonObject; has_strokes: boolean }[]
+  {
+    key: string;
+    type: string;
+    source: string | null;
+    data: JsonObject;
+    overrides: JsonObject;
+    has_strokes: boolean;
+  }[]
 > {
   return query(
     db,
-    `SELECT i.key, i.type, i.data, i.overrides, s.item_id IS NOT NULL AS has_strokes
+    `SELECT i.key, i.type, i.source, i.data, i.overrides, s.item_id IS NOT NULL AS has_strokes
      FROM items i LEFT JOIN stroke_data s ON s.item_id = i.id
      WHERE i.course_id = $1 AND i.archived_at IS NULL AND i.key = ANY($2::text[])`,
     [courseId, keys],
