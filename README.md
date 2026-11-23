@@ -80,6 +80,8 @@ In CI the job also starts a PostgreSQL 17 service container and exports `DATABAS
 
 Apply database migrations with `npm run migrate` (needs `DATABASE_URL`). Migrations are forward-only; the API also applies them on start.
 
+`npm run manabi -- pack lint content/ja-en` lints a content pack (FR-228) and prints each problem as `file:line: message`. CI runs only its file checks. With `DATABASE_URL` pointing at a database where the pack and datasets are imported, it also checks stroke data, links to imported items and imported word readings. `npm install` sets `core.hooksPath` to `.githooks`, whose pre-push hook runs this lint when the pushed commits change `content/`.
+
 `docs/` and `spikes/` are not linted, format-checked, type-checked or tested.
 
 ## Docs
