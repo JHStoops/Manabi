@@ -17,7 +17,8 @@ An exercise type is one registry entry, one grader and one renderer (SDD section
    and the API alike.
 2. **Web: renderer.** Write a component taking `ExerciseRendererProps<Payload, Answer>`
    (`payload` in, `onAnswer(answer)` out, see `apps/web/src/features/exercises/registry.ts`) and
-   register it with `registerExerciseRenderer('<id>', () => import('./MyRenderer'))`. Test it with
+   register it in `apps/web/src/features/exercises/renderers.ts` with
+   `registerExerciseRenderer('<id>', () => import('./MyRenderer'))`. Test it with
    `ExerciseRendererHarness`.
 3. **Generator (optional).** If the type is generated from item data, add a generator under the
    same id to the language plugin's `generators`.
