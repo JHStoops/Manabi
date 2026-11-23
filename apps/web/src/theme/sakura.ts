@@ -11,6 +11,8 @@ const lessonColors = {
   listening: '#e8822a',
   review: '#d4a017',
 };
+// Dark enough for white band titles (WCAG AA).
+const sectionColors = ['#b0306a', '#00796b', '#5e35b1', '#1565c0', '#bf360c'];
 
 export const sakuraLight: ManabiTheme = {
   name: 'sakura',
@@ -25,6 +27,7 @@ export const sakuraLight: ManabiTheme = {
     border: '#f0d5de',
   },
   lessonColors,
+  sectionColors,
   spacing,
   radii,
   fontSizes,
@@ -43,6 +46,7 @@ export const sakuraDark: ManabiTheme = {
     border: '#3d2a33',
   },
   lessonColors,
+  sectionColors,
   spacing,
   radii,
   fontSizes,

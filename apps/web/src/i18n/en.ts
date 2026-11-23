@@ -141,4 +141,19 @@ export const en = {
     done: 'Your password is changed. Sign in with it.',
     signIn: 'Back to sign in',
   },
+  // FR-020, FR-023: the Learn tab path screen.
+  learn: {
+    course: 'Course',
+    noCourse: 'You are not enrolled in a course yet.',
+    lessonLabel: '{{title}}, {{type}} lesson, {{state}}',
+    lessonType: {
+      kana: 'Kana',
+      vocabulary: 'Vocabulary',
+      kanji: 'Kanji',
+      grammar: 'Grammar',
+      listening: 'Listening',
+      unit_review: 'Unit review',
+    },
+    state: { locked: 'locked', available: 'available', completed: 'completed' },
+  },
 };
