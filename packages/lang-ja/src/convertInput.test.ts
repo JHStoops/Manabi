@@ -38,6 +38,7 @@ describe('convertInput (FR-142)', () => {
     ['KYOU', 'キョウ'],
     ['kitte', 'きって'],
     ['konnichiha', 'こんにちは'],
+    ['konnnichiha', 'こんにちは'],
     ['kanna', 'かんな'],
     ['sennen ', 'せんねん '],
     ['onna', 'おんな'],

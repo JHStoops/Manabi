@@ -14,8 +14,7 @@ export function convertInput(text: string, mode: string): string {
   // shortcut: case is read per word, so hiragana and katakana mix only across a space or other non-letter
   // ("Ka na"); upgrade if learners need shift on single syllables inside a word.
   return text.replace(/[A-Za-z'-]+/g, (word, offset: number) => {
-    const pending =
-      offset + word.length === text.length ? (/(?<![nN])[nN]{1,2}$/.exec(word)?.[0] ?? '') : '';
+    const pending = offset + word.length === text.length ? (/[nN]+$/.exec(word)?.[0] ?? '') : '';
     const kana = romajiToHiragana(word.slice(0, word.length - pending.length));
     // Letters not yet converted keep their case (upper-cased), or the next key would read as hiragana.
     return (/^[A-Z]/.test(word) ? toKatakana(kana).toUpperCase() : kana) + pending;

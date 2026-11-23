@@ -26,6 +26,7 @@ describe('KanaInput (FR-142)', () => {
     ['KITTE', 'キッテ'],
     ['KYOU', 'キョウ'],
     ['konnichiha', 'こんにちは'],
+    ['konnnichiha', 'こんにちは'],
     ['kanna', 'かんな'],
     ['sennen ', 'せんねん '],
     ['onna', 'おんな'],
