@@ -19,6 +19,8 @@ export interface ManabiTheme {
     listening: string;
     review: string;
   };
+  /** Path section color bands, cycled in section order; kana lessons take their section's color. */
+  sectionColors: string[];
   spacing: (units: number) => string;
   radii: { small: string; medium: string; pill: string };
   fontSizes: { small: string; body: string; title: string; display: string };
