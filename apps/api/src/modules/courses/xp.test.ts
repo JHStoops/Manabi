@@ -1,4 +1,5 @@
-import { query } from '../../db/db';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { query, withTransaction } from '../../db/db';
 import { describeWithDb, useTestDatabase } from '../../test/db';
 import { seedCourse, seedLesson, seedUser } from '../../test/fixtures';
 import { insertEnrollment, insertXpEvent } from './queries';
@@ -97,6 +98,26 @@ describeWithDb('XP ledger', () => {
         { reason: 'lesson_replay', amount: 5, ref_id: lessonId },
       ],
     );
+  });
+
+  it('awards first-completion XP once when the same lesson completes concurrently', async () => {
+    const { userId, courseId } = await enrolled();
+    const { lessonId } = await seedLesson(pool(), courseId);
+    // The first transaction stays open after its award; the second starts meanwhile.
+    const first = withTransaction(pool(), async (client) => {
+      await awardLessonXp(client, userId, lessonId, 100);
+      await sleep(300);
+    });
+    await sleep(50);
+    const second = withTransaction(pool(), (client) =>
+      awardLessonXp(client, userId, lessonId, 100),
+    );
+    await Promise.all([first, second]);
+
+    expect(
+      await query(pool(), `SELECT reason FROM xp_events WHERE reason = 'lesson_new'`),
+    ).toHaveLength(1);
+    expect(await enrollment(userId, courseId)).toEqual([{ total_xp: 20, level: 1 }]);
   });
 
   it('rebuilds totals and levels from the ledger (DR-04)', async () => {

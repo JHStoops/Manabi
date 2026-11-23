@@ -164,7 +164,8 @@ export async function awardXp(
  * FR-055, FR-160: XP for completing a lesson. The first completion earns new-lesson XP (plus the
  * accuracy bonus at 90% or better before the retry round); every later one earns replay XP.
  * Which one is decided from the ledger, so it does not depend on when the caller writes
- * lesson_progress. Called inside the lesson-completion transaction (#37).
+ * lesson_progress. Called inside the lesson-completion transaction (#37). `accuracy` is a whole
+ * percentage, 0 to 100 (not a fraction), measured before the retry round.
  */
 export async function awardLessonXp(
   db: Queryable,
@@ -175,6 +176,11 @@ export async function awardLessonXp(
 ): Promise<XpAward> {
   const courseId = await q.findLessonCourseId(db, lessonId);
   if (courseId === null) throw new AppError('not_found', 'Lesson not found');
+  // Lock the enrollment before reading the ledger, so two concurrent completions of the same
+  // lesson cannot both see no lesson_new event; awardXp re-locks the row, which is a no-op.
+  if (!(await q.lockEnrollmentForAward(db, userId, courseId, at ?? new Date()))) {
+    throw new AppError('conflict', 'Not enrolled in this course');
+  }
   const first = !(await q.hasXpEvent(db, userId, courseId, 'lesson_new', lessonId));
   let result: XpAward | undefined;
   let xpEarned = 0;
