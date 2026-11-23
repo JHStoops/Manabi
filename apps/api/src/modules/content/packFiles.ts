@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { parse, stringify } from 'yaml';
+import { isCollection, LineCounter, parseDocument, stringify } from 'yaml';
 import type { z } from 'zod';
 import {
   ContentPackError,
@@ -16,6 +16,32 @@ import type { ContentPack } from '@manabi/core';
 
 // Reads and writes content pack directories (SDD section 4). Schema errors name the file and the
 // path inside it. STUB: audio/ clips are carried by #66, which owns the media store.
+
+/** `file:line` of each object readPack returned, and of each of its fields (FR-228 lint). */
+const origins = new WeakMap<object, Map<string | number | undefined, string>>();
+
+/** Where `value` (or its `field`) was read from, as `file:line`; undefined if not read by readPack. */
+export function originOf(value: object, field?: string | number): string | undefined {
+  return origins.get(value)?.get(field);
+}
+
+/** Records the origin of `value` and everything in it, walking its YAML node alongside. */
+function record(value: unknown, node: unknown, at: (node: { range?: unknown }) => string): void {
+  if (typeof value !== 'object' || value === null || !isCollection(node)) return;
+  const fields = new Map<string | number | undefined, string>([[undefined, at(node)]]);
+  for (const [name, child] of Object.entries(value)) {
+    const field = Array.isArray(value) ? Number(name) : name;
+    const childNode: unknown = node.get(field, true);
+    // A field Zod filled in with its default has no node: point at its object.
+    fields.set(field, at(hasRange(childNode) ? childNode : node));
+    record(child, childNode, at);
+  }
+  origins.set(value, fields);
+}
+
+function hasRange(node: unknown): node is { range: [number, number, number] } {
+  return typeof node === 'object' && node !== null && 'range' in node && Array.isArray(node.range);
+}
 
 const GRAMMAR_TYPE = 'grammar';
 const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
@@ -34,18 +60,32 @@ async function listFiles(dir: string, sub: string, ext: string): Promise<string[
 
 export async function readPack(dir: string): Promise<ContentPack> {
   const problems: string[] = [];
-  function check<T>(file: string, yamlText: string, schema: z.ZodType<T, unknown>) {
-    let value: unknown;
-    try {
-      value = parse(yamlText);
-    } catch (err) {
-      problems.push(`${file}: ${(err as Error).message}`);
+  /** `firstLine`: the line `yamlText` starts on in its file (front matter starts on line 2). */
+  function check<T>(file: string, yamlText: string, schema: z.ZodType<T, unknown>, firstLine = 1) {
+    const lines = new LineCounter();
+    const doc = parseDocument(yamlText, { lineCounter: lines });
+    const at = (node: { range?: unknown }) =>
+      hasRange(node) ? `${file}:${lines.linePos(node.range[0]).line + firstLine - 1}` : file;
+    const [error] = doc.errors;
+    if (error) {
+      problems.push(`${file}:${(error.linePos?.[0].line ?? 1) + firstLine - 1}: ${error.message}`);
       return undefined;
     }
-    const result = schema.safeParse(value);
-    if (result.success) return result.data;
+    const result = schema.safeParse(doc.toJS());
+    if (result.success) {
+      record(result.data, doc.contents, at);
+      return result.data;
+    }
     for (const issue of result.error.issues) {
-      problems.push(`${file}: ${issue.path.join('.') || '(root)'}: ${issue.message}`);
+      // The line of the deepest node on the issue's path that exists.
+      let node: unknown = doc.contents;
+      for (const field of issue.path) {
+        const child: unknown = isCollection(node) ? node.get(field, true) : undefined;
+        if (child === undefined) break;
+        node = child;
+      }
+      const where = hasRange(node) ? at(node) : file;
+      problems.push(`${where}: ${issue.path.join('.') || '(root)'}: ${issue.message}`);
     }
     return undefined;
   }
@@ -81,13 +121,15 @@ export async function readPack(dir: string): Promise<ContentPack> {
       problems.push(`${file}: (root): expected YAML front matter between --- lines`);
       continue;
     }
-    const front = check(file, match[1]!, packGrammarFrontMatterSchema);
+    const front = check(file, match[1]!, packGrammarFrontMatterSchema, 2);
     if (!front) continue;
     const { key, level, related, overrides, ...data } = front;
     const body = match[2]!.trim();
     // The Markdown body is the point's explanation; a stub has none.
     const withBody = body ? { ...data, explanation: body } : data;
-    pack.items.push({ key, type: GRAMMAR_TYPE, level, related, overrides, data: withBody });
+    const item = { key, type: GRAMMAR_TYPE, level, related, overrides, data: withBody };
+    origins.set(item, origins.get(front)!);
+    pack.items.push(item);
   }
   const sentences = (await readOr('sentences.yaml', '[]'))!;
   pack.sentences = check('sentences.yaml', sentences, packSentencesFileSchema) ?? [];

@@ -1,0 +1,22 @@
+#!/bin/sh
+# FR-228: runs the full content lint before a push whose commits change content/, so the slow
+# database checks (strokes, imported items) run here instead of in CI. Set DATABASE_URL to a
+# database with the packs and datasets imported to include them; without it only the file checks
+# run. Installed by `npm install` (the root `prepare` script sets core.hooksPath to .githooks).
+changed=
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$local_sha" in *[!0]*) ;; *) continue ;; esac # all zeros: a branch is being deleted
+  # The pushed commits are those no remote has yet.
+  if git log --format= --name-only "$local_sha" --not --remotes -- content/ | grep -q .; then
+    changed=1
+  fi
+done
+[ -n "$changed" ] || exit 0
+
+status=0
+for course in content/*/course.yaml; do
+  [ -f "$course" ] || continue
+  npm run --silent manabi -- pack lint "$(dirname "$course")" || status=1
+done
+[ "$status" -eq 0 ] || echo "pre-push: content lint failed; fix the problems above or push with --no-verify" >&2
+exit $status

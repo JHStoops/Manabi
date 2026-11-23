@@ -635,3 +635,20 @@ export function listSupplementaryWords(
     [courseId],
   );
 }
+
+/** FR-228: the course's active items with these keys, and whether each has stroke data. */
+export function findLintItems(
+  db: Queryable,
+  courseId: number,
+  keys: string[],
+): Promise<
+  { key: string; type: string; data: JsonObject; overrides: JsonObject; has_strokes: boolean }[]
+> {
+  return query(
+    db,
+    `SELECT i.key, i.type, i.data, i.overrides, s.item_id IS NOT NULL AS has_strokes
+     FROM items i LEFT JOIN stroke_data s ON s.item_id = i.id
+     WHERE i.course_id = $1 AND i.archived_at IS NULL AND i.key = ANY($2::text[])`,
+    [courseId, keys],
+  );
+}

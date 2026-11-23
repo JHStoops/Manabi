@@ -53,65 +53,108 @@ function fail(problem: string): never {
   throw new ContentPackError([problem]);
 }
 
-function checkUnique(what: string, keys: string[]): void {
+/** A pack problem, and the pack object (and field) it is about, for the lint's `file:line`. */
+export interface PackProblem {
+  message: string;
+  at?: object;
+  field?: string | number;
+}
+
+function duplicates(what: string, entries: [string, object, number?][]): PackProblem[] {
   const seen = new Set<string>();
-  const dupes = keys.filter((key) => seen.has(key) || !seen.add(key));
-  if (dupes.length > 0) throw new ContentPackError(dupes.map((key) => `duplicate ${what} ${key}`));
+  return entries
+    .filter(([key]) => seen.has(key) || !seen.add(key))
+    .map(([key, at, field]) => ({ message: `duplicate ${what} ${key}`, at, field }));
 }
 
 /** DR-06: imported data and the data with overrides applied both pass the plugin's schema. */
-function checkItemData(plugin: LanguagePlugin, item: PackItem, data: JsonObject): void {
+export function itemDataProblems(
+  plugin: LanguagePlugin,
+  item: PackItem,
+  data: JsonObject,
+): string[] {
   try {
     parseItemData(plugin, item.type, data);
     parseItemData(plugin, item.type, { ...data, ...item.overrides });
+    return [];
   } catch (err) {
-    if (err instanceof UnknownItemTypeError) fail(`item ${item.key}: ${err.message}`);
+    if (err instanceof UnknownItemTypeError) return [`item ${item.key}: ${err.message}`];
     if (err instanceof ZodError) {
-      throw new ContentPackError(
-        err.issues.map((i) => `item ${item.key}: data.${i.path.join('.')}: ${i.message}`),
-      );
+      return err.issues.map((i) => `item ${item.key}: data.${i.path.join('.')}: ${i.message}`);
     }
     throw err;
   }
 }
 
-/** Imports a pack in one transaction; nothing is written when any part fails. */
-export async function importPack(pool: Pool, pack: ContentPack): Promise<void> {
+/**
+ * The problems a pack shows without the database: an unknown plugin, duplicate keys, unknown
+ * sections and levels, and authored item data the plugin rejects. Shared by importPack and the
+ * pack lint (FR-227, FR-228).
+ */
+export function packProblems(pack: ContentPack): PackProblem[] {
   const { course } = pack;
   if (!languagePlugins.has(course.plugin))
-    fail(`course.yaml: plugin: unknown plugin ${course.plugin}`);
+    return [{ message: `course.yaml: plugin: unknown plugin ${course.plugin}` }];
   const plugin = languagePlugins.get(course.plugin);
-  checkUnique(
-    'section',
-    course.sections.map((s) => s.key),
-  );
-  checkUnique(
-    'unit',
-    pack.units.map((u) => u.key),
-  );
-  checkUnique(
-    'lesson',
-    pack.units.flatMap((u) => u.lessons.map((l) => l.key)),
-  );
-  checkUnique(
-    'item',
-    pack.items.map((i) => i.key),
-  );
-  // Authored sentences are matched by text, imported ones by source id (findSentenceId).
-  checkUnique(
-    'sentence',
-    pack.sentences.map((s) => (s.source ? `${s.source}:${s.sourceId}` : s.text)),
-  );
-  checkUnique('blocked word', pack.blockedWords);
-  checkUnique(
-    'supplementary word',
-    pack.supplementaryWords.map((w) => `${w.written}:${w.reading}`),
-  );
+  const problems = [
+    ...duplicates(
+      'section',
+      course.sections.map((s) => [s.key, s]),
+    ),
+    ...duplicates(
+      'unit',
+      pack.units.map((u) => [u.key, u]),
+    ),
+    ...duplicates(
+      'lesson',
+      pack.units.flatMap((u) => u.lessons.map((l): [string, object] => [l.key, l])),
+    ),
+    ...duplicates(
+      'item',
+      pack.items.map((i) => [i.key, i]),
+    ),
+    // Authored sentences are matched by text, imported ones by source id (findSentenceId).
+    ...duplicates(
+      'sentence',
+      pack.sentences.map((s) => [s.source ? `${s.source}:${s.sourceId}` : s.text, s]),
+    ),
+    ...duplicates(
+      'blocked word',
+      pack.blockedWords.map((w, i) => [w, pack.blockedWords, i]),
+    ),
+    ...duplicates(
+      'supplementary word',
+      pack.supplementaryWords.map((w) => [`${w.written}:${w.reading}`, w]),
+    ),
+  ];
   const levels = new Set(course.sections.map((s) => s.level));
   for (const w of pack.supplementaryWords) {
-    if (!levels.has(w.level))
-      fail(`supplementary word ${w.written}:${w.reading}: no section has level ${w.level}`);
+    if (!levels.has(w.level)) {
+      const message = `supplementary word ${w.written}:${w.reading}: no section has level ${w.level}`;
+      problems.push({ message, at: w, field: 'level' });
+    }
   }
+  const sections = new Set(course.sections.map((s) => s.key));
+  for (const unit of pack.units) {
+    if (!sections.has(unit.section)) {
+      const message = `unit ${unit.key}: unknown section ${unit.section}`;
+      problems.push({ message, at: unit, field: 'section' });
+    }
+  }
+  for (const item of pack.items) {
+    if (!item.data) continue;
+    for (const message of itemDataProblems(plugin, item, item.data))
+      problems.push({ message, at: item, field: 'data' });
+  }
+  return problems;
+}
+
+/** Imports a pack in one transaction; nothing is written when any part fails. */
+export async function importPack(pool: Pool, pack: ContentPack): Promise<void> {
+  const problems = packProblems(pack);
+  if (problems.length > 0) throw new ContentPackError(problems.map((p) => p.message));
+  const { course } = pack;
+  const plugin = languagePlugins.get(course.plugin);
 
   await withTransaction(pool, async (db) => {
     await deferPositionChecks(db);
@@ -127,7 +170,6 @@ export async function importPack(pool: Pool, pack: ContentPack): Promise<void> {
     // Items first: lessons, links and tiles refer to them.
     for (const item of pack.items) {
       if (item.data) {
-        checkItemData(plugin, item, item.data);
         const id = await upsertAuthoredItem(db, {
           courseId,
           levelCode: item.level,
@@ -139,7 +181,8 @@ export async function importPack(pool: Pool, pack: ContentPack): Promise<void> {
       } else {
         const row = await setImportedItemOverrides(db, { courseId, ...item });
         if (!row) fail(`item ${item.key}: no imported ${item.type} item with this key`);
-        checkItemData(plugin, item, row.data);
+        const dataProblems = itemDataProblems(plugin, item, row.data);
+        if (dataProblems.length > 0) throw new ContentPackError(dataProblems);
       }
     }
     await archiveAuthoredItemsExcept(
