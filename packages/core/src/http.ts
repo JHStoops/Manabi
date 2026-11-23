@@ -13,6 +13,17 @@ export type EmptyQuery = z.infer<typeof emptyQuerySchema>;
  */
 export const emptyBodySchema = z.object({}).nullish();
 
+/**
+ * FR-052, SDD section 8: headers of a write that awards progress. A retry carrying the same
+ * Idempotency-Key gets the first response instead of being applied again. Other headers pass.
+ */
+export const idempotencyHeadersSchema = z.looseObject({
+  'idempotency-key': z
+    .string()
+    .regex(/^[\x21-\x7e]{1,255}$/, 'Use 1 to 255 visible ASCII characters')
+    .optional(),
+});
+
 /** FR-203: status of one dependency in the health report. */
 export const healthStatusSchema = z.enum(['ok', 'unavailable']);
 export type HealthStatus = z.infer<typeof healthStatusSchema>;

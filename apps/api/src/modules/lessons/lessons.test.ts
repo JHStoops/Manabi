@@ -53,9 +53,17 @@ describeWithDb('lesson sessions API', () => {
     current = undefined;
   });
 
-  /** Signs a learner in; returns their id and request options carrying the session cookie. */
-  async function signIn(username: string) {
+  /**
+   * Signs a learner in, enrolled in every course unless `enroll` is false; returns their id and
+   * request options carrying the session cookie.
+   */
+  async function signIn(username: string, enroll = true) {
     const user = await seedUser(pool(), { username, passwordHash: await hashPassword(PASSWORD) });
+    if (enroll) {
+      await sql(`INSERT INTO enrollments (user_id, course_id) SELECT $1, id FROM courses`, [
+        user.id,
+      ]);
+    }
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
@@ -204,14 +212,19 @@ describeWithDb('lesson sessions API', () => {
     expect([...sentenceIds].sort()).toEqual([ok, unlevelled].sort());
   });
 
-  it('resumes the same session for 24 hours, then builds a new one (FR-050)', async () => {
+  it('resumes the same session for 24 hours from the last return, then builds a new one (FR-050)', async () => {
     const { lesson } = await seed();
     const { session } = await signIn('aiko');
 
     const first = (await start(lesson.l1!, session)).json<LessonSession>();
-    const again = (await start(lesson.l1!, session)).json<LessonSession>();
-    expect(again).toEqual(first);
     expect(Date.parse(first.expiresAt) - Date.now()).toBeGreaterThan(23.9 * 3600 * 1000);
+    // Resuming an hour before expiry keeps the session for another 24 hours.
+    await sql(`UPDATE lesson_sessions SET expires_at = now() + interval '1 hour' WHERE id = $1`, [
+      first.id,
+    ]);
+    const again = (await start(lesson.l1!, session)).json<LessonSession>();
+    expect({ ...again, expiresAt: first.expiresAt }).toEqual(first);
+    expect(Date.parse(again.expiresAt) - Date.now()).toBeGreaterThan(23.9 * 3600 * 1000);
 
     // Another learner gets their own session.
     const other = await signIn('ben');
@@ -272,5 +285,16 @@ describeWithDb('lesson sessions API', () => {
     expect(
       (await app.inject({ method: 'POST', url: `/api/v1/lessons/1/sessions` })).statusCode,
     ).toBe(401);
+  });
+
+  it('refuses a learner not enrolled in the course (FR-023)', async () => {
+    const { lesson } = await seed();
+    const { session } = await signIn('aiko', false);
+    const response = await start(lesson.l1!, session);
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: { code: 'conflict', message: 'Not enrolled in this course', details: null },
+    });
+    expect(await sql(`SELECT id FROM lesson_sessions`)).toEqual([]);
   });
 });

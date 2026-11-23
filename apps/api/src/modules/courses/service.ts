@@ -61,7 +61,7 @@ export async function enroll(
 
 /** FR-020 to FR-022: the course path with the caller's lesson states. */
 export async function getPath(
-  db: Pool,
+  db: Queryable,
   userId: ScopedUserId,
   courseId: number,
   preview: boolean,
