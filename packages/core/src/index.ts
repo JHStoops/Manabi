@@ -15,6 +15,7 @@ export * from './contentPack';
 export * from './exerciseRegistry';
 export * from './http';
 export * from './languagePlugin';
+export * from './lessonSession';
 export * from './pagination';
 export * from './primitives';
 export * from './progress';
