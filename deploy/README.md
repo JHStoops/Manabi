@@ -15,9 +15,10 @@ Manabi runs with Docker Compose inside a Proxmox LXC, behind your existing Nginx
 1. LXC: enable nesting (and keyctl) in the container's Options > Features so Docker can run.
 2. Install Docker and the Compose plugin in the LXC.
 3. Clone this repo (only the `deploy` folder is needed), `cd deploy`, `cp .env.example .env`, and fill in the values. `MEDIA_DIR`, `DUMPS_DIR` and `DATASETS_DIR` may point to a separate HDD mount.
-4. `docker compose up -d`. The image must be published first (a `v*` tag pushed) and, if the GHCR package is private, `docker login ghcr.io` run first; otherwise Compose falls back to building from this checkout and fails. This pulls the release image `ghcr.io/jhstoops/manabi:$MANABI_VERSION` (CI builds one for every `v*` tag, for example `v0.1.0` gives `0.1.0` and `latest`). `docker compose build` builds the same image from this checkout instead. The app applies database migrations on start.
-5. Create the first admin: `docker compose exec app node dist/cli.js create-admin <username>`. It asks for the password twice (or reads one line from stdin) and applies the sign-up rules: at least 10 characters, not a common password.
-6. Only `APP_PORT` is published. Check from another machine with `nmap -p- <LXC IP>`: only `APP_PORT` (and SSH, if enabled) should be open.
+4. Log in to GHCR once (the `ghcr.io/jhstoops/manabi` package is private, since the image holds the app code). On GitHub, create a classic personal access token with only the `read:packages` scope (Settings > Developer settings > Personal access tokens > Tokens (classic)), then in the LXC run `docker login ghcr.io -u <github username>` and paste the token as the password. Docker keeps the login in `/root/.docker/config.json`, so later pulls need no further steps. When the token expires, create a new one and log in again.
+5. `docker compose pull && docker compose up -d`. The image must be published first (a `v*` tag pushed); without it, or without the login, Compose falls back to building from this checkout. This pulls the release image `ghcr.io/jhstoops/manabi:$MANABI_VERSION` (CI builds one for every `v*` tag, for example `v0.1.0` gives `0.1.0` and `latest`). `docker compose build` builds the same image from this checkout instead. The app applies database migrations on start.
+6. Create the first admin: `docker compose exec app node dist/cli.js create-admin <username>`. It asks for the password twice (or reads one line from stdin) and applies the sign-up rules: at least 10 characters, not a common password.
+7. Only `APP_PORT` is published. Check from another machine with `nmap -p- <LXC IP>`: only `APP_PORT` (and SSH, if enabled) should be open.
 
 To upgrade, set `MANABI_VERSION` to the new tag and run `docker compose up -d`; set the old tag to roll back (migrations are forward-only, so restore a dump from before the upgrade if a rollback needs the old schema).
 
@@ -49,7 +50,7 @@ The app refuses to start with an invalid `.env` and names each problem (for exam
 
 ## Restore
 
-1. On a fresh LXC, do Setup steps 1 to 3 with the old `.env` (same `POSTGRES_PASSWORD` and `SESSION_SECRET`).
+1. On a fresh LXC, do Setup steps 1 to 4 with the old `.env` (same `POSTGRES_PASSWORD` and `SESSION_SECRET`).
 2. Restore `DUMPS_DIR` and `MEDIA_DIR` from Backrest to the paths in `.env`.
 3. From the `deploy` folder: `./restore.sh <path to manabi-YYYYMMDD-HHMMSS.sql.gz>`. It starts the database, replaces the `manabi` database with the dump and starts the stack; the app applies any newer migrations.
 4. Check `GET /api/v1/healthz` returns 200 and sign in.
