@@ -1,7 +1,7 @@
 import type { ZodTypeAny } from 'zod';
 import type { Course, Item } from './content';
 import type { Exercise } from './exerciseRegistry';
-import type { Tile } from './sentence';
+import type { Sentence, Tile } from './sentence';
 
 // NOTE: Several types below are placeholders. They will be replaced by the real
 // domain types (learner state) as the corresponding features land.
@@ -9,8 +9,24 @@ import type { Tile } from './sentence';
 /** Placeholder for context passed to answer normalization (exercise, locale, settings). */
 export type AnswerContext = { exercise?: Exercise; [key: string]: unknown };
 
-/** Placeholder for an exercise generator; produces exercises for an item. */
-export type ExerciseGenerator = (item: Item, context: unknown) => Exercise[];
+/** A sentence as generators see it. */
+export type GeneratorSentence = Pick<
+  Sentence,
+  'id' | 'text' | 'tokens' | 'translation' | 'grammar'
+>;
+
+/** What a generator may draw on when building a lesson session (SDD section 6). */
+export interface GeneratorContext {
+  /** Level code of the lesson's section. */
+  sectionLevel: string;
+  /** FR-048: the items taught in this and earlier lessons; distractors come only from these. */
+  taughtItems: readonly Item[];
+  /** FR-056: sentences at or below the section's level, not challenging, of taught items only. */
+  sentences: readonly GeneratorSentence[];
+}
+
+/** An exercise generator: builds exercises of one type for an item (FR-049). */
+export type ExerciseGenerator = (item: Item, context: GeneratorContext) => Exercise[];
 
 /** A review facet is one independently scheduled way of recalling an item (e.g. "reading"). */
 export type ReviewFacet = string;
