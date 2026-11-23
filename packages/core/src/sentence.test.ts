@@ -1,5 +1,6 @@
 import {
   acceptListSchema,
+  answerCheckPayloadSchema,
   answerTextSchema,
   attributionPartSchema,
   reviewStatusSchema,
@@ -47,6 +48,19 @@ describeSchema(
   [
     ['an empty list', []],
     ['a bare string', ['water']],
+  ],
+);
+
+describeSchema(
+  'answerCheckPayloadSchema',
+  answerCheckPayloadSchema,
+  [
+    ['an accept list', { accept: [{ text: 'water', tiles: [] }] }],
+    ['a kanji-testing payload', { accept: [{ text: '水', tiles: [] }], testsKanji: true }],
+  ],
+  [
+    ['no accept list', { testsKanji: true }],
+    ['a non-boolean testsKanji', { accept: [{ text: '水', tiles: [] }], testsKanji: 'yes' }],
   ],
 );
 
