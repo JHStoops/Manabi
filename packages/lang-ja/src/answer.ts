@@ -11,6 +11,9 @@ const SPELLING_HINT = 'Watch your spelling';
 // A one-letter typo in a shorter word is usually another word (cat, car), so it is not forgiven.
 const MIN_TYPO_LENGTH = 4;
 
+// Particles written は, を, へ but said わ, お, え; romaji typists spell them as said.
+const PARTICLE_SOUNDS: Record<string, string> = { は: 'わ', を: 'お', へ: 'え' };
+
 const isJapanese = (text: string) => JAPANESE.test(text);
 
 /** Hiragana for katakana; everything else unchanged. */
@@ -40,15 +43,18 @@ function normalizeEnglish(text: string): string {
 
 /**
  * True when `given` spells the tiles in order, each word as written or, for a word with kanji, in
- * kana (its hiragana reading). `fold` is applied to both spellings.
+ * kana (its hiragana reading). Romaji input is compared with kana folded to hiragana, and may spell
+ * the particles は, を and へ as pronounced (wa, o, e).
  */
-function spellsTiles(given: string, tiles: readonly Tile[], fold: (s: string) => string): boolean {
+function spellsTiles(given: string, tiles: readonly Tile[], romaji: boolean): boolean {
   const match = (i: number, pos: number): boolean => {
     if (i === tiles.length) return pos === given.length;
     const { surface, reading } = tiles[i]!;
     const forms = KANJI.test(surface) ? [surface, reading] : [surface];
+    const spoken = PARTICLE_SOUNDS[surface];
+    if (romaji && spoken) forms.push(spoken);
     return forms
-      .map((f) => fold(normalizeJapanese(f)))
+      .map((f) => (romaji ? toHiragana : (s: string) => s)(normalizeJapanese(f)))
       .some((f) => f !== '' && given.startsWith(f, pos) && match(i + 1, pos + f.length));
   };
   return tiles.length > 0 && match(0, 0);
@@ -95,10 +101,11 @@ export function checkAnswer(given: string, exercise: Exercise): CheckResult {
 
   const ja = normalizeJapanese(given);
   // Romaji has no script, so it is compared with both kana folded to hiragana.
-  const fold = LATIN.test(given.normalize('NFKC')) ? toHiragana : (s: string) => s;
+  const romaji = LATIN.test(given.normalize('NFKC'));
+  const fold = romaji ? toHiragana : (s: string) => s;
   const jaMatch = japanese.some(
     (a) =>
-      fold(normalizeJapanese(a.text)) === ja || (!testsKanji && spellsTiles(ja, a.tiles, fold)),
+      fold(normalizeJapanese(a.text)) === ja || (!testsKanji && spellsTiles(ja, a.tiles, romaji)),
   );
   const en = normalizeEnglish(given);
   if ((ja !== '' && jaMatch) || (en !== '' && english.includes(en))) return { result: 'correct' };

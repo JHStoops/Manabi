@@ -30,6 +30,9 @@ const sentenceAccept = [
   ja('私は学生です。', t('私', 'わたし'), t('は'), t('学生', 'がくせい'), t('です')),
 ];
 const sentence = exercise(sentenceAccept);
+const hanaWo = exercise([ja('花を見る', t('花', 'はな'), t('を'), t('見る', 'みる'))]);
+const gakkouHe = exercise([ja('学校へ行く', t('学校', 'がっこう'), t('へ'), t('行く', 'いく'))]);
+const hana = exercise([ja('はな', t('はな'))]);
 const konnichiwa = exercise([ja('こんにちは', t('こんにちは'))]);
 const party = exercise([ja('パーティー', t('パーティー', 'ぱーてぃー'))]);
 const kitte = exercise([ja('切手', t('切手', 'きって'))]);
@@ -114,7 +117,21 @@ describe('checkAnswer', () => {
     ['romaji with doubled consonant', 'kitte', kitte, CORRECT],
     ['romaji nn before a vowel', 'konnichiha', konnichiwa, CORRECT],
     ['romaji nnn (IME habit)', 'konnnichiha', konnichiwa, CORRECT],
-    ['romaji spelled as said (wa)', 'konnichiwa', konnichiwa, WRONG],
+    ['romaji wa in one word, not a particle', 'konnichiwa', konnichiwa, WRONG],
+    ['romaji particle は as wa', 'watashi wa gakusei desu', sentence, CORRECT],
+    ['romaji particle を as o', 'hana o miru', hanaWo, CORRECT],
+    ['romaji particle を as wo', 'hana wo miru', hanaWo, CORRECT],
+    ['romaji particle へ as e', 'gakkou e iku', gakkouHe, CORRECT],
+    ['romaji particle へ as he', 'gakkou he iku', gakkouHe, CORRECT],
+    ['kana わ for the particle は', 'わたしわがくせいです', sentence, WRONG],
+    ['kana お for the particle を', '花お見る', hanaWo, WRONG],
+    ['romaji wa for は inside a word', 'wana', hana, WRONG],
+    [
+      'kanji test: romaji particle',
+      'watashi wa gakusei desu',
+      exercise(sentenceAccept, true),
+      WRONG,
+    ],
     ['romaji sentence with spaces', 'watashi ha gakusei desu', sentence, CORRECT],
     ['romaji with a trailing full stop', 'mizu.', mizu, CORRECT],
     ['mixed kana and romaji', 'たべru', taberu, CORRECT],
