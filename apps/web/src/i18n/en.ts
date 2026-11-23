@@ -163,4 +163,14 @@ export const en = {
     },
     state: { locked: 'locked', available: 'available', completed: 'completed' },
   },
+  // FR-042: exercise renderers.
+  exercise: {
+    matchPairs: 'Tap the matching pairs',
+    notAPair: 'Not a pair. Try again.',
+    wordBank: {
+      answer: 'Your answer',
+      bank: 'Word bank',
+      hint: 'Tap a word to add it or take it back. Move a word in your answer with the arrow keys.',
+    },
+  },
 };

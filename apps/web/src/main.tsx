@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { SessionProvider } from './state/session';
 import { AppThemeProvider } from './theme';
+import './features/exercises/renderers';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
