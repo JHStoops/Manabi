@@ -13,6 +13,13 @@ export const en = {
     lesson: 'Lesson',
     signIn: 'Sign in',
   },
+  // FR-160, FR-162: the lesson results screen.
+  results: {
+    xpEarned: '+{{count}} XP',
+    level: 'Level {{level}}',
+    levelProgress: 'Progress to level {{next}}',
+    toNextLevel: '{{into}} / {{span}} XP to level {{next}}',
+  },
   // FR-001, FR-003, FR-004, FR-005: sign-in, invite, password and session screens.
   field: {
     password: 'Password',
@@ -140,5 +147,20 @@ export const en = {
     invalidLink: 'This reset link is not valid or has expired. Ask for a new one.',
     done: 'Your password is changed. Sign in with it.',
     signIn: 'Back to sign in',
+  },
+  // FR-020, FR-023: the Learn tab path screen.
+  learn: {
+    course: 'Course',
+    noCourse: 'You are not enrolled in a course yet.',
+    lessonLabel: '{{title}}, {{type}} lesson, {{state}}',
+    lessonType: {
+      kana: 'Kana',
+      vocabulary: 'Vocabulary',
+      kanji: 'Kanji',
+      grammar: 'Grammar',
+      listening: 'Listening',
+      unit_review: 'Unit review',
+    },
+    state: { locked: 'locked', available: 'available', completed: 'completed' },
   },
 };

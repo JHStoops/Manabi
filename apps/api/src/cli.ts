@@ -8,6 +8,7 @@ import { createPool } from './db/pool';
 import { AppError } from './errors';
 import { createAdmin } from './modules/auth/service';
 import { readPack, writePack } from './modules/content/packFiles';
+import { rebuildXpTotals } from './modules/courses/service';
 import { exportPack, importPack } from './modules/content/service';
 import {
   importJmdict,
@@ -24,7 +25,8 @@ const USAGE = `Usage: manabi pack import <dir>
        manabi import jmdict <course-key> <file>
        manabi import kanjivg <course-key> <file>
        manabi import tatoeba <course-key> <dir>
-       manabi create-admin <username>   (asks for the password, or reads it from stdin)`;
+       manabi create-admin <username>   (asks for the password, or reads it from stdin)
+       manabi rebuild-xp   (recomputes course XP totals and levels from the XP ledger)`;
 
 /** Picks the command to run, or null for bad arguments. */
 function command([group, name, arg, file]: string[]): ((pool: Pool) => Promise<unknown>) | null {
@@ -33,6 +35,9 @@ function command([group, name, arg, file]: string[]): ((pool: Pool) => Promise<u
       const user = await createAdmin(pool, name, await readPassword());
       return `Created admin ${user.username}`;
     };
+  }
+  if (group === 'rebuild-xp' && !name) {
+    return async (pool) => `Rebuilt XP for ${await rebuildXpTotals(pool)} enrollments`;
   }
   if (!arg) return null;
   // npm scripts run in the workspace folder; INIT_CWD is where the command was typed.
@@ -100,7 +105,7 @@ function readLine(prompt: string): Promise<string> {
 
 /**
  * `manabi pack import|export` (FR-227), `manabi import <dataset>` (FR-226) and
- * `manabi create-admin` (FR-009) on DATABASE_URL.
+ * `manabi create-admin` (FR-009) and `manabi rebuild-xp` (DR-04) on DATABASE_URL.
  */
 async function main(args: string[]): Promise<void> {
   const run = command(args);

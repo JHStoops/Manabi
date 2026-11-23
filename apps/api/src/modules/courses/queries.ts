@@ -6,7 +6,7 @@ import type { XpEventRow } from './rows';
 
 // Hand-written, parameterized SQL for courses, enrollments, the path and the XP ledger. The ledger
 // is append-only (DR-04): there are no UPDATE or DELETE statements against xp_events, and the
-// database rejects them. Award, streak and rebuild queries are added by the issues that need them.
+// database rejects them.
 
 /** FR-023: published courses with whether the user is enrolled. */
 export function listPublishedCourses(
@@ -141,5 +141,97 @@ export function insertXpEvent(db: Queryable, e: NewXpEvent): Promise<XpEventRow>
       e.earnedAt,
       e.localDate,
     ],
+  );
+}
+
+/**
+ * FR-162, DR-05: locks the learner's enrollment for an award and returns its total with the
+ * learner's local calendar date at `at`, from users.time_zone. Null when not enrolled. The row
+ * lock comes before the ledger insert, so rebuildXpTotals (which locks the table) sees whole awards.
+ */
+export function lockEnrollmentForAward(
+  db: Queryable,
+  userId: number,
+  courseId: number,
+  at: Date,
+): Promise<{ total_xp: number; local_date: string } | null> {
+  return queryOne(
+    db,
+    `SELECT e.total_xp, ($3::timestamptz AT TIME ZONE u.time_zone)::date AS local_date
+       FROM enrollments e
+       JOIN users u ON u.id = e.user_id
+      WHERE e.user_id = $1 AND e.course_id = $2
+        FOR UPDATE OF e`,
+    [userId, courseId, at],
+  );
+}
+
+/** FR-162: the cached total and level, which only the award and rebuild paths write. */
+export async function setEnrollmentXp(
+  db: Queryable,
+  userId: number,
+  courseId: number,
+  totalXp: number,
+  level: number,
+) {
+  await query(
+    db,
+    `UPDATE enrollments SET total_xp = $3, level = $4 WHERE user_id = $1 AND course_id = $2`,
+    [userId, courseId, totalXp, level],
+  );
+}
+
+/** FR-055: whether the learner has already been awarded `reason` for `refId` in the course. */
+export async function hasXpEvent(
+  db: Queryable,
+  userId: number,
+  courseId: number,
+  reason: string,
+  refId: number,
+): Promise<boolean> {
+  const row = await queryOne<{ found: boolean }>(
+    db,
+    `SELECT EXISTS (
+       SELECT 1 FROM xp_events
+        WHERE user_id = $1 AND course_id = $2 AND reason = $3 AND ref_id = $4
+     ) AS found`,
+    [userId, courseId, reason, refId],
+  );
+  return row!.found;
+}
+
+/** The course a lesson belongs to, or null for an unknown lesson. */
+export async function findLessonCourseId(db: Queryable, lessonId: number): Promise<number | null> {
+  const row = await queryOne<{ course_id: number }>(
+    db,
+    `SELECT s.course_id
+       FROM lessons l
+       JOIN units u ON u.id = l.unit_id
+       JOIN sections s ON s.id = u.section_id
+      WHERE l.id = $1`,
+    [lessonId],
+  );
+  return row?.course_id ?? null;
+}
+
+/**
+ * DR-04: blocks awards (they lock an enrollment row first) for the rest of the transaction, so
+ * the ledger sums read next stay current until the rebuilt totals are written.
+ */
+export async function lockEnrollments(db: Queryable) {
+  await query(db, `LOCK TABLE enrollments IN EXCLUSIVE MODE`);
+}
+
+/** DR-04: every enrollment with its XP summed from the ledger. */
+export function sumXpByEnrollment(
+  db: Queryable,
+): Promise<{ user_id: number; course_id: number; total_xp: number }[]> {
+  return query(
+    db,
+    `SELECT e.user_id, e.course_id, COALESCE(sum(x.amount), 0)::int AS total_xp
+       FROM enrollments e
+       LEFT JOIN xp_events x ON x.user_id = e.user_id AND x.course_id = e.course_id
+      GROUP BY e.user_id, e.course_id
+      ORDER BY e.user_id, e.course_id`,
   );
 }

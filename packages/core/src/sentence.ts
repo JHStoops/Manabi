@@ -36,6 +36,17 @@ export type AnswerText = z.infer<typeof answerTextSchema>;
 export const acceptListSchema = z.array(answerTextSchema).min(1);
 export type AcceptList = z.infer<typeof acceptListSchema>;
 
+/**
+ * FR-143: the payload fields `LanguagePlugin.checkAnswer` reads from a typed exercise. Payload
+ * schemas of typed exercise types include these. `testsKanji`: only the written (kanji) form of an
+ * answer is accepted, not its kana spelling.
+ */
+export const answerCheckPayloadSchema = z.object({
+  accept: acceptListSchema,
+  testsKanji: z.boolean().optional(),
+});
+export type AnswerCheckPayload = z.infer<typeof answerCheckPayloadSchema>;
+
 /** DR-12: sentence review status. */
 export const reviewStatusSchema = z.enum(['unreviewed', 'flagged', 'reviewed']);
 export type ReviewStatus = z.infer<typeof reviewStatusSchema>;

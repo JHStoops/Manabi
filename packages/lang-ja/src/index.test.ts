@@ -1,8 +1,6 @@
-import type { Exercise } from '@manabi/core';
 import { UnknownLanguagePluginError, createLanguagePluginRegistry } from '@manabi/core';
+import { checkAnswer, normalizeAnswer } from './answer';
 import japanese, { NotImplementedError } from './index';
-
-const exercise: Exercise = { type: 'translate', payload: { prompt: '日本語' } };
 
 describe('japanese language plugin', () => {
   it('identifies itself as Japanese with its writing systems', () => {
@@ -38,14 +36,17 @@ describe('japanese language plugin', () => {
     expect(japanese.analyzer).toBe('kuromoji-ipadic');
   });
 
+  it('checks answers with the answer module (FR-143)', () => {
+    expect(japanese.normalizeAnswer).toBe(normalizeAnswer);
+    expect(japanese.checkAnswer).toBe(checkAnswer);
+  });
+
   it('has no generators yet', () => {
     expect(japanese.generators).toEqual({});
   });
 
   // Each stubbed member must throw instead of returning a fake result.
   it.each<[string, number, () => unknown]>([
-    ['normalizeAnswer', 27, () => japanese.normalizeAnswer('にほんご', { exercise })],
-    ['checkAnswer', 27, () => japanese.checkAnswer('にほんご', exercise)],
     ['convertInput', 28, () => japanese.convertInput('nihongo', 'romaji')],
     [
       'annotate',

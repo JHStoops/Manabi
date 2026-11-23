@@ -38,10 +38,12 @@ async function renderApp(
     removeEventListener() {},
   })) as unknown as typeof window.matchMedia;
   const api = {
-    GET: () =>
-      role
-        ? Promise.resolve({ role, mustChangePassword } as User)
-        : Promise.reject(new Error('401')),
+    GET: (url: string) =>
+      !role
+        ? Promise.reject(new Error('401'))
+        : url === '/api/v1/courses'
+          ? Promise.resolve({ courses: [] })
+          : Promise.resolve({ role, mustChangePassword } as User),
   } as unknown as ApiClient;
   rtl.render(
     <ApiContext.Provider value={api}>

@@ -1,9 +1,11 @@
 import type { LanguagePlugin } from '@manabi/core';
+import { checkAnswer, normalizeAnswer } from './answer';
 import { detectGrammar } from './grammar';
 import { itemSchemas } from './itemSchemas';
 import { segment } from './segment';
 import { readingOf, tokenize } from './tokenize';
 
+export { checkAnswer, normalizeAnswer } from './answer';
 export { detectGrammar } from './grammar';
 export * from './itemSchemas';
 export { courseKana } from './kana';
@@ -43,8 +45,8 @@ export const japanese: LanguagePlugin = {
     inputConversion: true,
   },
   itemSchemas,
-  normalizeAnswer: () => notImplemented('normalizeAnswer', 27),
-  checkAnswer: () => notImplemented('checkAnswer', 27),
+  normalizeAnswer,
+  checkAnswer,
   convertInput: () => notImplemented('convertInput', 28),
   tokenize,
   annotate: () => notImplemented('annotate', 57),
