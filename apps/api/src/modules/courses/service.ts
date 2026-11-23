@@ -1,6 +1,13 @@
 import type { Pool } from 'pg';
-import { learnerSettingsSchema, lessonStates } from '@manabi/core';
-import type { Course, CourseList, CourseListEntry, CoursePath } from '@manabi/core';
+import {
+  XP_RULES,
+  learnerSettingsSchema,
+  lessonStates,
+  lessonXpReasons,
+  levelForXp,
+} from '@manabi/core';
+import type { Course, CourseList, CourseListEntry, CoursePath, XpReason } from '@manabi/core';
+import type { Queryable } from '../../db/db';
 import { withTransaction } from '../../db/db';
 import { AppError } from '../../errors';
 import type { CourseRow } from '../content/rows';
@@ -109,4 +116,92 @@ export async function getPath(
     });
   });
   return { course: toCourse(course), sections };
+}
+
+/** The learner's course XP after an award (FR-162), for the results screen. */
+export interface XpAward {
+  /** XP earned by this award (or these awards). */
+  xpEarned: number;
+  totalXp: number;
+  level: number;
+}
+
+/**
+ * FR-160, FR-162, DR-05: appends one award to the ledger and updates the enrollment's cached total
+ * and level. Runs inside the caller's progress transaction (`db` is its client), so the award
+ * commits or rolls back with the rest. The learner must be enrolled in the course.
+ */
+export async function awardXp(
+  db: Queryable,
+  award: { userId: number; courseId: number; reason: XpReason; refId: number | null; at?: Date },
+): Promise<XpAward> {
+  const { userId, courseId, reason, refId } = award;
+  const at = award.at ?? new Date();
+  const enrollment = await q.lockEnrollmentForAward(db, userId, courseId, at);
+  if (!enrollment) throw new AppError('conflict', 'Not enrolled in this course');
+  const baseAmount = XP_RULES[reason];
+  // shortcut: multiplier is always 1 until boosters (FR-169, FR-170) read the active one here.
+  const multiplier = 1;
+  const amount = baseAmount;
+  await q.insertXpEvent(db, {
+    userId,
+    courseId,
+    baseAmount,
+    multiplier,
+    amount,
+    reason,
+    refId,
+    earnedAt: at,
+    localDate: enrollment.local_date,
+  });
+  const totalXp = enrollment.total_xp + amount;
+  const level = levelForXp(totalXp);
+  await q.setEnrollmentXp(db, userId, courseId, totalXp, level);
+  return { xpEarned: amount, totalXp, level };
+}
+
+/**
+ * FR-055, FR-160: XP for completing a lesson. The first completion earns new-lesson XP (plus the
+ * accuracy bonus at 90% or better before the retry round); every later one earns replay XP.
+ * Which one is decided from the ledger, so it does not depend on when the caller writes
+ * lesson_progress. Called inside the lesson-completion transaction (#37).
+ */
+export async function awardLessonXp(
+  db: Queryable,
+  userId: number,
+  lessonId: number,
+  accuracy: number,
+  at?: Date,
+): Promise<XpAward> {
+  const courseId = await q.findLessonCourseId(db, lessonId);
+  if (courseId === null) throw new AppError('not_found', 'Lesson not found');
+  const first = !(await q.hasXpEvent(db, userId, courseId, 'lesson_new', lessonId));
+  let result: XpAward | undefined;
+  let xpEarned = 0;
+  for (const reason of lessonXpReasons(first, accuracy)) {
+    result = await awardXp(db, { userId, courseId, reason, refId: lessonId, at });
+    xpEarned += result.xpEarned;
+  }
+  return { ...result!, xpEarned };
+}
+
+/**
+ * DR-04: recomputes every enrollment's total_xp and level from the ledger (`manabi rebuild-xp`).
+ * Returns how many enrollments were rebuilt.
+ */
+export function rebuildXpTotals(db: Pool): Promise<number> {
+  return withTransaction(db, async (client) => {
+    await q.lockEnrollments(client);
+    const rows = await q.sumXpByEnrollment(client);
+    for (const row of rows) {
+      await q.setEnrollmentXp(
+        client,
+        row.user_id,
+        row.course_id,
+        row.total_xp,
+        levelForXp(row.total_xp),
+      );
+    }
+    return rows.length;
+  });
 }

@@ -20,3 +20,4 @@ export * from './primitives';
 export * from './progress';
 export * from './sentence';
 export * from './settings';
+export * from './xp';
