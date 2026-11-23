@@ -101,6 +101,9 @@ describe('LearnPage', () => {
     expect(locked.textContent).toContain(stateIcons.locked);
     expect(new Set(Object.values(stateIcons)).size).toBe(3);
     expect((locked as HTMLButtonElement).disabled).toBe(true);
+    // Styled props stay off the DOM.
+    expect(locked.getAttribute('color')).toBeNull();
+    expect(locked.getAttribute('offset')).toBeNull();
     expect(screen.getByRole('heading', { name: 'Japanese section' })).toBeTruthy();
     // One enrolled course: no switcher.
     expect(screen.queryByRole('combobox', { name: 'Course' })).toBeNull();

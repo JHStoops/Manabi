@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { CoursePath, LessonState, LessonType } from '@manabi/core';
 import { useApi } from '../../state/session';
-import { tapTarget } from '../../theme';
+import { readableOn, tapTarget } from '../../theme';
 import { apiErrorMessage } from '../auth/ui';
 import { CoursePathProvider, useCoursePath, useCoursePathDispatch } from './coursePath';
 
@@ -54,13 +54,13 @@ const Path = styled.div`
   margin: 0 auto;
 `;
 
-const Band = styled.section<{ color: string }>`
+const Band = styled.section<{ bandColor: string }>`
   margin-bottom: ${({ theme }) => theme.spacing(6)};
   > h2 {
     margin: 0 0 ${({ theme }) => theme.spacing(4)};
     padding: ${({ theme }) => theme.spacing(3)} ${({ theme }) => theme.spacing(4)};
     border-radius: ${({ theme }) => theme.radii.medium};
-    background: ${({ color }) => color};
+    background: ${({ bandColor }) => bandColor};
     color: #ffffff;
     font-size: ${({ theme }) => theme.fontSizes.body};
   }
@@ -80,22 +80,30 @@ const Band = styled.section<{ color: string }>`
   }
 `;
 
-const Node = styled.button<{ color: string; offset: number; lessonState: LessonState }>`
+const Node = styled.button<{ nodeColor: string; windOffset: number; lessonState: LessonState }>`
   ${({ theme }) => tapTarget(theme)};
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  transform: translateX(${({ offset }) => offset * 64}px);
-  border: 4px solid ${({ color }) => color};
-  background: ${({ color, lessonState, theme }) =>
-    lessonState === 'locked' ? theme.colors.surface : color};
-  color: ${({ lessonState, theme }) => (lessonState === 'locked' ? theme.colors.textMuted : '#ffffff')};
+  transform: translateX(${({ windOffset }) => windOffset * 64}px);
+  border: 4px solid ${({ nodeColor }) => nodeColor};
+  background: ${({ nodeColor, lessonState, theme }) =>
+    lessonState === 'locked' ? theme.colors.surface : nodeColor};
+  // WCAG 1.4.11: the state icon is the NFR-31 cue, so it needs 3:1 on the lesson color.
+  color: ${({ nodeColor, lessonState, theme }) =>
+    lessonState === 'locked'
+      ? theme.colors.textMuted
+      : readableOn(
+          nodeColor,
+          '#ffffff',
+          theme.mode === 'light' ? theme.colors.text : theme.colors.background,
+        )};
   opacity: ${({ lessonState }) => (lessonState === 'locked' ? 0.6 : 1)};
   font-size: ${({ theme }) => theme.fontSizes.title};
   cursor: ${({ lessonState }) => (lessonState === 'locked' ? 'not-allowed' : 'pointer')};
   box-shadow: 0 4px 0 rgba(0, 0, 0, 0.2);
   &:active:not(:disabled) {
-    transform: translate(${({ offset }) => offset * 64}px, 3px);
+    transform: translate(${({ windOffset }) => windOffset * 64}px, 3px);
     box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
   }
 `;
@@ -108,8 +116,8 @@ function LessonNode(props: { lesson: PathLesson; color: string; offset: number }
     <li>
       <Node
         type="button"
-        color={props.color}
-        offset={props.offset}
+        nodeColor={props.color}
+        windOffset={props.offset}
         lessonState={lesson.state}
         disabled={lesson.state === 'locked'}
         data-state={lesson.state}
@@ -183,7 +191,7 @@ function PathScreen() {
         {path.sections.map((section, s) => {
           const color = theme.sectionColors[s % theme.sectionColors.length]!;
           return (
-            <Band key={section.id} color={color} aria-labelledby={`section-${section.id}`}>
+            <Band key={section.id} bandColor={color} aria-labelledby={`section-${section.id}`}>
               <h2 id={`section-${section.id}`}>{section.title}</h2>
               {section.units.map((unit) => (
                 <section key={unit.id} aria-labelledby={`unit-${unit.id}`}>
