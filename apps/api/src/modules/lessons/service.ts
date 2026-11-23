@@ -3,12 +3,13 @@ import type { Pool } from 'pg';
 import {
   LESSON_MAX_EXERCISES,
   LESSON_MIN_EXERCISES,
-  UnknownExerciseTypeError,
+  SecondAttemptError,
   gradeResponse,
   lessonCompletionSchema,
   lessonRecipes,
   lessonSessionStateSchema,
   payloadItemIds,
+  z,
 } from '@manabi/core';
 import type {
   Item,
@@ -209,7 +210,9 @@ export async function completeSession(
       try {
         return gradeResponse(exercise, body.responses[i]!, plugin).result !== 'wrong';
       } catch (err) {
-        if (err instanceof UnknownExerciseTypeError) throw err;
+        // A malformed payload or answer, or a second attempt that was not allowed; anything else
+        // the grader or plugin throws is a server fault (500).
+        if (!(err instanceof z.ZodError || err instanceof SecondAttemptError)) throw err;
         throw new AppError('validation_failed', 'A response is not a valid answer', [
           { location: 'body', path: ['responses', i], message: 'Not a valid answer' },
         ]);

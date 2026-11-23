@@ -48,6 +48,14 @@ export class UnknownExerciseTypeError extends Error {
   }
 }
 
+/** Thrown when a response has a second attempt after a first answer that was not wrong. */
+export class SecondAttemptError extends Error {
+  constructor() {
+    super('A second attempt is only allowed after a wrong first answer');
+    this.name = 'SecondAttemptError';
+  }
+}
+
 const exerciseTypes = new Map<string, ExerciseTypeDefinition>();
 
 /** Registers an exercise type. Throws on a malformed or duplicate type id. */
@@ -74,7 +82,7 @@ export function getExerciseType(id: string): ExerciseTypeDefinition {
  * Grades a response, on the client after each attempt and on the server when re-grading
  * (FR-053). Validates the payload and every attempt first (throws a ZodError), then returns the
  * deciding grade: the first attempt's unless it was wrong, else the second's. A second attempt
- * after a first that was not wrong is rejected. Throws UnknownExerciseTypeError for an
+ * after a first that was not wrong is rejected (SecondAttemptError). Throws UnknownExerciseTypeError for an
  * unregistered type.
  */
 export function gradeResponse(
@@ -91,7 +99,7 @@ export function gradeResponse(
     ) as [GradeResult, GradeResult?];
   if (!second) return first;
   if (first.result !== 'wrong') {
-    throw new Error('A second attempt is only allowed after a wrong first answer');
+    throw new SecondAttemptError();
   }
   return second;
 }

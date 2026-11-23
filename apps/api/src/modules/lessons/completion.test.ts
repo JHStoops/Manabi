@@ -13,14 +13,22 @@ import * as queries from './queries';
 
 // API tests for completing a lesson session (issue #37): FR-051, FR-052, FR-053, NFR-14, NFR-20.
 
-// A test language graded by the test exercise type (exact match right, wrong case a near-miss).
+// A test language graded by the test exercise type (exact match right, wrong case a near-miss);
+// the answer 'boom' makes its checker throw, like a plugin bug.
 jest.mock('../../plugins', () => {
   const core = jest.requireActual<typeof Core>('@manabi/core');
   const { japanese } = jest.requireActual<typeof LangJa>('@manabi/lang-ja');
   const { testPlugin } = jest.requireActual<{ testPlugin: LanguagePlugin }>(
     '@manabi/core/src/testExerciseType',
   );
-  const test: LanguagePlugin = { ...japanese, code: 'test', checkAnswer: testPlugin.checkAnswer };
+  const test: LanguagePlugin = {
+    ...japanese,
+    code: 'test',
+    checkAnswer: (given, exercise) => {
+      if (given === 'boom') throw new Error('plugin bug');
+      return testPlugin.checkAnswer(given, exercise);
+    },
+  };
   return { languagePlugins: core.createLanguagePluginRegistry([japanese, test]) };
 });
 
@@ -216,6 +224,20 @@ describeWithDb('lesson completion API', () => {
     expect(await counts()).toMatchObject({ progress: 2, keys: 2 });
   });
 
+  it('completes a session once when two different keys race (FR-051, FR-052)', async () => {
+    const { courseId, lesson } = await seed();
+    const { session } = await learner('aiko', courseId);
+    const sessionId = await start(lesson.a!, session);
+
+    const statuses = await Promise.all(
+      ['key-1', 'key-2'].map((key) =>
+        complete(sessionId, session, { responses: responses() }, key).then((r) => r.statusCode),
+      ),
+    );
+    expect(statuses.sort()).toEqual([200, 404]);
+    expect(await counts()).toEqual({ progress: 1, xp: 2, items: 0, keys: 1, sessions: 0 });
+  });
+
   it('leaves no partial state when the transaction fails part way (NFR-20)', async () => {
     const { courseId, lesson } = await seed();
     const { session } = await learner('aiko', courseId);
@@ -260,6 +282,10 @@ describeWithDb('lesson completion API', () => {
     const badKey = await complete(sessionId, aiko.session, { responses: responses() }, 'a b');
     expect(badKey.statusCode).toBe(400);
     expect(await counts()).toEqual({ progress: 0, xp: 0, items: 0, keys: 0, sessions: 1 });
+    // Any other grader or plugin error is a server fault, not the learner's.
+    const buggy = responses();
+    buggy[0] = { attempts: ['boom'] };
+    expect((await complete(sessionId, aiko.session, { responses: buggy })).statusCode).toBe(500);
     expect((await complete(sessionId, aiko.session, { responses: responses() })).statusCode).toBe(
       200,
     );
