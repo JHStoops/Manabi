@@ -1,22 +1,34 @@
+import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
 import {
   LESSON_MAX_EXERCISES,
   LESSON_MIN_EXERCISES,
+  UnknownExerciseTypeError,
+  gradeResponse,
+  lessonCompletionSchema,
   lessonRecipes,
   lessonSessionStateSchema,
   payloadItemIds,
 } from '@manabi/core';
-import type { Item, LessonSession, LessonSessionState, SessionExercise } from '@manabi/core';
+import type {
+  Item,
+  LessonCompletion,
+  LessonCompletionRequest,
+  LessonSession,
+  LessonSessionState,
+  SessionExercise,
+} from '@manabi/core';
 import type { Queryable } from '../../db/db';
 import { withTransaction } from '../../db/db';
 import { AppError } from '../../errors';
 import { languagePlugins } from '../../plugins';
 import type { ScopedUserId } from '../auth/service';
 import type { ItemRow } from '../content/rows';
-import { getPath } from '../courses/service';
+import { awardLessonXp, getPath } from '../courses/service';
 import * as q from './queries';
 
-// Lesson sessions: build, save and resume (FR-041, FR-048, FR-050, FR-056; SDD section 6).
+// Lesson sessions: build, save, resume and complete (FR-041, FR-048, FR-050, FR-051 to FR-053,
+// FR-056; SDD sections 6 and 7).
 
 /** JSON with object keys sorted, so equal values compare equal (jsonb reorders keys). */
 function stableJson(value: unknown): string {
@@ -139,5 +151,83 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
   return lessonSessionStateSchema.parse({
     teachingCards: newItems.map((item) => ({ item })),
     exercises,
+  });
+}
+
+/**
+ * FR-051 to FR-053, NFR-20: completes the learner's session in one transaction. The server
+ * re-grades every response with the shared grader; then it records lesson progress, awards XP,
+ * records a finished unit and uses the session up. With an Idempotency-Key, a repeat of the same
+ * request gets the first response and changes nothing (FR-052).
+ */
+export async function completeSession(
+  db: Pool,
+  userId: ScopedUserId,
+  sessionId: number,
+  body: LessonCompletionRequest,
+  idempotencyKey: string | undefined,
+): Promise<LessonCompletion> {
+  const requestHash = createHash('sha256').update(stableJson({ sessionId, body })).digest('hex');
+  return withTransaction(db, async (client) => {
+    if (idempotencyKey !== undefined) {
+      await q.lockIdempotencyKey(client, userId, idempotencyKey);
+      const saved = await q.findIdempotencyKey(client, userId, idempotencyKey);
+      if (saved) {
+        if (saved.request_hash !== requestHash) {
+          throw new AppError(
+            'idempotency_conflict',
+            'This Idempotency-Key was already used for a different request',
+          );
+        }
+        return lessonCompletionSchema.parse(saved.response);
+      }
+    }
+
+    const session = await q.lockOwnSession(client, userId, sessionId);
+    if (!session) throw new AppError('not_found', 'Lesson session not found');
+    const lesson = await q.findLesson(client, session.lesson_id);
+    if (!lesson) throw new AppError('not_found', 'Lesson not found');
+    const { exercises } = lessonSessionStateSchema.parse(session.state);
+    if (body.responses.length !== exercises.length) {
+      throw new AppError('validation_failed', 'Send one response per exercise', [
+        {
+          location: 'body',
+          path: ['responses'],
+          message: `Expected ${exercises.length} responses`,
+        },
+      ]);
+    }
+
+    // FR-053: the server's grade decides; near-misses count as right.
+    const plugin = languagePlugins.get(lesson.plugin);
+    const right = exercises.filter((exercise, i) => {
+      try {
+        return gradeResponse(exercise, body.responses[i]!, plugin).result !== 'wrong';
+      } catch (err) {
+        if (err instanceof UnknownExerciseTypeError) throw err;
+        throw new AppError('validation_failed', 'A response is not a valid answer', [
+          { location: 'body', path: ['responses', i], message: 'Not a valid answer' },
+        ]);
+      }
+    }).length;
+    const accuracy = Math.round((100 * right) / exercises.length);
+
+    await q.upsertLessonProgress(client, userId, lesson.id, accuracy);
+    const xp = await awardLessonXp(client, userId, lesson.id, accuracy);
+    await q.insertUnitCompletionIfDone(client, userId, lesson.id);
+    // Review entries for the new items (FR-110), the streak (FR-163, #38) and achievements are
+    // not built yet; each joins this transaction here when its issue lands.
+    await q.deleteSession(client, session.id);
+
+    const result: LessonCompletion = {
+      lessonId: lesson.id,
+      accuracy,
+      ...xp,
+      path: await getPath(client, userId, lesson.course_id, false),
+    };
+    if (idempotencyKey !== undefined) {
+      await q.insertIdempotencyKey(client, userId, idempotencyKey, requestHash, result);
+    }
+    return result;
   });
 }

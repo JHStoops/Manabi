@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import type { LessonType } from './content';
 import { itemSchema } from './content';
+import { coursePathSchema } from './coursePath';
+import { exerciseResponseSchema } from './exerciseRegistry';
 import {
   idParamSchema,
   idSchema,
@@ -58,6 +60,32 @@ export const lessonSessionSchema = lessonSessionStateSchema.extend({
   expiresAt: timestampSchema,
 });
 export type LessonSession = z.infer<typeof lessonSessionSchema>;
+
+/** `/lesson-sessions/:id/...`. */
+export const lessonSessionIdParamsSchema = z.object({ id: idParamSchema });
+
+/**
+ * FR-053: body of `POST /lesson-sessions/:id/complete`: the learner's response to each session
+ * exercise, in session order, as answered before the retry round. Any correctness the client
+ * adds is dropped; the server re-grades.
+ */
+export const lessonCompletionRequestSchema = z.object({
+  responses: z.array(exerciseResponseSchema).min(LESSON_MIN_EXERCISES).max(LESSON_MAX_EXERCISES),
+});
+export type LessonCompletionRequest = z.infer<typeof lessonCompletionRequestSchema>;
+
+/** FR-051: the result of completing a lesson, with the updated path for the path provider. */
+export const lessonCompletionSchema = z.object({
+  lessonId: idSchema,
+  /** Whole percentage of exercises right before the retry round, as the server graded them. */
+  accuracy: z.number().int().min(0).max(100),
+  xpEarned: z.number().int().min(0),
+  /** The course's XP total and level after the award (FR-162). */
+  totalXp: z.number().int().min(0),
+  level: z.number().int().min(1),
+  path: coursePathSchema,
+});
+export type LessonCompletion = z.infer<typeof lessonCompletionSchema>;
 
 /** FR-048: every `itemId` named anywhere in an exercise payload (tiles, option refs). */
 export function payloadItemIds(payload: unknown): number[] {

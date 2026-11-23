@@ -157,3 +157,95 @@ export function listSentences(
     [courseId, levelCode, lessonItemIds, taughtItemIds],
   );
 }
+
+/** FR-051: locks the learner's unexpired session for completion; null for anyone else's (NFR-14). */
+export function lockOwnSession(
+  db: Queryable,
+  userId: number,
+  sessionId: number,
+): Promise<LessonSessionRow | null> {
+  return queryOne<LessonSessionRow>(
+    db,
+    `SELECT * FROM lesson_sessions
+      WHERE id = $1 AND user_id = $2 AND expires_at > now()
+      FOR UPDATE`,
+    [sessionId, userId],
+  );
+}
+
+/** FR-051: a completed session is used up, so it cannot be completed again. */
+export async function deleteSession(db: Queryable, sessionId: number) {
+  await query(db, `DELETE FROM lesson_sessions WHERE id = $1`, [sessionId]);
+}
+
+/** FR-020, FR-055: records a completion, keeping the first date and the best accuracy. */
+export async function upsertLessonProgress(
+  db: Queryable,
+  userId: number,
+  lessonId: number,
+  accuracy: number,
+) {
+  await query(
+    db,
+    `INSERT INTO lesson_progress (user_id, lesson_id, completed_at, best_accuracy)
+     VALUES ($1, $2, now(), $3)
+     ON CONFLICT (user_id, lesson_id) DO UPDATE
+       SET best_accuracy = GREATEST(lesson_progress.best_accuracy, EXCLUDED.best_accuracy),
+           times_completed = lesson_progress.times_completed + 1`,
+    [userId, lessonId, accuracy],
+  );
+}
+
+/**
+ * FR-021, FR-232: records the lesson's unit as finished once every visible (published, active)
+ * lesson in it is completed. Insert-only; a unit finished before keeps its first completion.
+ */
+export async function insertUnitCompletionIfDone(db: Queryable, userId: number, lessonId: number) {
+  await query(
+    db,
+    `INSERT INTO unit_completions (user_id, unit_id)
+     SELECT $1, l.unit_id FROM lessons l
+      WHERE l.id = $2
+        AND NOT EXISTS (
+          SELECT 1 FROM lessons o
+           WHERE o.unit_id = l.unit_id AND o.archived_at IS NULL AND o.status = 'published'
+             AND NOT EXISTS (SELECT 1 FROM lesson_progress p
+                              WHERE p.user_id = $1 AND p.lesson_id = o.id))
+     ON CONFLICT DO NOTHING`,
+    [userId, lessonId],
+  );
+}
+
+/** FR-052: serializes requests carrying the same learner's Idempotency-Key. */
+export async function lockIdempotencyKey(db: Queryable, userId: number, key: string) {
+  await query(db, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [
+    `idempotency:${userId}:${key}`,
+  ]);
+}
+
+/** FR-052: a request already applied under this key, and the response it got. */
+export function findIdempotencyKey(
+  db: Queryable,
+  userId: number,
+  key: string,
+): Promise<{ request_hash: string; response: unknown } | null> {
+  return queryOne(
+    db,
+    `SELECT request_hash, response FROM idempotency_keys WHERE user_id = $1 AND key = $2`,
+    [userId, key],
+  );
+}
+
+export async function insertIdempotencyKey(
+  db: Queryable,
+  userId: number,
+  key: string,
+  requestHash: string,
+  response: object,
+) {
+  await query(
+    db,
+    `INSERT INTO idempotency_keys (user_id, key, request_hash, response) VALUES ($1, $2, $3, $4)`,
+    [userId, key, requestHash, response],
+  );
+}
