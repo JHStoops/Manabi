@@ -21,6 +21,39 @@ describe('KanaInput (FR-142)', () => {
     expect(onChange).toHaveBeenLastCalledWith('キョウ');
   });
 
+  it.each([
+    ['KA', 'カ'],
+    ['KITTE', 'キッテ'],
+    ['KYOU', 'キョウ'],
+    ['konnichiha', 'こんにちは'],
+    ['kanna', 'かんな'],
+    ['sennen ', 'せんねん '],
+    ['onna', 'おんな'],
+  ])('converts %s to %s typed one key at a time', (keys, expected) => {
+    render(<KanaInput plugin={japanese} aria-label="answer" onChange={jest.fn()} />);
+    const input = screen.getByLabelText('answer') as HTMLInputElement;
+    for (const key of keys) type(input, input.value + key);
+    expect(input.value).toBe(expected);
+  });
+
+  it('turns off phone keyboard capitalization and correction', () => {
+    render(<KanaInput plugin={japanese} aria-label="answer" onChange={jest.fn()} />);
+    const input = screen.getByLabelText('answer');
+    expect(input.getAttribute('autocapitalize')).toBe('off');
+    expect(input.getAttribute('lang')).toBe('ja');
+    expect(input.getAttribute('spellcheck')).toBe('false');
+  });
+
+  it('converts romaji composed by a keyboard that composes whole words', () => {
+    render(<KanaInput plugin={japanese} aria-label="answer" onChange={jest.fn()} />);
+    const input = screen.getByLabelText('answer') as HTMLInputElement;
+    fireEvent.compositionStart(input);
+    type(input, 'kanna');
+    expect(input.value).toBe('kanna');
+    fireEvent.compositionEnd(input);
+    expect(input.value).toBe('かんな');
+  });
+
   it('passes IME composition through unchanged, then converts later romaji', () => {
     const onChange = jest.fn();
     render(<KanaInput plugin={japanese} aria-label="answer" onChange={onChange} />);

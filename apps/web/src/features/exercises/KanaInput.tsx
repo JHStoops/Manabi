@@ -23,12 +23,19 @@ export function KanaInput({ plugin, onChange, ...rest }: KanaInputProps) {
   };
   return (
     <input
+      // Phone keyboards would capitalize the first letter, which gives katakana.
+      autoCapitalize="off"
+      autoCorrect="off"
+      spellCheck={false}
+      lang="ja"
       {...rest}
       value={value}
       onCompositionStart={() => (composing.current = true)}
       onCompositionEnd={(event) => {
         composing.current = false;
-        update(event.currentTarget.value);
+        // Android keyboards compose whole words, so convert here too (kana pass through unchanged).
+        const text = event.currentTarget.value;
+        update(plugin.features.inputConversion ? plugin.convertInput(text, 'romaji') : text);
       }}
       onChange={(event) => {
         const text = event.target.value;

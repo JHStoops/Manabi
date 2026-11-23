@@ -2,6 +2,10 @@ import { convertInput } from './convertInput';
 
 const romaji = (text: string) => convertInput(text, 'romaji');
 
+// What a learner sees typing `keys` one at a time: the field's text is fed back after each key.
+const typed = (keys: string) =>
+  [...keys].reduce((value, key) => convertInput(value + key, 'romaji'), '');
+
 describe('convertInput (FR-142)', () => {
   it.each([
     ['ka', 'か'],
@@ -14,7 +18,7 @@ describe('convertInput (FR-142)', () => {
     ['xtu', 'っ'],
     ['kitte', 'きって'],
     ['KITTE', 'キッテ'],
-    ['nn', 'ん'],
+    ['nn ', 'ん '],
     ['kanna', 'かんな'],
     ['kantan', 'かんたn'],
     ['kanji', 'かんじ'],
@@ -26,10 +30,26 @@ describe('convertInput (FR-142)', () => {
     expect(romaji(input)).toBe(expected);
   });
 
-  it('keeps a trailing lone n until the next key shows what it is', () => {
+  it.each([
+    ['ka', 'か'],
+    ['KA', 'カ'],
+    ['KKA', 'ッカ'],
+    ['KITTE', 'キッテ'],
+    ['KYOU', 'キョウ'],
+    ['kitte', 'きって'],
+    ['konnichiha', 'こんにちは'],
+    ['kanna', 'かんな'],
+    ['sennen ', 'せんねん '],
+    ['onna', 'おんな'],
+    ['kann ', 'かん '],
+  ])('converts %s to %s typed one key at a time', (keys, expected) => {
+    expect(typed(keys)).toBe(expected);
+  });
+
+  it('keeps a trailing n or nn until the next key shows what it is', () => {
     expect(romaji('kan')).toBe('かn');
     expect(romaji('KAN')).toBe('カN');
-    expect(romaji('kann')).toBe('かん');
+    expect(romaji('kann')).toBe('かnn');
     expect(romaji('kanna')).toBe('かんな');
     expect(romaji('kan ')).toBe('かん ');
   });
