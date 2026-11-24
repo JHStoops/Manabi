@@ -16,7 +16,8 @@ RUN npm run build
 
 FROM node:24-slim AS runtime
 # NFR-07: the API trims and transcodes generated clips to Opus with ffmpeg (Debian's has libopus).
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+# bzip2: dist/download.js unpacks the Tatoeba exports with bunzip2 and tar -xj.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg bzip2 \
   && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 WORKDIR /app
