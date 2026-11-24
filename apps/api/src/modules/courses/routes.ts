@@ -27,7 +27,8 @@ export const coursesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/courses',
     {
       schema: {
-        summary: "Published courses, with the caller's enrollments and active course",
+        summary:
+          "Published courses (and drafts for admins), with the caller's enrollments and active course",
         tags: ['courses'],
         querystring: emptyQuerySchema,
         response: { 200: courseListSchema, ...errors },

@@ -8,19 +8,20 @@ import type { XpEventRow } from './rows';
 // is append-only (DR-04): there are no UPDATE or DELETE statements against xp_events, and the
 // database rejects them.
 
-/** FR-023: published courses with whether the user is enrolled. */
-export function listPublishedCourses(
+/** FR-023: published courses (and drafts when `includeDrafts`) with whether the user is enrolled. */
+export function listCourses(
   db: Queryable,
   userId: number,
+  includeDrafts: boolean,
 ): Promise<(CourseRow & { enrolled: boolean })[]> {
   return query(
     db,
     `SELECT c.*, e.user_id IS NOT NULL AS enrolled
        FROM courses c
        LEFT JOIN enrollments e ON e.course_id = c.id AND e.user_id = $1
-      WHERE c.status = 'published'
+      WHERE c.status = 'published' OR $2
       ORDER BY c.title, c.id`,
-    [userId],
+    [userId, includeDrafts],
   );
 }
 

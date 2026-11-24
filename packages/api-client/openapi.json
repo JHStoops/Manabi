@@ -2308,7 +2308,7 @@
     },
     "/api/v1/courses": {
       "get": {
-        "summary": "Published courses, with the caller's enrollments and active course",
+        "summary": "Published courses (and drafts for admins), with the caller's enrollments and active course",
         "tags": ["courses"],
         "responses": {
           "200": {

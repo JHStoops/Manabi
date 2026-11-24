@@ -133,6 +133,9 @@ describeWithDb('courses API', () => {
     expect((await get(`/courses/${courseId}/path`, learner)).statusCode).toBe(404);
     expect((await get('/courses', learner)).json()).toEqual({ courses: [] });
     expect(await states(courseId, admin, true)).toHaveLength(6);
+    expect((await get('/courses', admin)).json().courses).toMatchObject([
+      { id: courseId, status: 'draft' },
+    ]);
     const enroll = await app.inject({
       method: 'POST',
       url: `/api/v1/courses/${courseId}/enroll`,

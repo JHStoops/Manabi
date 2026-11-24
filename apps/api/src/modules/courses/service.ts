@@ -30,10 +30,10 @@ function toCourse(row: CourseRow): Course {
   };
 }
 
-/** FR-023: published courses, marking the caller's enrollments and active course. */
+/** FR-023: published courses (admins also see drafts, marked by status), marking the caller's enrollments and active course. */
 export async function listCourses(db: Pool, auth: AuthContext): Promise<CourseList> {
   const { activeCourseId } = learnerSettingsSchema.parse(auth.user.settings);
-  const rows = await q.listPublishedCourses(db, auth.userId);
+  const rows = await q.listCourses(db, auth.userId, auth.user.role === 'admin');
   return {
     courses: rows.map((row) => ({
       ...toCourse(row),
