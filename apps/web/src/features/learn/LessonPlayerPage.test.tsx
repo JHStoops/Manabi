@@ -125,6 +125,7 @@ describe('LessonPlayerPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
     expect(screen.getByText('水')).toBeTruthy();
     expect(screen.getByText('Reading').nextSibling?.textContent).toBe('みず');
+    expect(screen.getByText('みず').getAttribute('lang')).toBe('ja');
     expect(screen.getByText('Meaning').nextSibling?.textContent).toBe('water');
   });
 

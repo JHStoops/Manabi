@@ -146,6 +146,8 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
     const items = newItems.length;
     const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
     const lcm = (types * items) / gcd(types, items);
+    // Limit: in a large lesson where a type often generates nothing, the session can reach 10
+    // exercises before every new item is covered.
     for (let added = true; added && exercises.length < LESSON_MIN_EXERCISES;) {
       added = false;
       for (let k = 0; k < types * items; k++) {

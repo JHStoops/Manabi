@@ -21,7 +21,7 @@ export function teachingCard(item: Item, sectionLevel: string): TeachingCardFiel
       return {
         term: kanji.character,
         reading: readings.join('、') || null,
-        meaning: kanji.meanings.join(', '),
+        meaning: kanji.meanings.join(', ') || null,
       };
     }
   }
