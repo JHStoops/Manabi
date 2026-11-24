@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import {
   CHOICE_TYPE,
+  FILL_BLANK_TYPE,
   gradeResponse,
   MATCH_PAIRS_TYPE,
+  REORDER_TYPE,
   TYPED_ANSWER_TYPE,
   WORD_BANK_TYPE,
 } from '@manabi/core';
@@ -12,7 +14,7 @@ import '../../i18n';
 import { ExerciseRendererHarness } from './ExerciseRendererHarness';
 import './renderers';
 
-// FR-042 (EX-01 to EX-04) and IF-03: the registered renderers report answers the shared grader
+// FR-042 (EX-01 to EX-06) and IF-03: the registered renderers report answers the shared grader
 // accepts, by tap and by keyboard, with tap targets of at least 44 px.
 
 beforeEach(() => {
@@ -200,5 +202,126 @@ describe('EX-04 typed answer renderer', () => {
     expect(result()).toEqual({ result: 'near-miss', hint: 'Watch your spelling' });
     fireEvent.change(input, { target: { value: 'The Water' } });
     expect(result()).toEqual({ result: 'correct' });
+  });
+});
+
+const fillBlank = (options?: string[]): Exercise => ({
+  type: FILL_BLANK_TYPE,
+  payload: {
+    prompt: 'I am a student',
+    before: '私',
+    after: '学生です',
+    accept: [{ text: 'は', tiles: [tile('は')] }],
+    ...(options && { options }),
+  },
+});
+
+describe('EX-05 fill the blank renderer', () => {
+  it('fills a chosen blank into the sentence', async () => {
+    const { onAnswer, grade } = renderExercise(fillBlank(['を', 'は', 'に']));
+    const wa = await screen.findByRole('button', { name: 'は' });
+    fireEvent.click(screen.getByRole('button', { name: 'を' }));
+    expect(onAnswer).toHaveBeenLastCalledWith('を');
+    expect(grade()).toBe('wrong');
+    fireEvent.click(wa);
+    expect(wa.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText('私', { exact: false }).textContent).toBe('私は学生です');
+    expect(grade()).toBe('correct');
+    expect(getComputedStyle(wa).minHeight).toBe('44px');
+  });
+
+  it('types a blank with romaji-to-kana input', async () => {
+    const { onAnswer, grade } = renderExercise(fillBlank());
+    const input = (await screen.findByRole('textbox', {
+      name: 'Missing word',
+    })) as HTMLInputElement;
+    expect(screen.queryByRole('button')).toBeNull();
+    fireEvent.change(input, { target: { value: 'ha' } });
+    expect(input.value).toBe('は');
+    expect(onAnswer).toHaveBeenLastCalledWith('は');
+    expect(grade()).toBe('correct');
+  });
+});
+
+const reorder: Exercise = {
+  type: REORDER_TYPE,
+  payload: {
+    prompt: 'I drink coffee every morning',
+    answer: {
+      text: '私は毎朝コーヒーを飲みます',
+      tiles: [tile('私は'), tile('毎朝'), tile('コーヒーを'), tile('飲みます')],
+    },
+    acceptedOrders: [
+      [0, 1, 2, 3],
+      [1, 0, 2, 3],
+    ],
+  },
+};
+
+describe('EX-06 reorder renderer', () => {
+  // Math.random 0 makes the shuffle [1, 2, 3, 0]: 毎朝 コーヒーを 飲みます 私は.
+  beforeEach(() => jest.spyOn(Math, 'random').mockReturnValue(0));
+  afterEach(() => jest.restoreAllMocks());
+  const chunks = () =>
+    within(screen.getByRole('group', { name: 'Sentence pieces' }))
+      .getAllByRole('button')
+      .map((b) => b.textContent);
+  const chunk = (name: string) => screen.getByRole('button', { name });
+
+  it('starts shuffled and reports the order, which is the answer', async () => {
+    const { onAnswer, grade } = renderExercise(reorder);
+    await screen.findByRole('group', { name: 'Sentence pieces' });
+    expect(chunks()).toEqual(['毎朝', 'コーヒーを', '飲みます', '私は']);
+    expect(onAnswer).toHaveBeenLastCalledWith([1, 2, 3, 0]);
+    expect(grade()).toBe('wrong');
+    expect(getComputedStyle(chunk('私は')).minHeight).toBe('44px');
+  });
+
+  it('moves a focused chunk with the arrow keys, keeping focus, to any accepted order', async () => {
+    const { onAnswer, grade } = renderExercise(reorder);
+    await screen.findByRole('group', { name: 'Sentence pieces' });
+    const press = (name: string, key: string) => {
+      chunk(name).focus();
+      fireEvent.keyDown(chunk(name), { key });
+    };
+
+    press('私は', 'ArrowRight');
+    expect(chunks()).toEqual(['毎朝', 'コーヒーを', '飲みます', '私は']);
+    press('私は', 'ArrowLeft');
+    press('私は', 'ArrowLeft');
+    expect(document.activeElement).toBe(chunk('私は'));
+    expect(chunks()).toEqual(['毎朝', '私は', 'コーヒーを', '飲みます']);
+    expect(onAnswer).toHaveBeenLastCalledWith([1, 0, 2, 3]);
+    expect(grade()).toBe('correct');
+    press('私は', 'ArrowLeft');
+    expect(chunks()).toEqual(['私は', '毎朝', 'コーヒーを', '飲みます']);
+    expect(grade()).toBe('correct');
+  });
+
+  it('drags a chunk over others into place', async () => {
+    const { onAnswer, grade } = renderExercise(reorder);
+    await screen.findByRole('group', { name: 'Sentence pieces' });
+    Element.prototype.setPointerCapture = jest.fn();
+    let under: Element | null = null;
+    document.elementFromPoint = () => under;
+    const dragged = chunk('私は');
+
+    fireEvent.pointerDown(dragged, { pointerId: 1 });
+    expect(dragged.getAttribute('data-dragging')).toBe('true');
+    under = chunk('飲みます');
+    fireEvent.pointerMove(dragged, { pointerId: 1 });
+    expect(chunks()).toEqual(['毎朝', 'コーヒーを', '私は', '飲みます']);
+    under = chunk('毎朝');
+    fireEvent.pointerMove(dragged, { pointerId: 1 });
+    fireEvent.pointerUp(dragged, { pointerId: 1 });
+    expect(chunks()).toEqual(['私は', '毎朝', 'コーヒーを', '飲みます']);
+    expect(dragged.getAttribute('data-dragging')).toBe('false');
+    expect(onAnswer).toHaveBeenLastCalledWith([0, 1, 2, 3]);
+    expect(grade()).toBe('correct');
+
+    // Moving without a drag in progress changes nothing.
+    under = chunk('飲みます');
+    fireEvent.pointerMove(dragged, { pointerId: 1 });
+    expect(chunks()).toEqual(['私は', '毎朝', 'コーヒーを', '飲みます']);
   });
 });

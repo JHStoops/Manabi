@@ -237,12 +237,17 @@ export const en = {
   },
   // FR-042: exercise renderers.
   exercise: {
+    fillBlank: { blank: 'Missing word' },
     matchPairs: 'Tap the matching pairs',
     notAPair: 'Not a pair. Try again.',
     wordBank: {
       answer: 'Your answer',
       bank: 'Word bank',
       hint: 'Tap a word to add it or take it back. Move a word in your answer with the arrow keys.',
+    },
+    reorder: {
+      chunks: 'Sentence pieces',
+      hint: 'Drag the pieces into order, or move a piece with the arrow keys.',
     },
   },
 };
