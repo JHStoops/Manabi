@@ -233,4 +233,10 @@ describe('LearnPage', () => {
     });
     expect(screen.queryByRole('button', { name: 'Enroll in Spanish' })).toBeNull();
   });
+
+  it('offers no Enroll button for a draft course an admin can see', async () => {
+    show(fakeApi([{ ...spanish, enrolled: false, status: 'draft' }]));
+    await screen.findByText('You are not enrolled in a course yet.');
+    expect(screen.queryByRole('button', { name: /^Enroll in/ })).toBeNull();
+  });
 });

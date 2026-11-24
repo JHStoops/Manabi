@@ -49,6 +49,27 @@ const Header = styled.header`
   }
 `;
 
+const Available = styled.section`
+  margin-bottom: ${({ theme }) => theme.spacing(4)};
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: ${({ theme }) => theme.spacing(2)};
+  }
+  button {
+    ${({ theme }) => tapTarget(theme)};
+    padding: 0 ${({ theme }) => theme.spacing(3)};
+    border-radius: ${({ theme }) => theme.radii.small};
+    border: 1px solid ${({ theme }) => theme.colors.border};
+    background: ${({ theme }) => theme.colors.surface};
+    color: ${({ theme }) => theme.colors.text};
+    font-size: ${({ theme }) => theme.fontSizes.body};
+  }
+`;
+
 const Stats = styled.div`
   display: flex;
   align-items: center;
@@ -168,7 +189,7 @@ function CourseHeader() {
   const dispatch = useCoursePathDispatch();
   const { courses, activeId, path } = useCoursePath();
   const enrolled = courses?.filter((c) => c.enrolled) ?? [];
-  const available = courses?.filter((c) => !c.enrolled) ?? [];
+  const available = courses?.filter((c) => !c.enrolled && c.status === 'published') ?? [];
 
   // FR-023: enrolling enrolls in a new course; in an enrolled one it only makes it the active one.
   async function switchTo(courseId: number) {
@@ -202,13 +223,12 @@ function CourseHeader() {
         )}
       </Header>
       {available.length > 0 && (
-        <section aria-labelledby="available-courses">
+        <Available aria-labelledby="available-courses">
           <h2 id="available-courses">{t('learn.availableCourses')}</h2>
           <ul>
             {available.map((c) => (
               <li key={c.id}>
-                {c.title}{' '}
-                <button type="button" onClick={() => void switchTo(c.id)}>
+                  <button type="button" onClick={() => void switchTo(c.id)}>
                   {t('learn.enroll', { title: c.title })}
                 </button>
               </li>
