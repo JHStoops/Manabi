@@ -163,6 +163,27 @@ export const en = {
     },
     state: { locked: 'locked', available: 'available', completed: 'completed' },
   },
+  // FR-046, FR-047, Product Spec section 4: the lesson player.
+  player: {
+    close: 'Leave lesson',
+    progress: 'Lesson progress',
+    intro: 'This lesson teaches {{count}} new items.',
+    start: 'Start',
+    newItem: 'New item {{n}} of {{total}}',
+    next: 'Next',
+    exercise: 'Exercise',
+    check: 'Check',
+    continue: 'Continue',
+    correct: 'Correct!',
+    tryAgain: 'Not quite, try once more.',
+    wrong: 'Not quite. The answer is: {{answer}}',
+    gradeFailed: 'This answer could not be checked. Change it and try again, or leave the lesson.',
+    wrongNoAnswer: 'Not quite. This one comes back at the end.',
+    saving: 'Saving your results…',
+    retry: 'Try again',
+    accuracy: 'Accuracy {{accuracy}}%',
+    done: 'Done',
+  },
   // FR-042: exercise renderers.
   exercise: {
     matchPairs: 'Tap the matching pairs',

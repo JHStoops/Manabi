@@ -1,5 +1,5 @@
 import { contrastRatio, readableOn } from './contrast';
-import { sakuraLight } from './sakura';
+import { sakuraDark, sakuraLight } from './sakura';
 
 const ink = sakuraLight.colors.text;
 
@@ -18,6 +18,14 @@ describe('readableOn', () => {
   it('gives every lesson and section color an icon color of at least 3:1', () => {
     for (const bg of [...Object.values(sakuraLight.lessonColors), ...sakuraLight.sectionColors]) {
       expect(contrastRatio(bg, readableOn(bg, '#ffffff', ink))).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('gives the feedback colors 3:1 on the surface in both modes (NFR-31 icons)', () => {
+    for (const { colors } of [sakuraLight, sakuraDark]) {
+      for (const color of [colors.correct, colors.tryAgain, colors.wrong]) {
+        expect(contrastRatio(colors.surface, color)).toBeGreaterThanOrEqual(3);
+      }
     }
   });
 });
