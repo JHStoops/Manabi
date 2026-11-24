@@ -181,6 +181,13 @@ describeWithDb('lesson sessions API', () => {
     expect(response.statusCode).toBe(200);
     const body = response.json<LessonSession>();
 
+    // #174: the intro and cards need the lesson's title, type, section level and course plugin.
+    expect(body).toMatchObject({
+      lessonTitle: 'l2',
+      lessonType: 'vocabulary',
+      sectionLevel: 'N5',
+      plugin: 'test',
+    });
     expect(body.teachingCards.map((c) => c.item.id)).toEqual([item.w3]);
     expect(body.exercises.length).toBeGreaterThanOrEqual(10);
     expect(body.exercises.length).toBeLessThanOrEqual(15);

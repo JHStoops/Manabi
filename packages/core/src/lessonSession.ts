@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { LessonType } from './content';
-import { itemSchema } from './content';
+import { itemSchema, lessonTypeSchema } from './content';
 import { coursePathSchema } from './coursePath';
 import { exerciseResponseSchema } from './exerciseRegistry';
 import {
@@ -58,6 +58,13 @@ export const lessonSessionSchema = lessonSessionStateSchema.extend({
   id: idSchema,
   lessonId: idSchema,
   expiresAt: timestampSchema,
+  /** Product Spec section 4: the intro names the lesson's title and type. */
+  lessonTitle: z.string(),
+  lessonType: lessonTypeSchema,
+  /** The lesson's section level: the plugin's teaching cards depend on it (FR-141). */
+  sectionLevel: z.string(),
+  /** The course's language plugin code, so the player grades and shows items with it. */
+  plugin: z.string(),
 });
 export type LessonSession = z.infer<typeof lessonSessionSchema>;
 

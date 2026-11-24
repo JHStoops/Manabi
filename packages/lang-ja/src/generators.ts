@@ -39,7 +39,7 @@ function shuffled<T>(items: readonly T[]): T[] {
 }
 
 /** DR-09: an item's data with the author's overrides applied, field by field. */
-const effective = (item: Item) => ({ ...item.data, ...item.overrides });
+export const effective = (item: Item) => ({ ...item.data, ...item.overrides });
 
 /** An item as exercises show it: its term (か, 水) and gloss (ka, water), with prompts for both. */
 interface Card {

@@ -69,6 +69,7 @@ Adding a language means writing one plugin package and one content pack; core, A
 | `segment(tokens)` | Pure function from analyzer tokens (surface, part-of-speech tags, base form, reading) to tiles with surface, base form and reading (Japanese: merge rules R0 to R10 and the idiom split list), each a `SegmentedTile` whose `counted` flag says whether it counts toward the vocabulary level in the coverage check (particles, auxiliaries, numbers, counters and names do not); only the tile itself is stored |
 | `detectGrammar(tokens, points)` | Pure matcher: which of the given grammar points' detection patterns match the analyzer tokens |
 | `annotate(tiles, learnedItems)` | Produces reading annotations from a sentence's stored tiles, honoring the learner's furigana setting |
+| `teachingCard(item, sectionLevel)` | What an item's teaching card shows: the item, its reading and its meaning, each null when there is none (Japanese: romaji only in the kana section) |
 | `generators` | Functions that build exercises of each type from an item and its course context |
 | `reviewFacets(itemType)` | Which facets an item is reviewed on (meaning, reading, listening) |
 | `ttsVoice` | Provider, voice id, any provider language option, the locale for the device-voice fallback, and which text to send (reading or written form) (Japanese: Kokoro, `jf_alpha`, `lang_code` `j`, `ja-JP`, always the kana reading) |

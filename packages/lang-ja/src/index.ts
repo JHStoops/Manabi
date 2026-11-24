@@ -5,6 +5,7 @@ import { detectGrammar } from './grammar';
 import { generators } from './generators';
 import { itemSchemas } from './itemSchemas';
 import { segment } from './segment';
+import { teachingCard } from './teachingCard';
 import { readingOf, tokenize } from './tokenize';
 
 export { checkAnswer, normalizeAnswer } from './answer';
@@ -53,6 +54,7 @@ export const japanese: LanguagePlugin = {
   convertInput,
   tokenize,
   annotate: () => notImplemented('annotate', 57),
+  teachingCard,
   // Kana and vocabulary generators (#30); kanji ones join with #53.
   generators,
   reviewFacets: () => notImplemented('reviewFacets', 48),

@@ -10,6 +10,7 @@ import type { LessonSessionRow } from './rows';
 export interface LessonContextRow {
   id: number;
   type: LessonType;
+  title: string;
   course_id: number;
   plugin: string;
   level_code: string;
@@ -18,7 +19,7 @@ export interface LessonContextRow {
 export function findLesson(db: Queryable, lessonId: number): Promise<LessonContextRow | null> {
   return queryOne<LessonContextRow>(
     db,
-    `SELECT l.id, l.type, s.course_id, c.plugin, s.level_code
+    `SELECT l.id, l.type, l.title, s.course_id, c.plugin, s.level_code
        FROM lessons l
        JOIN units u ON u.id = l.unit_id
        JOIN sections s ON s.id = u.section_id
