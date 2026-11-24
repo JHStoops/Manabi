@@ -1,0 +1,56 @@
+key: ja-en:kana:hiragana-1
+section: ja-en:kana
+title: 'Hiragana: あ か さ'
+status: published
+lessons:
+  - key: ja-en:kana:hiragana-1:a
+    type: kana
+    title: あ い う え お
+    status: published
+    items:
+      - ja:kana:あ
+      - ja:kana:い
+      - ja:kana:う
+      - ja:kana:え
+      - ja:kana:お
+  - key: ja-en:kana:hiragana-1:ka
+    type: kana
+    title: か き く け こ
+    status: published
+    items:
+      - ja:kana:か
+      - ja:kana:き
+      - ja:kana:く
+      - ja:kana:け
+      - ja:kana:こ
+  - key: ja-en:kana:hiragana-1:words-1
+    type: vocabulary
+    title: Words 1
+    status: published
+    items:
+      - ja:word:あお:あお
+      - ja:word:あか:あか
+      - ja:word:いえ:いえ
+      - ja:word:うえ:うえ
+      - ja:word:かお:かお
+      - ja:word:えき:えき
+  - key: ja-en:kana:hiragana-1:sa
+    type: kana
+    title: さ し す せ そ
+    status: published
+    items:
+      - ja:kana:さ
+      - ja:kana:し
+      - ja:kana:す
+      - ja:kana:せ
+      - ja:kana:そ
+  - key: ja-en:kana:hiragana-1:words-2
+    type: vocabulary
+    title: Words 2
+    status: published
+    items:
+      - ja:word:あさ:あさ
+      - ja:word:いす:いす
+      - ja:word:すし:すし
+      - ja:word:かさ:かさ
+      - ja:word:しお:しお

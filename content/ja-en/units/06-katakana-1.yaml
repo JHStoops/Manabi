@@ -1,0 +1,45 @@
+key: ja-en:kana:katakana-1
+section: ja-en:kana
+title: 'Katakana: ア カ サ'
+status: published
+lessons:
+  - key: ja-en:kana:katakana-1:a
+    type: kana
+    title: ア イ ウ エ オ
+    status: published
+    items:
+      - ja:kana:ア
+      - ja:kana:イ
+      - ja:kana:ウ
+      - ja:kana:エ
+      - ja:kana:オ
+  - key: ja-en:kana:katakana-1:ka
+    type: kana
+    title: カ キ ク ケ コ
+    status: published
+    items:
+      - ja:kana:カ
+      - ja:kana:キ
+      - ja:kana:ク
+      - ja:kana:ケ
+      - ja:kana:コ
+  - key: ja-en:kana:katakana-1:sa
+    type: kana
+    title: サ シ ス セ ソ
+    status: published
+    items:
+      - ja:kana:サ
+      - ja:kana:シ
+      - ja:kana:ス
+      - ja:kana:セ
+      - ja:kana:ソ
+  - key: ja-en:kana:katakana-1:words-13
+    type: vocabulary
+    title: Words 13
+    status: published
+    items:
+      - ja:word:アイス:アイス
+      - ja:word:ケーキ:ケーキ
+      - ja:word:スキー:スキー
+      - ja:word:ココア:ココア
+      - ja:word:ソース:ソース

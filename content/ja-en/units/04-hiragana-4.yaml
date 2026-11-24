@@ -1,0 +1,76 @@
+key: ja-en:kana:hiragana-4
+section: ja-en:kana
+title: 'Hiragana: dakuten'
+status: published
+lessons:
+  - key: ja-en:kana:hiragana-4:ga
+    type: kana
+    title: が ぎ ぐ げ ご
+    status: published
+    items:
+      - ja:kana:が
+      - ja:kana:ぎ
+      - ja:kana:ぐ
+      - ja:kana:げ
+      - ja:kana:ご
+  - key: ja-en:kana:hiragana-4:za
+    type: kana
+    title: ざ じ ず ぜ ぞ
+    status: published
+    items:
+      - ja:kana:ざ
+      - ja:kana:じ
+      - ja:kana:ず
+      - ja:kana:ぜ
+      - ja:kana:ぞ
+  - key: ja-en:kana:hiragana-4:words-7
+    type: vocabulary
+    title: Words 7
+    status: published
+    items:
+      - ja:word:かぎ:かぎ
+      - ja:word:ごはん:ごはん
+      - ja:word:かぜ:かぜ
+      - ja:word:みず:みず
+      - ja:word:ぎんこう:ぎんこう
+  - key: ja-en:kana:hiragana-4:da
+    type: kana
+    title: だ ぢ づ で ど
+    status: published
+    items:
+      - ja:kana:だ
+      - ja:kana:ぢ
+      - ja:kana:づ
+      - ja:kana:で
+      - ja:kana:ど
+  - key: ja-en:kana:hiragana-4:ba
+    type: kana
+    title: ば び ぶ べ ぼ
+    status: published
+    items:
+      - ja:kana:ば
+      - ja:kana:び
+      - ja:kana:ぶ
+      - ja:kana:べ
+      - ja:kana:ぼ
+  - key: ja-en:kana:hiragana-4:pa
+    type: kana
+    title: ぱ ぴ ぷ ぺ ぽ
+    status: published
+    items:
+      - ja:kana:ぱ
+      - ja:kana:ぴ
+      - ja:kana:ぷ
+      - ja:kana:ぺ
+      - ja:kana:ぽ
+  - key: ja-en:kana:hiragana-4:words-8
+    type: vocabulary
+    title: Words 8
+    status: published
+    items:
+      - ja:word:でんわ:でんわ
+      - ja:word:まど:まど
+      - ja:word:かばん:かばん
+      - ja:word:えんぴつ:えんぴつ
+      - ja:word:てんぷら:てんぷら
+      - ja:word:ともだち:ともだち

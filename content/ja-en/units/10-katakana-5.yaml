@@ -1,0 +1,56 @@
+key: ja-en:kana:katakana-5
+section: ja-en:kana
+title: 'Katakana: バ パ and combinations'
+status: published
+lessons:
+  - key: ja-en:kana:katakana-5:ba
+    type: kana
+    title: バ ビ ブ ベ ボ
+    status: published
+    items:
+      - ja:kana:バ
+      - ja:kana:ビ
+      - ja:kana:ブ
+      - ja:kana:ベ
+      - ja:kana:ボ
+  - key: ja-en:kana:katakana-5:pa
+    type: kana
+    title: パ ピ プ ペ ポ
+    status: published
+    items:
+      - ja:kana:パ
+      - ja:kana:ピ
+      - ja:kana:プ
+      - ja:kana:ペ
+      - ja:kana:ポ
+  - key: ja-en:kana:katakana-5:words-18
+    type: vocabulary
+    title: Words 18
+    status: published
+    items:
+      - ja:word:テレビ:テレビ
+      - ja:word:バス:バス
+      - ja:word:パン:パン
+      - ja:word:ペン:ペン
+      - ja:word:ボタン:ボタン
+      - ja:word:デパート:デパート
+      - ja:word:ポスト:ポスト
+  - key: ja-en:kana:katakana-5:words-19
+    type: vocabulary
+    title: Words 19
+    status: published
+    items:
+      - ja:word:シャツ:シャツ
+      - ja:word:ジュース:ジュース
+      - ja:word:ニュース:ニュース
+      - ja:word:チョコレート:チョコレート
+  - key: ja-en:kana:katakana-5:words-20
+    type: vocabulary
+    title: Words 20
+    status: published
+    items:
+      - ja:word:コップ:コップ
+      - ja:word:ベッド:ベッド
+      - ja:word:ポケット:ポケット
+      - ja:word:サッカー:サッカー
+      - ja:word:スリッパ:スリッパ

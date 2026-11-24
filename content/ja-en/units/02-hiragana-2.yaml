@@ -1,0 +1,57 @@
+key: ja-en:kana:hiragana-2
+section: ja-en:kana
+title: 'Hiragana: た な は'
+status: published
+lessons:
+  - key: ja-en:kana:hiragana-2:ta
+    type: kana
+    title: た ち つ て と
+    status: published
+    items:
+      - ja:kana:た
+      - ja:kana:ち
+      - ja:kana:つ
+      - ja:kana:て
+      - ja:kana:と
+  - key: ja-en:kana:hiragana-2:na
+    type: kana
+    title: な に ぬ ね の
+    status: published
+    items:
+      - ja:kana:な
+      - ja:kana:に
+      - ja:kana:ぬ
+      - ja:kana:ね
+      - ja:kana:の
+  - key: ja-en:kana:hiragana-2:words-3
+    type: vocabulary
+    title: Words 3
+    status: published
+    items:
+      - ja:word:いぬ:いぬ
+      - ja:word:ねこ:ねこ
+      - ja:word:なつ:なつ
+      - ja:word:くち:くち
+      - ja:word:て:て
+      - ja:word:した:した
+  - key: ja-en:kana:hiragana-2:ha
+    type: kana
+    title: は ひ ふ へ ほ
+    status: published
+    items:
+      - ja:kana:は
+      - ja:kana:ひ
+      - ja:kana:ふ
+      - ja:kana:へ
+      - ja:kana:ほ
+  - key: ja-en:kana:hiragana-2:words-4
+    type: vocabulary
+    title: Words 4
+    status: published
+    items:
+      - ja:word:はな:はな
+      - ja:word:ひと:ひと
+      - ja:word:ほし:ほし
+      - ja:word:ふね:ふね
+      - ja:word:ひこうき:ひこうき
+      - ja:word:あし:あし

@@ -1,0 +1,56 @@
+key: ja-en:kana:katakana-3
+section: ja-en:kana
+title: 'Katakana: マ ラ ヤ ワ'
+status: published
+lessons:
+  - key: ja-en:kana:katakana-3:ma
+    type: kana
+    title: マ ミ ム メ モ
+    status: published
+    items:
+      - ja:kana:マ
+      - ja:kana:ミ
+      - ja:kana:ム
+      - ja:kana:メ
+      - ja:kana:モ
+  - key: ja-en:kana:katakana-3:ra
+    type: kana
+    title: ラ リ ル レ ロ
+    status: published
+    items:
+      - ja:kana:ラ
+      - ja:kana:リ
+      - ja:kana:ル
+      - ja:kana:レ
+      - ja:kana:ロ
+  - key: ja-en:kana:katakana-3:words-15
+    type: vocabulary
+    title: Words 15
+    status: published
+    items:
+      - ja:word:カメラ:カメラ
+      - ja:word:トマト:トマト
+      - ja:word:ミルク:ミルク
+      - ja:word:ホテル:ホテル
+      - ja:word:アメリカ:アメリカ
+  - key: ja-en:kana:katakana-3:ya-wa-n
+    type: kana
+    title: ヤ ユ ヨ ワ ヲ ン
+    status: published
+    items:
+      - ja:kana:ヤ
+      - ja:kana:ユ
+      - ja:kana:ヨ
+      - ja:kana:ワ
+      - ja:kana:ヲ
+      - ja:kana:ン
+  - key: ja-en:kana:katakana-3:words-16
+    type: vocabulary
+    title: Words 16
+    status: published
+    items:
+      - ja:word:ラーメン:ラーメン
+      - ja:word:レストラン:レストラン
+      - ja:word:ワイン:ワイン
+      - ja:word:ハンカチ:ハンカチ
+      - ja:word:メロン:メロン

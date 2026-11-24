@@ -60,7 +60,11 @@ describeWithDb('importTatoeba grammar levels (FR-236, DR-13)', () => {
 
   /** The ja-en pack (with its grammar stubs) and N5 words for six of the spike sentences. */
   async function seed() {
-    await importPack(pool(), await readPack(PACK));
+    // Only the grammar points: the pack's lessons, sentences and word overrides link dataset
+    // items (kana, JMdict words) this test does not import.
+    const pack = await readPack(PACK);
+    const items = pack.items.filter((item) => item.type === 'grammar');
+    await importPack(pool(), { ...pack, units: [], sentences: [], items });
     const course = await findCourseByKey(pool(), 'ja-en');
     const words = [
       ['帰る', 'かえる'],

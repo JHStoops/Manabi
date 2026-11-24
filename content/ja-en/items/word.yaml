@@ -1,0 +1,96 @@
+# Kana section words (#45): the JMdict import gives a kana-written word every sense of every
+# spelling read that way (あめ: rain or candy, ねこ: cat, shamisen, geisha…). These keep the sense
+# the kana lesson teaches.
+- key: ja:word:あお:あお
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [blue, green] }] }
+- key: ja:word:あか:あか
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [red] }] }
+- key: ja:word:いえ:いえ
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [house, home] }] }
+- key: ja:word:うえ:うえ
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [above, up, top] }] }
+- key: ja:word:えき:えき
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [station] }] }
+- key: ja:word:あさ:あさ
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [morning] }] }
+- key: ja:word:かさ:かさ
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [umbrella] }] }
+- key: ja:word:しお:しお
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [salt] }] }
+- key: ja:word:いぬ:いぬ
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [dog] }] }
+- key: ja:word:ねこ:ねこ
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [cat] }] }
+- key: ja:word:くち:くち
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [mouth] }] }
+- key: ja:word:て:て
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [hand] }] }
+- key: ja:word:した:した
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [below, under] }] }
+- key: ja:word:はな:はな
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [flower] }] }
+- key: ja:word:ひと:ひと
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [person] }] }
+- key: ja:word:ほし:ほし
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [star] }] }
+- key: ja:word:あし:あし
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [foot, leg] }] }
+- key: ja:word:みみ:みみ
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [ear] }] }
+- key: ja:word:め:め
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [eye] }] }
+- key: ja:word:はる:はる
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [spring] }] }
+- key: ja:word:あめ:あめ
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [rain] }] }
+- key: ja:word:やま:やま
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [mountain] }] }
+- key: ja:word:ゆき:ゆき
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [snow] }] }
+- key: ja:word:よる:よる
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [night] }] }
+- key: ja:word:ほん:ほん
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [book] }] }
+- key: ja:word:にほん:にほん
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [Japan] }] }
+- key: ja:word:かぜ:かぜ
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [wind] }] }
+- key: ja:word:きょう:きょう
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [today] }] }
+- key: ja:word:じしょ:じしょ
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [dictionary] }] }
+- key: ja:word:なん:なん
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [pn], meanings: [what] }] }
+- key: ja:word:ソース:ソース
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [sauce] }] }
