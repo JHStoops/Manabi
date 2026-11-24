@@ -62,6 +62,7 @@ function renderAt(
           <SessionProvider>
             <Routes>
               <Route path="/learn" element={<h1>Learn page</h1>} />
+              <Route path="/profile" element={<h1>Profile page</h1>} />
               <Route path="/sign-in" element={<h1>Signed out</h1>} />
               {/* Rendered as the element for every other path */}
               <Route path="*" element={ui} />
@@ -269,6 +270,17 @@ describe('ChangePasswordPage', () => {
     expect(post).toHaveBeenCalledWith('/api/v1/auth/change-password', {
       body: { currentPassword: 'temporary-pass', newPassword: 'a long passphrase' },
     });
+  });
+
+  it('returns to the Profile tab when opened from there (FR-007)', async () => {
+    renderAt('/x', <ChangePasswordPage />, {
+      me: learner,
+      post: jest.fn().mockResolvedValue({ user: learner }),
+    });
+    await fill();
+    expect(screen.queryByText(/temporary password/)).toBeNull();
+    submit('Change password');
+    expect(await screen.findByRole('heading', { name: 'Profile page' })).toBeTruthy();
   });
 
   it('shows the server message when the current password is wrong', async () => {

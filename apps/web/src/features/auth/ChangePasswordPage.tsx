@@ -2,16 +2,18 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { MIN_PASSWORD_LENGTH } from '@manabi/core';
-import { useApi, useSessionDispatch } from '../../state/session';
+import { useApi, useSession, useSessionDispatch } from '../../state/session';
 import { Card, Field, Form } from './ui';
 import SignOutButton from './SignOutButton';
 
 // FR-005: a session on a temporary password lands here and can reach nothing else.
+// FR-007: the Profile tab links here too, and returns there afterwards.
 export default function ChangePasswordPage() {
   const { t } = useTranslation();
   const api = useApi();
   const dispatch = useSessionDispatch();
   const navigate = useNavigate();
+  const forced = useSession().user?.mustChangePassword ?? false;
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -19,7 +21,7 @@ export default function ChangePasswordPage() {
   return (
     <Card>
       <h1>{t('changePassword.title')}</h1>
-      <p>{t('changePassword.intro')}</p>
+      {forced && <p>{t('changePassword.intro')}</p>}
       <Form
         submitLabel={t('changePassword.submit')}
         validate={() => {
@@ -34,7 +36,7 @@ export default function ChangePasswordPage() {
             body: { currentPassword: current, newPassword: next },
           });
           dispatch({ type: 'signedIn', user });
-          navigate('/learn', { replace: true });
+          navigate(forced ? '/learn' : '/profile', { replace: true });
         }}
       >
         <Field

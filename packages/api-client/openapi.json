@@ -2018,6 +2018,320 @@
             }
           }
         }
+      },
+      "patch": {
+        "summary": "Change your display name or settings",
+        "tags": ["auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "settings": {
+                    "type": "object",
+                    "properties": {
+                      "avatarColor": {
+                        "nullable": true,
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                      },
+                      "avatarInitial": { "nullable": true, "type": "string" },
+                      "dailyGoal": {
+                        "anyOf": [
+                          { "type": "number", "enum": [10] },
+                          { "type": "number", "enum": [20] },
+                          { "type": "number", "enum": [30] },
+                          { "type": "number", "enum": [50] }
+                        ]
+                      },
+                      "newItemCap": { "type": "integer", "minimum": 0, "maximum": 200 },
+                      "reviewCap": { "type": "integer", "minimum": 1, "maximum": 1000 },
+                      "drawingExercises": { "type": "boolean" },
+                      "preferWordBank": { "type": "boolean" },
+                      "theme": {
+                        "type": "string",
+                        "enum": ["sakura", "matcha", "umi", "yuyake", "sumi"]
+                      },
+                      "colorMode": { "type": "string", "enum": ["system", "light", "dark"] },
+                      "readingAnnotations": {
+                        "type": "string",
+                        "enum": ["always", "unlearned", "never"]
+                      },
+                      "targetTextSize": { "type": "string", "enum": ["normal", "large"] },
+                      "soundEffects": { "type": "boolean" },
+                      "audioAutoplay": { "type": "boolean" },
+                      "reducedMotion": { "type": "boolean" },
+                      "appearOnLeaderboard": { "type": "boolean" },
+                      "allowNudges": { "type": "boolean" }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991
+                    },
+                    "username": { "type": "string", "pattern": "^[^\\s@]{1,64}$" },
+                    "email": {
+                      "nullable": true,
+                      "type": "string",
+                      "maxLength": 254,
+                      "pattern": "^[^\\s@]+@[^\\s@]+$"
+                    },
+                    "displayName": { "type": "string", "minLength": 1 },
+                    "role": { "type": "string", "enum": ["admin", "learner"] },
+                    "mustChangePassword": { "type": "boolean" },
+                    "timeZone": { "type": "string" },
+                    "settings": {
+                      "type": "object",
+                      "properties": {
+                        "avatarColor": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "string",
+                          "pattern": "^#[0-9a-f]{6}$"
+                        },
+                        "avatarInitial": { "default": null, "nullable": true, "type": "string" },
+                        "dailyGoal": {
+                          "default": 20,
+                          "anyOf": [
+                            { "type": "number", "enum": [10] },
+                            { "type": "number", "enum": [20] },
+                            { "type": "number", "enum": [30] },
+                            { "type": "number", "enum": [50] }
+                          ]
+                        },
+                        "newItemCap": {
+                          "default": 20,
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 200
+                        },
+                        "reviewCap": {
+                          "default": 100,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000
+                        },
+                        "drawingExercises": { "default": true, "type": "boolean" },
+                        "preferWordBank": { "default": false, "type": "boolean" },
+                        "theme": {
+                          "default": "sakura",
+                          "type": "string",
+                          "enum": ["sakura", "matcha", "umi", "yuyake", "sumi"]
+                        },
+                        "colorMode": {
+                          "default": "system",
+                          "type": "string",
+                          "enum": ["system", "light", "dark"]
+                        },
+                        "readingAnnotations": {
+                          "default": "unlearned",
+                          "type": "string",
+                          "enum": ["always", "unlearned", "never"]
+                        },
+                        "targetTextSize": {
+                          "default": "normal",
+                          "type": "string",
+                          "enum": ["normal", "large"]
+                        },
+                        "soundEffects": { "default": true, "type": "boolean" },
+                        "audioAutoplay": { "default": true, "type": "boolean" },
+                        "reducedMotion": { "default": false, "type": "boolean" },
+                        "appearOnLeaderboard": { "default": true, "type": "boolean" },
+                        "allowNudges": { "default": true, "type": "boolean" },
+                        "activeCourseId": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "avatarColor",
+                        "avatarInitial",
+                        "dailyGoal",
+                        "newItemCap",
+                        "reviewCap",
+                        "drawingExercises",
+                        "preferWordBank",
+                        "theme",
+                        "colorMode",
+                        "readingAnnotations",
+                        "targetTextSize",
+                        "soundEffects",
+                        "audioAutoplay",
+                        "reducedMotion",
+                        "appearOnLeaderboard",
+                        "allowNudges",
+                        "activeCourseId"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "disabledAt": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "username",
+                    "email",
+                    "displayName",
+                    "role",
+                    "mustChangePassword",
+                    "timeZone",
+                    "settings",
+                    "disabledAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/me/sessions": {

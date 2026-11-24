@@ -7,6 +7,7 @@ import type {
   LoginRequest,
   PasswordResetConfirm,
   PasswordResetRequest,
+  UpdateMeRequest,
   Role,
   Session,
   User,
@@ -357,6 +358,20 @@ export async function changePassword(
 /** GET /me: the caller's account as of this request. */
 export function me(auth: AuthContext): User {
   return toUser(auth.user);
+}
+
+/** FR-007, NFR-14: PATCH /me changes only the caller's own row. */
+export async function updateMe(
+  db: Queryable,
+  auth: AuthContext,
+  body: UpdateMeRequest,
+): Promise<User> {
+  const row = await q.updateProfile(db, auth.userId, {
+    displayName: body.displayName ?? null,
+    settings: body.settings ?? {},
+  });
+  if (!row) throw new AppError('unauthenticated', 'Not signed in');
+  return toUser(row);
 }
 
 // Admin operations used by the admin console (#23), which adds their routes. They live here

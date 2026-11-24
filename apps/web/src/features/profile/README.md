@@ -1,3 +1,3 @@
 # profile feature
 
-Placeholder. UI components, hooks and local reducers for the "profile" area live here.
+The Profile tab (FR-007, Product Spec section 11): profile and learner settings saved through `PATCH /me`, plus sign-out and active sessions. Password change links to the shared change-password screen.
