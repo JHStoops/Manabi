@@ -1,0 +1,59 @@
+key: ja-en:kana:hiragana-3
+section: ja-en:kana
+title: 'Hiragana: ま ら や わ'
+status: published
+lessons:
+  - key: ja-en:kana:hiragana-3:ma
+    type: kana
+    title: ま み む め も
+    status: published
+    items:
+      - ja:kana:ま
+      - ja:kana:み
+      - ja:kana:む
+      - ja:kana:め
+      - ja:kana:も
+  - key: ja-en:kana:hiragana-3:ra
+    type: kana
+    title: ら り る れ ろ
+    status: published
+    items:
+      - ja:kana:ら
+      - ja:kana:り
+      - ja:kana:る
+      - ja:kana:れ
+      - ja:kana:ろ
+  - key: ja-en:kana:hiragana-3:words-5
+    type: vocabulary
+    title: Words 5
+    status: published
+    items:
+      - ja:word:みみ:みみ
+      - ja:word:め:め
+      - ja:word:むし:むし
+      - ja:word:くるま:くるま
+      - ja:word:はる:はる
+      - ja:word:あめ:あめ
+  - key: ja-en:kana:hiragana-3:ya-wa-n
+    type: kana
+    title: や ゆ よ わ を ん
+    status: published
+    items:
+      - ja:kana:や
+      - ja:kana:ゆ
+      - ja:kana:よ
+      - ja:kana:わ
+      - ja:kana:を
+      - ja:kana:ん
+  - key: ja-en:kana:hiragana-3:words-6
+    type: vocabulary
+    title: Words 6
+    status: published
+    items:
+      - ja:word:やま:やま
+      - ja:word:ゆき:ゆき
+      - ja:word:よる:よる
+      - ja:word:わたし:わたし
+      - ja:word:ほん:ほん
+      - ja:word:にほん:にほん
+      - ja:word:ふゆ:ふゆ

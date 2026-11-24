@@ -1,0 +1,46 @@
+key: ja-en:kana:katakana-2
+section: ja-en:kana
+title: 'Katakana: タ ナ ハ'
+status: published
+lessons:
+  - key: ja-en:kana:katakana-2:ta
+    type: kana
+    title: タ チ ツ テ ト
+    status: published
+    items:
+      - ja:kana:タ
+      - ja:kana:チ
+      - ja:kana:ツ
+      - ja:kana:テ
+      - ja:kana:ト
+  - key: ja-en:kana:katakana-2:na
+    type: kana
+    title: ナ ニ ヌ ネ ノ
+    status: published
+    items:
+      - ja:kana:ナ
+      - ja:kana:ニ
+      - ja:kana:ヌ
+      - ja:kana:ネ
+      - ja:kana:ノ
+  - key: ja-en:kana:katakana-2:ha
+    type: kana
+    title: ハ ヒ フ ヘ ホ
+    status: published
+    items:
+      - ja:kana:ハ
+      - ja:kana:ヒ
+      - ja:kana:フ
+      - ja:kana:ヘ
+      - ja:kana:ホ
+  - key: ja-en:kana:katakana-2:words-14
+    type: vocabulary
+    title: Words 14
+    status: published
+    items:
+      - ja:word:タクシー:タクシー
+      - ja:word:ナイフ:ナイフ
+      - ja:word:ネクタイ:ネクタイ
+      - ja:word:ノート:ノート
+      - ja:word:テニス:テニス
+      - ja:word:コート:コート

@@ -1,0 +1,45 @@
+key: ja-en:kana:katakana-4
+section: ja-en:kana
+title: 'Katakana: ガ ザ ダ'
+status: published
+lessons:
+  - key: ja-en:kana:katakana-4:ga
+    type: kana
+    title: ガ ギ グ ゲ ゴ
+    status: published
+    items:
+      - ja:kana:ガ
+      - ja:kana:ギ
+      - ja:kana:グ
+      - ja:kana:ゲ
+      - ja:kana:ゴ
+  - key: ja-en:kana:katakana-4:za
+    type: kana
+    title: ザ ジ ズ ゼ ゾ
+    status: published
+    items:
+      - ja:kana:ザ
+      - ja:kana:ジ
+      - ja:kana:ズ
+      - ja:kana:ゼ
+      - ja:kana:ゾ
+  - key: ja-en:kana:katakana-4:da
+    type: kana
+    title: ダ ヂ ヅ デ ド
+    status: published
+    items:
+      - ja:kana:ダ
+      - ja:kana:ヂ
+      - ja:kana:ヅ
+      - ja:kana:デ
+      - ja:kana:ド
+  - key: ja-en:kana:katakana-4:words-17
+    type: vocabulary
+    title: Words 17
+    status: published
+    items:
+      - ja:word:ギター:ギター
+      - ja:word:ゲーム:ゲーム
+      - ja:word:ゼロ:ゼロ
+      - ja:word:ドア:ドア
+      - ja:word:ラジオ:ラジオ

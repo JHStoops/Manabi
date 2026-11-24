@@ -1,0 +1,135 @@
+# Kana section sentences (#45): the basic sentence pattern X は Y です, kana only.
+- text: これはほんです。
+  translation: This is a book.
+  reviewStatus: reviewed
+  grammar: [ja:grammar:wa-desu]
+  vocabLevel: kana
+  grammarLevel: kana
+  tiles:
+    - { surface: これ, base: これ, reading: これ, item: ja:word:これ:これ }
+    - { surface: は, base: は, reading: は }
+    - { surface: ほん, base: ほん, reading: ほん, item: ja:word:ほん:ほん }
+    - { surface: です, base: です, reading: です }
+- text: これはなんですか。
+  translation: What is this?
+  reviewStatus: reviewed
+  grammar: [ja:grammar:wa-desu]
+  vocabLevel: kana
+  grammarLevel: kana
+  tiles:
+    - { surface: これ, base: これ, reading: これ, item: ja:word:これ:これ }
+    - { surface: は, base: は, reading: は }
+    - { surface: なん, base: なん, reading: なん, item: ja:word:なん:なん }
+    - { surface: です, base: です, reading: です }
+    - { surface: か, base: か, reading: か }
+- text: それはなんですか。
+  translation: What is that?
+  reviewStatus: reviewed
+  grammar: [ja:grammar:wa-desu]
+  vocabLevel: kana
+  grammarLevel: kana
+  tiles:
+    - { surface: それ, base: それ, reading: それ, item: ja:word:それ:それ }
+    - { surface: は, base: は, reading: は }
+    - { surface: なん, base: なん, reading: なん, item: ja:word:なん:なん }
+    - { surface: です, base: です, reading: です }
+    - { surface: か, base: か, reading: か }
+- text: これはねこです。
+  translation: This is a cat.
+  reviewStatus: reviewed
+  grammar: [ja:grammar:wa-desu]
+  vocabLevel: kana
+  grammarLevel: kana
+  tiles:
+    - { surface: これ, base: これ, reading: これ, item: ja:word:これ:これ }
+    - { surface: は, base: は, reading: は }
+    - { surface: ねこ, base: ねこ, reading: ねこ, item: ja:word:ねこ:ねこ }
+    - { surface: です, base: です, reading: です }
+- text: それはいぬです。
+  translation: That is a dog.
+  reviewStatus: reviewed
+  grammar: [ja:grammar:wa-desu]
+  vocabLevel: kana
+  grammarLevel: kana
+  tiles:
+    - { surface: それ, base: それ, reading: それ, item: ja:word:それ:それ }
+    - { surface: は, base: は, reading: は }
+    - { surface: いぬ, base: いぬ, reading: いぬ, item: ja:word:いぬ:いぬ }
+    - { surface: です, base: です, reading: です }
+- text: あれはやまです。
+  translation: That is a mountain.
+  reviewStatus: reviewed
+  grammar: [ja:grammar:wa-desu]
+  vocabLevel: kana
+  grammarLevel: kana
+  tiles:
+    - { surface: あれ, base: あれ, reading: あれ, item: ja:word:あれ:あれ }
+    - { surface: は, base: は, reading: は }
+    - { surface: やま, base: やま, reading: やま, item: ja:word:やま:やま }
+    - { surface: です, base: です, reading: です }
+- text: あれはがっこうです。
+  translation: That is a school.
+  reviewStatus: reviewed
+  grammar: [ja:grammar:wa-desu]
+  vocabLevel: kana
+  grammarLevel: kana
+  tiles:
+    - { surface: あれ, base: あれ, reading: あれ, item: ja:word:あれ:あれ }
+    - { surface: は, base: は, reading: は }
+    - { surface: がっこう, base: がっこう, reading: がっこう, item: ja:word:がっこう:がっこう }
+    - { surface: です, base: です, reading: です }
+- text: これはじしょです。
+  translation: This is a dictionary.
+  reviewStatus: reviewed
+  grammar: [ja:grammar:wa-desu]
+  vocabLevel: kana
+  grammarLevel: kana
+  tiles:
+    - { surface: これ, base: これ, reading: これ, item: ja:word:これ:これ }
+    - { surface: は, base: は, reading: は }
+    - { surface: じしょ, base: じしょ, reading: じしょ, item: ja:word:じしょ:じしょ }
+    - { surface: です, base: です, reading: です }
+- text: わたしはがくせいです。
+  translation: I am a student.
+  reviewStatus: reviewed
+  grammar: [ja:grammar:wa-desu]
+  vocabLevel: kana
+  grammarLevel: kana
+  tiles:
+    - { surface: わたし, base: わたし, reading: わたし, item: ja:word:わたし:わたし }
+    - { surface: は, base: は, reading: は }
+    - { surface: がくせい, base: がくせい, reading: がくせい, item: ja:word:がくせい:がくせい }
+    - { surface: です, base: です, reading: です }
+- text: わたしはせんせいです。
+  translation: I am a teacher.
+  reviewStatus: reviewed
+  grammar: [ja:grammar:wa-desu]
+  vocabLevel: kana
+  grammarLevel: kana
+  tiles:
+    - { surface: わたし, base: わたし, reading: わたし, item: ja:word:わたし:わたし }
+    - { surface: は, base: は, reading: は }
+    - { surface: せんせい, base: せんせい, reading: せんせい, item: ja:word:せんせい:せんせい }
+    - { surface: です, base: です, reading: です }
+- text: ともだちはいしゃです。
+  translation: My friend is a doctor.
+  reviewStatus: reviewed
+  grammar: [ja:grammar:wa-desu]
+  vocabLevel: kana
+  grammarLevel: kana
+  tiles:
+    - { surface: ともだち, base: ともだち, reading: ともだち, item: ja:word:ともだち:ともだち }
+    - { surface: は, base: は, reading: は }
+    - { surface: いしゃ, base: いしゃ, reading: いしゃ, item: ja:word:いしゃ:いしゃ }
+    - { surface: です, base: です, reading: です }
+- text: きょうはあめです。
+  translation: It is raining today.
+  reviewStatus: reviewed
+  grammar: [ja:grammar:wa-desu]
+  vocabLevel: kana
+  grammarLevel: kana
+  tiles:
+    - { surface: きょう, base: きょう, reading: きょう, item: ja:word:きょう:きょう }
+    - { surface: は, base: は, reading: は }
+    - { surface: あめ, base: あめ, reading: あめ, item: ja:word:あめ:あめ }
+    - { surface: です, base: です, reading: です }

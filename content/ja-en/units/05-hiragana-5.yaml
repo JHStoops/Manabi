@@ -1,0 +1,48 @@
+key: ja-en:kana:hiragana-5
+section: ja-en:kana
+title: 'Hiragana: combinations'
+status: published
+lessons:
+  - key: ja-en:kana:hiragana-5:words-9
+    type: vocabulary
+    title: Words 9
+    status: published
+    items:
+      - ja:word:きょう:きょう
+      - ja:word:しゃしん:しゃしん
+      - ja:word:いしゃ:いしゃ
+      - ja:word:じしょ:じしょ
+      - ja:word:でんしゃ:でんしゃ
+      - ja:word:しゅくだい:しゅくだい
+  - key: ja-en:kana:hiragana-5:words-10
+    type: vocabulary
+    title: Words 10
+    status: published
+    items:
+      - ja:word:おちゃ:おちゃ
+      - ja:word:ひゃく:ひゃく
+      - ja:word:びょういん:びょういん
+      - ja:word:りょこう:りょこう
+      - ja:word:ぎゅうにゅう:ぎゅうにゅう
+  - key: ja-en:kana:hiragana-5:words-11
+    type: vocabulary
+    title: Words 11
+    status: published
+    items:
+      - ja:word:きって:きって
+      - ja:word:がっこう:がっこう
+      - ja:word:ざっし:ざっし
+      - ja:word:きっぷ:きっぷ
+      - ja:word:おかあさん:おかあさん
+      - ja:word:おとうさん:おとうさん
+  - key: ja-en:kana:hiragana-5:words-12
+    type: vocabulary
+    title: Words 12
+    status: published
+    items:
+      - ja:word:これ:これ
+      - ja:word:それ:それ
+      - ja:word:あれ:あれ
+      - ja:word:がくせい:がくせい
+      - ja:word:せんせい:せんせい
+      - ja:word:なん:なん
