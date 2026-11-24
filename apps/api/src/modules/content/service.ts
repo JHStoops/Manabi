@@ -149,8 +149,17 @@ export function packProblems(pack: ContentPack): PackProblem[] {
   return problems;
 }
 
-/** Imports a pack in one transaction; nothing is written when any part fails. */
-export async function importPack(pool: Pool, pack: ContentPack): Promise<void> {
+/**
+ * Imports a pack in one transaction; nothing is written when any part fails. `structureOnly`
+ * stores only the course, sections and lists: the first pass on an empty database, so the
+ * dataset imports can find the course and supplementary words before the lessons link their
+ * items (SDD section 10).
+ */
+export async function importPack(
+  pool: Pool,
+  pack: ContentPack,
+  structureOnly = false,
+): Promise<void> {
   const problems = packProblems(pack);
   if (problems.length > 0) throw new ContentPackError(problems.map((p) => p.message));
   const { course } = pack;
@@ -166,6 +175,12 @@ export async function importPack(pool: Pool, pack: ContentPack): Promise<void> {
       sectionIds.set(s.key, id ?? fail(`section ${s.key} belongs to another course`));
     }
     await archiveSectionsExcept(db, courseId, [...sectionIds.keys()]);
+
+    // shortcut: the blocklist is per language, so the last imported pack of a language sets it
+    // for every course in that language; fine while each language has one course (FR-237).
+    await replaceBlockedWords(db, course.targetLang, pack.blockedWords);
+    await replaceSupplementaryWords(db, courseId, pack.supplementaryWords);
+    if (structureOnly) return;
 
     // Items first: lessons, links and tiles refer to them.
     for (const item of pack.items) {
@@ -249,11 +264,6 @@ export async function importPack(pool: Pool, pack: ContentPack): Promise<void> {
       await replaceSentenceItems(db, stored.id, linked);
     }
     await archiveAuthoredSentencesExcept(db, courseId, sentenceIds);
-
-    // shortcut: the blocklist is per language, so the last imported pack of a language sets it
-    // for every course in that language; fine while each language has one course (FR-237).
-    await replaceBlockedWords(db, course.targetLang, pack.blockedWords);
-    await replaceSupplementaryWords(db, courseId, pack.supplementaryWords);
   });
 }
 

@@ -274,6 +274,8 @@ Imports are repeatable background jobs that fill the `items`, `sentences` and `s
 | 5. Sentences | Tatoeba Japanese-English pairs, with Tatoeba's user languages export | Filtered, segmented into tiles, grammar level recorded and stored with attribution, flagged "unreviewed" (see the sentence rules below) |
 | 6. Course pack | `content/ja-en` | Sections, units, lessons, grammar points, curated sentences, word lists, overrides |
 
+On an empty database a structure-only pack import (course, sections, blocked and supplementary words) runs before step 1, because the dataset imports need the course and supplementary words while the pack's lessons, tiles and overrides need the dataset items. The full pack import then runs before Tatoeba, which detects the pack's grammar points (packages/importers/README.md has the commands).
+
 **Import rules**
 
 - Each importer is idempotent, keyed by the item's stable key, and records an `import_runs` row with counts of added, updated and skipped rows.

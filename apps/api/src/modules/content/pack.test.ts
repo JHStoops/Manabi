@@ -10,11 +10,13 @@ import { seedUser } from '../../test/fixtures';
 import { insertItem, insertSentence } from './queries';
 import { readPack, writePack } from './packFiles';
 import { exportPack, importPack } from './service';
+import { importJmdict, importKanjidic2, importKanjiVg, importLevelLists } from '../imports/service';
 
 // Integration tests for content pack import and export (FR-227, FR-232, DR-02, DR-03). Raw SQL
 // here seeds progress and snapshots tables; application code keeps its SQL in queries.ts files.
 
 const FIXTURE = join(__dirname, '../../test/fixtures/ja-en');
+const DATASETS = join(__dirname, '../../../../../packages/importers/fixtures');
 
 const CONTENT_TABLES: Record<string, string> = {
   courses: 'id',
@@ -489,6 +491,57 @@ describeWithDb('content packs', () => {
     ).toEqual({
       archived_at: null,
     });
+  });
+
+  it('imports a pack linking dataset items on an empty database in the documented order', async () => {
+    // FR-227, FR-234: the lesson links KanjiVG kana and a kana-level supplementary JMdict word,
+    // and 水 is an override of the JMdict item, so none of them exist before the dataset imports.
+    const fixture = await readPack(FIXTURE);
+    const pack: ContentPack = {
+      ...fixture,
+      items: fixture.items
+        .filter((i) => !i.key.startsWith('ja:kana:'))
+        .map((i) => (i.key === 'ja:word:水:みず' ? { ...i, level: null, data: undefined } : i)),
+      units: fixture.units.map((u) => ({
+        ...u,
+        lessons: u.lessons.map((l) =>
+          l.key === 'ja-en:kana:hiragana:a-i'
+            ? { ...l, items: [...l.items, 'ja:word:人:ひと'] }
+            : l,
+        ),
+      })),
+      supplementaryWords: [
+        ...fixture.supplementaryWords,
+        { level: 'kana', written: '人', reading: 'ひと' },
+      ],
+    };
+    await expect(importPack(pool(), pack)).rejects.toThrow(ContentPackError);
+
+    await importPack(pool(), pack, true);
+    expect(await query(pool(), 'SELECT key FROM units')).toEqual([]);
+    const datasets = { courseKey: 'ja-en' };
+    await importKanjidic2(pool(), { ...datasets, file: join(DATASETS, 'kanjidic2.xml') });
+    await importLevelLists(pool(), { ...datasets, ceiling: 'N3', dir: join(DATASETS, 'tanos') });
+    await importJmdict(pool(), { ...datasets, file: join(DATASETS, 'jmdict.xml') });
+    await importKanjiVg(pool(), { ...datasets, file: join(DATASETS, 'kanjivg.xml') });
+    await importPack(pool(), pack);
+
+    const linked = await query(
+      pool(),
+      `SELECT i.key FROM lesson_items li JOIN items i ON i.id = li.item_id
+       WHERE li.lesson_id = $1 ORDER BY li.position`,
+      [await lessonId(pool(), 'ja-en:kana:hiragana:a-i')],
+    );
+    expect(linked).toEqual([
+      { key: 'ja:kana:あ' },
+      { key: 'ja:kana:い' },
+      { key: 'ja:word:人:ひと' },
+    ]);
+    const word = await queryOne(
+      pool(),
+      `SELECT level_code FROM items WHERE key = 'ja:word:人:ひと'`,
+    );
+    expect(word).toEqual({ level_code: 'kana' });
   });
 
   it('reports schema errors with file, line and path', async () => {

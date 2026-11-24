@@ -20,7 +20,7 @@ import {
 } from './modules/imports/service';
 
 const USAGE = `Usage: manabi pack lint <dir>   (database checks too when DATABASE_URL is set)
-       manabi pack import <dir>
+       manabi pack import <dir> [--structure-only]   (course, sections and lists only)
        manabi pack export <dir>   (the folder name is the course key, for example content/ja-en)
        manabi import kanjidic2 <course-key> <file>
        manabi import level-lists <course-key>   (up to LEVEL_CEILING, default N3)
@@ -60,9 +60,9 @@ function command([group, name, arg, file]: string[]): ((pool: Pool) => Promise<u
     return (pool) => importLevelLists(pool, { courseKey: arg, ceiling: loadConfig().levelCeiling });
   }
   const dir = resolve(cwd, arg);
-  if (group === 'pack' && name === 'import') {
+  if (group === 'pack' && name === 'import' && (!file || file === '--structure-only')) {
     return async (pool) => {
-      await importPack(pool, await readPack(dir));
+      await importPack(pool, await readPack(dir), file === '--structure-only');
       return `Imported ${dir}`;
     };
   }

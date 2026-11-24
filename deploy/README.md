@@ -27,7 +27,18 @@ The importers read open datasets (JMdict, KANJIDIC2, KanjiVG, Tatoeba) from `DAT
 
 ```sh
 docker compose exec app node dist/download.js /datasets
+```
+
+On a fresh database, import the course pack and the datasets in this order (the pack's lessons link dataset items, and the datasets need the pack's course and supplementary words). The pack folder must be inside the container, for example copied with `docker compose cp ../content app:/tmp/content`:
+
+```sh
+docker compose exec app node dist/cli.js pack import /tmp/content/ja-en --structure-only
+docker compose exec app node dist/cli.js import kanjidic2 ja-en /datasets/kanjidic2/kanjidic2.xml
+docker compose exec app node dist/cli.js import level-lists ja-en
 docker compose exec app node dist/cli.js import jmdict ja-en /datasets/jmdict/JMdict_e
+docker compose exec app node dist/cli.js import kanjivg ja-en /datasets/kanjivg/kanjivg-20260714.xml
+docker compose exec app node dist/cli.js pack import /tmp/content/ja-en
+docker compose exec app node dist/cli.js import tatoeba ja-en /datasets/tatoeba
 ```
 
 Admins can also run or re-run an import from Admin > Imports; its file path is relative to `/datasets` and defaults to where the download script puts the dataset. Run `node dist/cli.js` without arguments for the other import commands. The datasets can be downloaded again at any time, so they need no backup. Outside Docker the same script is `npm run download --workspace @manabi/importers -- <dir>`.
