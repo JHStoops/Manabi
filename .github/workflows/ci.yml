@@ -59,15 +59,6 @@ jobs:
         run: psql "$DATABASE_URL" -c 'select 1'
       - name: Test with coverage
         run: npm run test:coverage
-      # NFR-60, IF-03: smoke test the production build in a real browser.
-      # shortcut: paused in CI to save Actions minutes (~30 s per run); run `npm run e2e --workspace
-      # @manabi/web` locally before merging web changes. Remove `if: false` to turn it back on.
-      - name: Install Playwright Chromium
-        if: false
-        run: npx playwright install --with-deps chromium
-      - name: Smoke test the web app
-        if: false
-        run: npm run e2e --workspace @manabi/web
       # Report only by decision (#119): findings that stay are listed with a reason and review
       # date under "Dependency audit" in SDD section 11 (docs/03-software-design-document.md).
       - name: npm audit (report only)
@@ -84,8 +75,37 @@ jobs:
     permissions:
       contents: read
       packages: write
+    services:
+      # Scratch database for the end-to-end test; its contents are wiped at every start.
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: manabi
+          POSTGRES_PASSWORD: manabi
+          POSTGRES_DB: manabi_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U manabi -d manabi_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # NFR-32, NFR-60, IF-03: end to end in a real browser (smoke test and invite to first lesson)
+      # against the production build and the API. Slow, so it runs on release tags only; run it
+      # locally with `npm run e2e --workspace @manabi/web` before merging web changes.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests
+        env:
+          E2E_DATABASE_URL: postgres://manabi:manabi@localhost:5432/manabi_e2e
+        run: npm run e2e --workspace @manabi/web
       - name: Build and push to GHCR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

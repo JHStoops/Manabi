@@ -28,7 +28,7 @@ The sections below cover the stack and the local development setup.
 - API: Fastify, Zod schemas shared from `packages/core`, REST under `/api/v1`, OpenAPI at `/api/v1/openapi.json`
 - Database: PostgreSQL, hand-written parameterized SQL via `pg` (no ORM), plain SQL migrations with node-pg-migrate
 - Background jobs: pg-boss
-- Tests: Jest + ts-jest, @testing-library/react, Playwright (end-to-end, placeholder)
+- Tests: Jest + ts-jest, @testing-library/react, Playwright (end-to-end: `E2E_DATABASE_URL=<scratch database URL> npm run e2e --workspace @manabi/web`; it wipes that database; runs in CI on release tags)
 - Deployment: Docker Compose in a Proxmox LXC behind Nginx Proxy Manager
 
 ### Layout
