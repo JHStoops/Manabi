@@ -19,9 +19,25 @@ the fixtures in `fixtures/`.
 
 ## Importers
 
+On an empty database, run them in this order (the pack's lessons link items the datasets
+create, and the datasets need the pack's course and supplementary words):
+
+```sh
+npm run manabi -- pack import content/ja-en --structure-only   # course, sections, lists
+npm run manabi -- import kanjidic2 ja-en packages/importers/datasets/kanjidic2/kanjidic2.xml
+npm run manabi -- import level-lists ja-en
+npm run manabi -- import jmdict ja-en packages/importers/datasets/jmdict/JMdict_e
+npm run manabi -- import kanjivg ja-en packages/importers/datasets/kanjivg/kanjivg-20260714.xml
+npm run manabi -- pack import content/ja-en                    # units, lessons, items, sentences
+npm run manabi -- import tatoeba ja-en packages/importers/datasets/tatoeba
+```
+
+After a change to the pack's supplementary words, import the pack, then JMdict, then the pack
+again if its lessons link the new words.
+
 - KANJIDIC2: `npm run manabi -- import kanjidic2 ja-en packages/importers/datasets/kanjidic2/kanjidic2.xml`,
   or the `import-kanjidic2` worker job with `{ courseKey, file }`. The course must exist first
-  (`npm run manabi -- pack import content/ja-en`).
+  (`npm run manabi -- pack import content/ja-en --structure-only`).
 - JLPT level lists: `npm run manabi -- import level-lists ja-en`, or the `import-level-lists`
   worker job with `{ courseKey }`. Reads the committed copy in `data/tanos/` (never downloaded,
   FR-233) up to `LEVEL_CEILING` (default N3), sets `level_code` on imported kanji items and stores
