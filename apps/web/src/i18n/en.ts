@@ -2,6 +2,8 @@
 export const en = {
   app: { loading: 'Loading…' },
   nav: { label: 'Main' },
+  // FR-135: the speaker buttons.
+  audio: { play: 'Play audio', playSlow: 'Play audio slowly' },
   area: {
     learn: 'Learn',
     review: 'Review',
