@@ -177,6 +177,7 @@ export const en = {
     correct: 'Correct!',
     tryAgain: 'Not quite, try once more.',
     wrong: 'Not quite. The answer is: {{answer}}',
+    gradeFailed: 'This answer could not be checked. Change it and try again, or leave the lesson.',
     wrongNoAnswer: 'Not quite. This one comes back at the end.',
     saving: 'Saving your results…',
     retry: 'Try again',

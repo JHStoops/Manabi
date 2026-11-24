@@ -195,10 +195,15 @@ export default function LessonPlayerPage() {
     if (phase !== 'answering') return dispatch({ type: 'next' });
     if (state.answer === undefined || !exercise) return;
     // NFR-03: graded here with the shared grader, no network round-trip.
-    dispatch({
-      type: 'checked',
-      grade: gradeResponse(exercise, { attempts: [state.answer] }, plugin),
-    });
+    try {
+      dispatch({
+        type: 'checked',
+        grade: gradeResponse(exercise, { attempts: [state.answer] }, plugin),
+      });
+    } catch (err) {
+      // A malformed payload or answer: say so rather than fail silently.
+      dispatch({ type: 'failed', error: err });
+    }
   }
 
   // SDD section 9: Enter checks or continues. Other buttons and links keep their own Enter.
@@ -229,7 +234,7 @@ export default function LessonPlayerPage() {
 
   let content;
   let actionLabel = t('player.next');
-  if (error && phase !== 'completing') {
+  if (error && phase !== 'completing' && phase !== 'answering') {
     content = <p role="alert">{apiErrorMessage(t, error)}</p>;
   } else if (phase === 'loading') {
     content = <p>{t('app.loading')}</p>;
@@ -253,7 +258,8 @@ export default function LessonPlayerPage() {
     const Renderer = getExerciseRenderer(exercise.type);
     content = (
       <Suspense fallback={<p>{t('app.loading')}</p>}>
-        <Renderer key={state.step} payload={exercise.payload} onAnswer={onAnswer} />
+        {phase === 'answering' && !!error && <p role="alert">{t('player.gradeFailed')}</p>}
+        <Renderer key={state.step} payload={exercise.payload} plugin={plugin} onAnswer={onAnswer} />
       </Suspense>
     );
     actionLabel = phase === 'feedback' ? t('player.continue') : t('player.check');

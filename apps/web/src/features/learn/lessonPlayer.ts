@@ -95,14 +95,25 @@ export function lessonPlayerReducer(state: PlayerState, action: PlayerAction): P
       }
 
     case 'answered':
-      return state.phase === 'answering' ? { ...state, answer: action.answer } : state;
+      if (state.phase !== 'answering') return state;
+      // An empty answer ('' or []) is no answer, so Check stays unusable. A new answer clears a
+      // grading error.
+      return {
+        ...state,
+        answer:
+          action.answer === '' || (Array.isArray(action.answer) && !action.answer.length)
+            ? undefined
+            : action.answer,
+        error: null,
+      };
 
     case 'checked': {
       if (state.phase !== 'answering' || state.answer === undefined) return state;
       const attempts = [...state.attempts, state.answer];
       // FR-046: a first wrong answer gets one immediate second try without the answer shown.
       if (action.grade.result === 'wrong' && attempts.length === 1) {
-        return { ...state, attempts, grade: action.grade };
+        // The answer is cleared, so the second try needs a new one.
+        return { ...state, attempts, answer: undefined, grade: action.grade };
       }
       const index = state.queue[0]!;
       const responses = [...state.responses];

@@ -51,6 +51,14 @@ describe('lessonPlayerReducer', () => {
     expect(reduce(feedback, answered('other'))).toBe(feedback);
   });
 
+  it('treats an empty answer as none and clears a grading error on a new answer', () => {
+    const state = reduce(playing(), { type: 'failed', error: new Error('bad payload') });
+    expect(reduce(state, answered('')).answer).toBeUndefined();
+    expect(reduce(state, answered([])).answer).toBeUndefined();
+    expect(reduce(state, answered([1])).answer).toEqual([1]);
+    expect(reduce(state, answered('a')).error).toBeNull();
+  });
+
   it('shows feedback for a correct first answer and moves on', () => {
     let state = reduce(reduce(playing(), answered('Water')), correct);
     expect(state).toMatchObject({ phase: 'feedback', attempts: ['Water'] });
@@ -64,6 +72,8 @@ describe('lessonPlayerReducer', () => {
     let state = reduce(reduce(playing(), answered('x')), wrong);
     // Amber: still answering, nothing recorded, the exercise stays current.
     expect(state).toMatchObject({ phase: 'answering', attempts: ['x'], queue: [0, 1] });
+    expect(state.answer).toBeUndefined(); // the second try needs a new answer
+    expect(reduce(state, wrong)).toBe(state);
     expect(state.responses[0]).toBeUndefined();
     state = reduce(reduce(state, answered('Water')), correct);
     expect(state).toMatchObject({ phase: 'feedback', attempts: ['x', 'Water'] });

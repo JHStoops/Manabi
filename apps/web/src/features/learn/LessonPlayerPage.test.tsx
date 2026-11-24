@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ApiClient } from '@manabi/api-client';
-import type { Exercise, Item, LessonSession } from '@manabi/core';
+import type { Item, LessonSession } from '@manabi/core';
 import { TEST_EXERCISE_TYPE } from '@manabi/core/src/testExerciseType';
 import '../../i18n';
 import { ApiContext } from '../../state/session';
@@ -11,14 +11,9 @@ import LessonPlayerPage from './LessonPlayerPage';
 
 // FR-046, FR-047, NFR-03, IF-03: the lesson player with the dummy test_echo exercise type.
 
-// The test type's grader asks the plugin: exact match is correct.
+// The player grades with the core test plugin: exact match is correct.
 jest.mock('@manabi/lang-ja', () => ({
-  japanese: {
-    checkAnswer: (given: string, exercise: Exercise) =>
-      given === (exercise.payload as { answer: string }).answer
-        ? { result: 'correct' }
-        : { result: 'wrong' },
-  },
+  japanese: jest.requireActual('@manabi/core/src/testExerciseType').testPlugin,
 }));
 
 registerExerciseRenderer(TEST_EXERCISE_TYPE, () => import('../exercises/TestEchoRenderer'));
@@ -92,6 +87,8 @@ describe('LessonPlayerPage', () => {
     await answer('nope');
     expect(status()).toBe('!Not quite, try once more.');
     expect(status()).not.toContain('a0'); // the answer is not revealed
+    // The second try needs a new answer: Enter again cannot spend it on the same one.
+    expect(button('Check').getAttribute('aria-disabled')).toBe('true');
     await answer('a0');
     expect(status()).toBe('✓Correct!');
     fireEvent.click(button('Continue'));
@@ -161,6 +158,28 @@ describe('LessonPlayerPage', () => {
     expect(button('Check').getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(button('Check'));
     expect(status()).toBe('');
+  });
+
+  it('treats an empty answer as none', async () => {
+    show();
+    await startExercises();
+    const input = await screen.findByRole('textbox');
+    fireEvent.change(input, { target: { value: 'a' } });
+    fireEvent.change(input, { target: { value: '' } });
+    expect(button('Check').getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('shows an error when an answer cannot be graded', async () => {
+    const broken = {
+      ...session,
+      teachingCards: [],
+      exercises: [{ type: TEST_EXERCISE_TYPE, payload: { prompt: 'Broken' } }],
+    };
+    show(jest.fn(() => Promise.resolve(broken)));
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+    await answer('a');
+    expect(screen.getByRole('alert').textContent).toMatch(/could not be checked/);
+    expect(screen.getByRole('textbox')).toBeTruthy(); // the exercise stays
   });
 
   it('shows a load failure', async () => {
