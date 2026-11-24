@@ -5,7 +5,7 @@ targetLang: ja
 baseLang: en
 plugin: ja
 title: Japanese for English speakers
-status: draft
+status: published
 sections:
   - key: ja-en:kana
     title: Kana
