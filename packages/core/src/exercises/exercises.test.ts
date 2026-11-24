@@ -1,13 +1,15 @@
 import type { LanguagePlugin } from '../index';
 import {
   CHOICE_TYPE,
+  FILL_BLANK_TYPE,
   gradeResponse,
   MATCH_PAIRS_TYPE,
+  REORDER_TYPE,
   TYPED_ANSWER_TYPE,
   WORD_BANK_TYPE,
 } from '../index';
 
-// FR-042: graders of EX-01 choice, EX-02 match pairs and EX-03 word bank. None reads the plugin.
+// FR-042: graders of EX-01 to EX-06. Only typed answer and fill the blank read the plugin.
 const plugin = {} as LanguagePlugin;
 const grade = (type: string, payload: unknown, ...attempts: unknown[]) =>
   gradeResponse({ type, payload }, { attempts }, plugin);
@@ -137,5 +139,110 @@ describe('EX-04 typed answer grader', () => {
     expect(() => typed({ ...payload, accept: [] }, 'water')).toThrow();
     expect(() => typed({ ...payload, answerLanguage: 'ja' }, 'water')).toThrow();
     expect(() => typed(payload, 3)).toThrow();
+  });
+});
+
+describe('EX-05 fill the blank grader', () => {
+  const checkAnswer = jest.fn((given: string, accept: readonly { text: string }[]) =>
+    accept.some((a) => a.text === given)
+      ? { result: 'correct' as const }
+      : { result: 'wrong' as const },
+  );
+  const blankPlugin = { checkAnswer } as unknown as LanguagePlugin;
+  const accept = [
+    { text: 'は', tiles: [tile('は')] },
+    { text: 'が', tiles: [tile('が')] },
+  ];
+  const payload = { prompt: 'I am a student', before: '私', after: '学生です', accept };
+  const blank = (p: object, ...attempts: unknown[]) =>
+    gradeResponse({ type: FILL_BLANK_TYPE, payload: p }, { attempts }, blankPlugin);
+
+  it('checks a typed or chosen blank through the plugin against the accept list', () => {
+    expect(blank(payload, 'が')).toEqual({ result: 'correct' });
+    expect(checkAnswer).toHaveBeenLastCalledWith('が', accept, false);
+    const chosen = { ...payload, options: ['を', 'は', 'に'], testsKanji: true };
+    expect(blank(chosen, 'は')).toEqual({ result: 'correct' });
+    expect(checkAnswer).toHaveBeenLastCalledWith('は', accept, true);
+    expect(blank(chosen, 'を')).toEqual({ result: 'wrong', feedback: 'は' });
+  });
+
+  it('rejects malformed payloads and answers', () => {
+    for (const bad of [
+      { ...payload, accept: [] },
+      { ...payload, options: ['は'] },
+      { ...payload, options: ['を', 'に'] },
+      { ...payload, options: ['は', 'は', 'に'] },
+      { ...payload, after: undefined },
+    ]) {
+      expect(() => blank(bad, 'は')).toThrow();
+    }
+    expect(() => blank(payload, 0)).toThrow();
+  });
+});
+
+describe('EX-06 reorder grader', () => {
+  // 私は 毎朝 コーヒーを 飲みます; 毎朝 私は コーヒーを 飲みます is also accepted.
+  const payload = {
+    prompt: 'I drink coffee every morning',
+    answer: {
+      text: '私は毎朝コーヒーを飲みます',
+      tiles: [tile('私は'), tile('毎朝'), tile('コーヒーを'), tile('飲みます')],
+    },
+    acceptedOrders: [
+      [0, 1, 2, 3],
+      [1, 0, 2, 3],
+    ],
+  };
+
+  it('accepts each accepted order', () => {
+    expect(grade(REORDER_TYPE, payload, [0, 1, 2, 3])).toEqual({ result: 'correct' });
+    expect(grade(REORDER_TYPE, payload, [1, 0, 2, 3])).toEqual({ result: 'correct' });
+  });
+
+  it('treats chunks with the same surface as interchangeable', () => {
+    const twin = {
+      prompt: 'It is a cat, a cat',
+      answer: { text: '猫猫です', tiles: [tile('猫'), tile('猫'), tile('です')] },
+      acceptedOrders: [[0, 1, 2]],
+    };
+    expect(grade(REORDER_TYPE, twin, [1, 0, 2])).toEqual({ result: 'correct' });
+  });
+
+  it('marks other orders and non-permutations wrong with the sentence', () => {
+    const wrong = { result: 'wrong', feedback: '私は毎朝コーヒーを飲みます' };
+    for (const answer of [
+      [0, 2, 1, 3],
+      [0, 1, 2],
+      [0, 1, 2, 3, 3],
+      [0, 1, 2, 9],
+      [0, 0, 2, 3],
+    ]) {
+      expect(grade(REORDER_TYPE, payload, answer)).toEqual(wrong);
+    }
+  });
+
+  it('rejects accepted orders that are not permutations, and too few chunks', () => {
+    for (const acceptedOrders of [[], [[0, 1, 2]], [[0, 1, 2, 2]], [[0, 1, 2, 4]]]) {
+      expect(() => grade(REORDER_TYPE, { ...payload, acceptedOrders }, [0])).toThrow();
+    }
+    const one = { ...payload, answer: { text: 'x', tiles: [tile('x')] }, acceptedOrders: [[0]] };
+    expect(() => grade(REORDER_TYPE, one, [0])).toThrow();
+  });
+
+  it('rejects a payload that accepts every arrangement, since it would start solved', () => {
+    const two = { prompt: 'p', answer: { text: 'ab', tiles: [tile('a'), tile('b')] } };
+    expect(() => grade(REORDER_TYPE, { ...two, acceptedOrders: [[0, 1]] }, [0, 1])).not.toThrow();
+    const both = {
+      ...two,
+      acceptedOrders: [
+        [0, 1],
+        [1, 0],
+      ],
+    };
+    expect(() => grade(REORDER_TYPE, both, [0, 1])).toThrow('starts solved');
+    const twins = { prompt: 'p', answer: { text: 'aa', tiles: [tile('a'), tile('a')] } };
+    expect(() => grade(REORDER_TYPE, { ...twins, acceptedOrders: [[0, 1]] }, [0, 1])).toThrow(
+      'starts solved',
+    );
   });
 });
