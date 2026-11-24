@@ -45,13 +45,11 @@ export async function sumXpOnDate(db: Queryable, userId: number, localDate: stri
   return row!.xp;
 }
 
-/** FR-164: learners whose streak is running but whose last counted day is before their yesterday. */
-export function listStreaksToSettle(
-  db: Queryable,
-): Promise<{ user_id: number; yesterday: string }[]> {
+/** FR-164: learners with a running streak who have missed at least one day, with their local today. */
+export function listStreaksToSettle(db: Queryable): Promise<{ user_id: number; today: string }[]> {
   return query(
     db,
-    `SELECT s.user_id, ((now() AT TIME ZONE u.time_zone)::date - 1)::text AS yesterday
+    `SELECT s.user_id, (now() AT TIME ZONE u.time_zone)::date::text AS today
        FROM user_stats s
        JOIN users u ON u.id = s.user_id
       WHERE s.current_streak > 0
@@ -61,7 +59,18 @@ export function listStreaksToSettle(
 
 export interface UserStatsRow extends StatsRow {
   settings: unknown;
+  today: string;
   today_xp: number;
+}
+
+/** The learner's local date now, for a freeze choice. */
+export async function findLocalToday(db: Queryable, userId: number): Promise<string> {
+  const row = await queryOne<{ today: string }>(
+    db,
+    `SELECT (now() AT TIME ZONE time_zone)::date::text AS today FROM users WHERE id = $1`,
+    [userId],
+  );
+  return row!.today;
 }
 
 /** GET /me/stats: the cached streak, the daily-goal setting and today's XP in the learner's zone. */
@@ -73,6 +82,7 @@ export function findUserStats(db: Queryable, userId: number): Promise<UserStatsR
             COALESCE(s.freezes, 0) AS freezes,
             s.last_active_date,
             u.settings,
+            (now() AT TIME ZONE u.time_zone)::date::text AS today,
             (SELECT COALESCE(sum(x.amount), 0)::int FROM xp_events x
               WHERE x.user_id = u.id
                 AND x.local_date = (now() AT TIME ZONE u.time_zone)::date) AS today_xp

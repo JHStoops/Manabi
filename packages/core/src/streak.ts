@@ -30,18 +30,44 @@ function dayBefore(date: string): string {
   return new Date((dayNumber(date) - 1) * 86_400_000).toISOString().slice(0, 10);
 }
 
+/** Days missed between the last counted day and `today` (the learner's local date). */
+function missedDays(state: StreakState, today: string): number {
+  if (state.currentStreak === 0 || state.lastActiveDate === null) return 0;
+  return Math.max(0, dayNumber(today) - dayNumber(state.lastActiveDate) - 1);
+}
+
 /**
- * FR-164: handles the days after `lastActiveDate` up to and including `through` (the learner's
- * yesterday), which were missed. If held freezes cover them all, they are spent and those days
- * count as covered; otherwise the streak resets to 0 and the freezes are kept.
+ * FR-164: the freezes the learner may choose to spend to keep the streak: set when the missed days
+ * are at least 1 and no more than the freezes held. Null otherwise.
  */
-export function settleMissedDays(state: StreakState, through: string): StreakState {
-  if (state.currentStreak === 0 || state.lastActiveDate === null) return state;
-  const missed = dayNumber(through) - dayNumber(state.lastActiveDate);
-  if (missed <= 0) return state;
-  if (missed <= state.freezes) {
-    return { ...state, freezes: state.freezes - missed, lastActiveDate: through };
-  }
+export function pendingFreezeSpend(state: StreakState, today: string): { days: number } | null {
+  const days = missedDays(state, today);
+  return days >= 1 && days <= state.freezes ? { days } : null;
+}
+
+/**
+ * FR-164: the streak for a learner whose local `today` has begun. Freezes are never spent here:
+ * the streak resets to 0 once the missed days exceed the freezes held (freezes are kept), and
+ * otherwise waits for the learner's choice. Safe to repeat; the result does not depend on how
+ * often it ran.
+ */
+export function settleMissedDays(state: StreakState, today: string): StreakState {
+  return missedDays(state, today) > state.freezes ? { ...state, currentStreak: 0 } : state;
+}
+
+/** FR-164: the learner said yes: spends the pending freezes and counts the missed days as covered. */
+export function spendFreezes(state: StreakState, today: string): StreakState {
+  const pending = pendingFreezeSpend(state, today);
+  if (!pending) return state;
+  return {
+    ...state,
+    freezes: state.freezes - pending.days,
+    lastActiveDate: dayBefore(today),
+  };
+}
+
+/** FR-164: the learner said no: the streak resets and the freezes are kept. */
+export function declineFreezes(state: StreakState): StreakState {
   return { ...state, currentStreak: 0 };
 }
 
@@ -51,15 +77,17 @@ export function settleMissedDays(state: StreakState, through: string): StreakSta
  */
 export function advanceStreak(state: StreakState, today: string): StreakState {
   if (state.lastActiveDate !== null && state.lastActiveDate >= today) return state;
-  const settled = settleMissedDays(state, dayBefore(today));
-  const currentStreak = settled.currentStreak + 1;
+  // Earning XP while a freeze offer is still open counts as declining it: the streak resets,
+  // freezes are kept, and it restarts at 1 for today (owner decision).
+  const base = missedDays(state, today) > 0 ? declineFreezes(state) : state;
+  const currentStreak = base.currentStreak + 1;
   return {
     currentStreak,
-    longestStreak: Math.max(settled.longestStreak, currentStreak),
+    longestStreak: Math.max(base.longestStreak, currentStreak),
     freezes:
       currentStreak % FREEZE_RUN_DAYS === 0
-        ? Math.min(MAX_FREEZES, settled.freezes + 1)
-        : settled.freezes,
+        ? Math.min(MAX_FREEZES, base.freezes + 1)
+        : base.freezes,
     lastActiveDate: today,
   };
 }
@@ -72,5 +100,11 @@ export const userStatsSchema = z.object({
   currentStreak: z.number().int().min(0),
   longestStreak: z.number().int().min(0),
   freezes: z.number().int().min(0).max(MAX_FREEZES),
+  /** Set when the learner may spend `days` freezes to keep the streak (FR-164). */
+  pendingFreezeSpend: z.object({ days: z.number().int().min(1).max(MAX_FREEZES) }).nullable(),
 });
 export type UserStats = z.infer<typeof userStatsSchema>;
+
+/** FR-164: the learner's answer to the freeze offer: spend the freezes, or let the streak reset. */
+export const streakFreezeChoiceSchema = z.object({ spend: z.boolean() });
+export type StreakFreezeChoice = z.infer<typeof streakFreezeChoiceSchema>;

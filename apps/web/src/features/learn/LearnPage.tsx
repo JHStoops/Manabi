@@ -54,6 +54,17 @@ const Stats = styled.div`
   align-items: center;
   gap: ${({ theme }) => theme.spacing(4)};
   margin: 0 0 ${({ theme }) => theme.spacing(4)};
+  flex-wrap: wrap;
+  button {
+    ${({ theme }) => tapTarget(theme)};
+    margin-right: ${({ theme }) => theme.spacing(2)};
+    padding: 0 ${({ theme }) => theme.spacing(3)};
+    border-radius: ${({ theme }) => theme.radii.small};
+    border: 1px solid ${({ theme }) => theme.colors.border};
+    background: ${({ theme }) => theme.colors.surface};
+    color: ${({ theme }) => theme.colors.text};
+    font-size: ${({ theme }) => theme.fontSizes.body};
+  }
   svg {
     display: block;
   }
@@ -198,8 +209,22 @@ const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 /** FR-161, FR-163, FR-164: the daily goal ring, the streak flame and the freezes held. */
 function DailyStats() {
   const { t } = useTranslation();
+  const api = useApi();
+  const dispatch = useCoursePathDispatch();
   const { stats } = useCoursePath();
   if (!stats) return null;
+
+  // FR-164: the learner chooses whether to spend freezes; no resets the streak.
+  async function choose(spend: boolean) {
+    try {
+      dispatch({
+        type: 'statsLoaded',
+        stats: await api.POST('/api/v1/me/streak/freezes', { body: { spend } }),
+      });
+    } catch (error) {
+      dispatch({ type: 'failed', error });
+    }
+  }
   const done = Math.min(stats.todayXp, stats.dailyGoal);
   return (
     <Stats>
@@ -235,6 +260,22 @@ function DailyStats() {
       <span aria-label={t('learn.freezes', { count: stats.freezes })}>
         <span aria-hidden="true">{`${icons.freeze} ${stats.freezes}`}</span>
       </span>
+      {stats.pendingFreezeSpend && (
+        <div role="group" aria-label={t('learn.freezeOffer')}>
+          <p>
+            {t('learn.freezePrompt', {
+              count: stats.pendingFreezeSpend.days,
+              streak: stats.currentStreak,
+            })}
+          </p>
+          <button type="button" onClick={() => void choose(true)}>
+            {t('learn.yes')}
+          </button>
+          <button type="button" onClick={() => void choose(false)}>
+            {t('learn.no')}
+          </button>
+        </div>
+      )}
     </Stats>
   );
 }

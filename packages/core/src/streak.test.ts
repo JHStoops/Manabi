@@ -1,4 +1,10 @@
-import { advanceStreak, settleMissedDays } from './streak';
+import {
+  advanceStreak,
+  declineFreezes,
+  pendingFreezeSpend,
+  settleMissedDays,
+  spendFreezes,
+} from './streak';
 import type { StreakState } from './streak';
 
 // FR-163, FR-164: streak edge cases. Dates are the learner's local dates, so a time zone or a
@@ -11,6 +17,10 @@ const state = (over: Partial<StreakState> = {}): StreakState => ({
   lastActiveDate: '2026-11-20',
   ...over,
 });
+
+/** The local date `missed` days missed after 2026-11-20 (so the learner is on day 20 + missed + 1). */
+const todayAfter = (missed: number) =>
+  new Date(Date.UTC(2026, 10, 20 + missed + 1)).toISOString().slice(0, 10);
 
 describe('advanceStreak', () => {
   it('starts a streak at 1 for a new learner', () => {
@@ -35,22 +45,22 @@ describe('advanceStreak', () => {
   });
 
   it.each([
-    // missed days, freezes held, streak after, freezes after
-    [1, 0, 1, 0],
-    [1, 1, 4, 0],
-    [1, 2, 4, 1],
-    [2, 0, 1, 0],
-    [2, 1, 1, 1],
-    [2, 2, 4, 0],
-    [3, 2, 1, 2],
+    // missed days, freezes held
+    [1, 0],
+    [1, 1],
+    [1, 2],
+    [2, 0],
+    [2, 1],
+    [2, 2],
+    [3, 2],
   ])(
-    'after %i missed days holding %i freezes: streak %i, %i freezes left',
-    (missed, freezes, streak, left) => {
-      const today = new Date(Date.UTC(2026, 10, 20 + missed + 1)).toISOString().slice(0, 10);
-      expect(advanceStreak(state({ freezes }), today)).toMatchObject({
-        currentStreak: streak,
-        freezes: left,
-        lastActiveDate: today,
+    'earning XP after %i missed days holding %i freezes restarts at 1 and keeps them',
+    (missed, freezes) => {
+      // Earning before answering the freeze offer counts as declining it.
+      expect(advanceStreak(state({ freezes }), todayAfter(missed))).toMatchObject({
+        currentStreak: 1,
+        freezes,
+        lastActiveDate: todayAfter(missed),
       });
     },
   );
@@ -62,7 +72,7 @@ describe('advanceStreak', () => {
     expect(advanceStreak({ ...at6, currentStreak: 5 }, '2026-11-21').freezes).toBe(0);
   });
 
-  it('does not grant a freeze when a restart lands on 1, and keeps the longest streak', () => {
+  it('keeps the longest streak when it restarts', () => {
     const lost = advanceStreak(state({ currentStreak: 6, longestStreak: 9 }), '2026-11-25');
     expect(lost).toMatchObject({ currentStreak: 1, longestStreak: 9, freezes: 0 });
   });
@@ -84,36 +94,76 @@ describe('advanceStreak', () => {
     expect(from('2026-03-08', '2026-03-09')).toBe(4);
     expect(from('2026-10-31', '2026-11-01')).toBe(4);
     expect(from('2026-11-01', '2026-11-02')).toBe(4);
-    // One missed day across the change is still one freeze.
-    const covered = advanceStreak(
-      state({ freezes: 1, lastActiveDate: '2026-03-07' }),
-      '2026-03-09',
+  });
+});
+
+describe('pendingFreezeSpend', () => {
+  it.each([
+    // missed days, freezes held, days offered
+    [0, 2, null],
+    [1, 0, null],
+    [1, 1, 1],
+    [1, 2, 1],
+    [2, 1, null],
+    [2, 2, 2],
+    [3, 2, null],
+  ])('%i missed days holding %i freezes offers %p', (missed, freezes, days) => {
+    expect(pendingFreezeSpend(state({ freezes }), todayAfter(missed))).toEqual(
+      days === null ? null : { days },
     );
-    expect(covered).toMatchObject({ currentStreak: 4, freezes: 0 });
+  });
+
+  it('offers nothing without a running streak', () => {
+    expect(pendingFreezeSpend(state({ freezes: 2, currentStreak: 0 }), '2026-11-22')).toBeNull();
+  });
+
+  it('counts missed days across a daylight saving change', () => {
+    const s = state({ freezes: 1, lastActiveDate: '2026-03-07' });
+    expect(pendingFreezeSpend(s, '2026-03-09')).toEqual({ days: 1 });
+  });
+});
+
+describe('spendFreezes and declineFreezes', () => {
+  it('spends the offered freezes, keeps the streak and lets today extend it', () => {
+    const spent = spendFreezes(state({ freezes: 2 }), todayAfter(2));
+    expect(spent).toMatchObject({ currentStreak: 3, freezes: 0, lastActiveDate: '2026-11-22' });
+    expect(advanceStreak(spent, todayAfter(2)).currentStreak).toBe(4);
+  });
+
+  it('does nothing when no offer is open', () => {
+    const s = state({ freezes: 1 });
+    expect(spendFreezes(s, todayAfter(2))).toBe(s);
+  });
+
+  it('declining resets the streak and keeps the freezes', () => {
+    expect(declineFreezes(state({ freezes: 2 }))).toMatchObject({ currentStreak: 0, freezes: 2 });
   });
 });
 
 describe('settleMissedDays', () => {
-  it('does nothing when no day was missed', () => {
-    const s = state({ lastActiveDate: '2026-11-22' });
-    expect(settleMissedDays(s, '2026-11-22')).toBe(s);
+  it('never spends freezes and leaves a streak within the cover alone', () => {
+    const s = state({ freezes: 2 });
+    expect(settleMissedDays(s, todayAfter(0))).toBe(s);
+    expect(settleMissedDays(s, todayAfter(2))).toBe(s);
   });
 
-  it('spends a freeze per missed day, then resets when they run out', () => {
-    const night1 = settleMissedDays(state({ freezes: 1 }), '2026-11-21');
-    expect(night1).toMatchObject({ currentStreak: 3, freezes: 0, lastActiveDate: '2026-11-21' });
-    expect(settleMissedDays(night1, '2026-11-22')).toMatchObject({ currentStreak: 0, freezes: 0 });
-  });
-
-  it('resets without spending freezes that cannot cover the gap', () => {
-    expect(settleMissedDays(state({ freezes: 1 }), '2026-11-22')).toMatchObject({
+  it('resets once the missed days exceed the freezes held, keeping them', () => {
+    expect(settleMissedDays(state({ freezes: 1 }), todayAfter(2))).toMatchObject({
       currentStreak: 0,
       freezes: 1,
     });
+    expect(settleMissedDays(state({ freezes: 0 }), todayAfter(1))).toMatchObject({
+      currentStreak: 0,
+      freezes: 0,
+    });
   });
 
-  it('leaves a reset streak alone on later nights', () => {
-    const reset = state({ currentStreak: 0 });
-    expect(settleMissedDays(reset, '2026-12-25')).toBe(reset);
+  it('gives the same result however many runs were missed or repeated', () => {
+    const s = state({ freezes: 1 });
+    const direct = settleMissedDays(s, todayAfter(4));
+    const nightly = [1, 2, 3, 4].reduce((acc, m) => settleMissedDays(acc, todayAfter(m)), s);
+    expect(nightly).toEqual(direct);
+    expect(settleMissedDays(direct, todayAfter(4))).toEqual(direct);
+    expect(settleMissedDays(direct, todayAfter(9))).toEqual(direct);
   });
 });

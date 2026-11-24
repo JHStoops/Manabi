@@ -2,7 +2,8 @@ import { settleStreaks } from '../modules/stats/service';
 import { defineJob } from './define';
 
 /**
- * FR-164: spends freezes or resets the streak of learners who missed a day. Hourly, because a
+ * FR-164: resets the streak of learners who missed more days than they hold freezes (it never
+ * spends freezes; the learner chooses, see chooseFreezes). Hourly, because a
  * learner's day ends at their own midnight; each run only touches learners whose day just ended.
  */
 export const settleStreaksJob = defineJob<Record<string, never>>({

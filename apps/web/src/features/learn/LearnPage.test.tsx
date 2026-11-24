@@ -68,6 +68,7 @@ const stats: UserStats = {
   currentStreak: 4,
   longestStreak: 9,
   freezes: 1,
+  pendingFreezeSpend: null,
 };
 
 function fakeApi(courses: CourseListEntry[], userStats = stats) {
@@ -134,6 +135,47 @@ describe('LearnPage', () => {
     expect(Number(fill.getAttribute('stroke-dashoffset'))).toBeCloseTo(length / 2);
     expect(screen.getByLabelText('4 day streak')).toBeTruthy();
     expect(screen.getByLabelText('1 streak freeze')).toBeTruthy();
+  });
+
+  // FR-164
+  it('asks to spend freezes for a covered gap, and yes keeps the streak', async () => {
+    const api = fakeApi([japanese], { ...stats, freezes: 2, pendingFreezeSpend: { days: 2 } });
+    api.POST.mockResolvedValue({ ...stats, freezes: 0, pendingFreezeSpend: null } as never);
+    show(api);
+    expect(
+      await screen.findByText('Spend 2 streak freezes to keep your 4-day streak?'),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Yes' })).toBeNull());
+    expect(api.POST).toHaveBeenCalledWith('/api/v1/me/streak/freezes', { body: { spend: true } });
+    expect(screen.getByLabelText('0 streak freezes')).toBeTruthy();
+  });
+
+  it('no resets the streak', async () => {
+    const api = fakeApi([japanese], { ...stats, pendingFreezeSpend: { days: 1 } });
+    api.POST.mockResolvedValue({
+      ...stats,
+      currentStreak: 0,
+      pendingFreezeSpend: null,
+    } as never);
+    show(api);
+    expect(
+      await screen.findByText('Spend 1 streak freeze to keep your 4-day streak?'),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'No' }));
+
+    expect(await screen.findByLabelText('0 day streak')).toBeTruthy();
+    expect(api.POST).toHaveBeenCalledWith('/api/v1/me/streak/freezes', { body: { spend: false } });
+    expect(screen.queryByText(/Spend/)).toBeNull();
+  });
+
+  it('asks nothing when no gap is pending', async () => {
+    show(fakeApi([japanese]));
+    await screen.findByRole('progressbar', { name: 'Daily goal' });
+    expect(screen.queryByRole('group', { name: 'Streak freezes' })).toBeNull();
   });
 
   it('closes the ring at the goal and does not overfill it', async () => {

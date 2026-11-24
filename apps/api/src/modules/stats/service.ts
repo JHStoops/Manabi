@@ -2,8 +2,11 @@ import type { Pool } from 'pg';
 import {
   STREAK_DAY_XP,
   advanceStreak,
+  declineFreezes,
+  pendingFreezeSpend,
   learnerSettingsSchema,
   settleMissedDays,
+  spendFreezes,
 } from '@manabi/core';
 import type { StreakState, UserStats } from '@manabi/core';
 import type { Queryable } from '../../db/db';
@@ -41,19 +44,43 @@ export async function recordXpForStreak(db: Queryable, userId: number, localDate
 }
 
 /**
- * FR-164: the nightly job. For each learner with a running streak who missed a day (in their own
- * time zone), spends freezes or resets the streak, so the number is right without opening the app.
- * One transaction per learner; running it again changes nothing. Returns how many were checked.
+ * FR-164: the hourly job. Resets the streak of learners who missed more days (in their own time
+ * zone) than they hold freezes; it never spends freezes. One transaction per learner; running it
+ * again, or after skipped runs, gives the same result. Returns how many were checked.
  */
 export async function settleStreaks(db: Pool): Promise<number> {
   const due = await q.listStreaksToSettle(db);
-  for (const { user_id, yesterday } of due) {
+  for (const { user_id, today } of due) {
     await withTransaction(db, async (client) => {
       const stats = await q.lockStats(client, user_id);
-      await q.saveStats(client, user_id, toRow(settleMissedDays(toState(stats), yesterday)));
+      await q.saveStats(client, user_id, toRow(settleMissedDays(toState(stats), today)));
     });
   }
   return due.length;
+}
+
+/**
+ * FR-164: the learner's answer to the freeze offer. Re-checks the gap under the user_stats lock;
+ * with no offer open (answered already, streak reset, or the day was counted) it is a 409.
+ */
+export async function chooseFreezes(
+  db: Pool,
+  userId: ScopedUserId,
+  spend: boolean,
+): Promise<UserStats> {
+  await withTransaction(db, async (client) => {
+    const stats = toState(await q.lockStats(client, userId));
+    const today = await q.findLocalToday(client, userId);
+    if (!pendingFreezeSpend(stats, today)) {
+      throw new AppError('conflict', 'There are no streak freezes to spend');
+    }
+    await q.saveStats(
+      client,
+      userId,
+      toRow(spend ? spendFreezes(stats, today) : declineFreezes(stats)),
+    );
+  });
+  return getStats(db, userId);
 }
 
 /** FR-161, FR-163, FR-164: the Learn tab's daily goal and streak. */
@@ -66,5 +93,6 @@ export async function getStats(db: Queryable, userId: ScopedUserId): Promise<Use
     currentStreak: row.current_streak,
     longestStreak: row.longest_streak,
     freezes: row.freezes,
+    pendingFreezeSpend: pendingFreezeSpend(toState(row), row.today),
   };
 }

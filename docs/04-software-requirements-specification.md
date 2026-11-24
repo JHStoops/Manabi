@@ -166,7 +166,7 @@ Manabi is a self-contained system: one server deployment used through web browse
 | FR-161 | Track a daily XP goal of 10, 20, 30 or 50 chosen by the learner | PR-60 | M1 |
 | FR-162 | Track XP total and level separately for each course a learner is enrolled in, each level requiring 100 XP more than the previous | PR-60 | M1 |
 | FR-163 | Count a streak day when the learner earns 10 XP or more on a calendar day in their own time zone, summed across all courses | PR-61 | M1 |
-| FR-164 | Grant a streak freeze per 7-day run, hold at most 2, and spend one automatically for each missed day | PR-61 | M1 |
+| FR-164 | Grant a streak freeze per 7-day run, hold at most 2, and let the learner choose to spend one per missed day when returning within the freezes held (never spent automatically) | PR-61 | M1 |
 | FR-165 | Award achievements when their thresholds are met and show a celebration once | PR-64 | M3 |
 | FR-166 | Provide five themes, each in light and dark, selectable per learner | PR-65 | M3 |
 | FR-167 | Let a learner turn off sound effects, audio auto-play and animations, and honor the device's reduced-motion setting | PR-65 | M3 |
