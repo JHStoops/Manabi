@@ -1,14 +1,16 @@
 import type { ComponentType, LazyExoticComponent } from 'react';
 import { lazy } from 'react';
+import type { LanguagePlugin } from '@manabi/core';
 
 /**
  * The one renderer contract (SDD section 9, NFR-53): the exercise payload in, the learner's
- * answer out. A renderer calls onAnswer with its current answer whenever it changes (the player
+ * answer out. `plugin` is the course's language plugin, for input help such as KanaInput. A renderer calls onAnswer with its current answer whenever it changes (the player
  * owns the Check button and grades the last answer reported with gradeResponse from
  * @manabi/core). The answer must satisfy the type's answerSchema in core.
  */
 export interface ExerciseRendererProps<Payload = unknown, Answer = unknown> {
   payload: Payload;
+  plugin: LanguagePlugin;
   onAnswer(answer: Answer): void;
 }
 

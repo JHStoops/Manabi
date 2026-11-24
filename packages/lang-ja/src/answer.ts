@@ -1,4 +1,4 @@
-import type { AnswerContext, CheckResult, Exercise, Tile } from '@manabi/core';
+import type { AnswerContext, AnswerText, CheckResult, Exercise, Tile } from '@manabi/core';
 import { answerCheckPayloadSchema } from '@manabi/core';
 import { romajiToHiragana } from './romaji';
 
@@ -89,13 +89,15 @@ export function normalizeAnswer(text: string, context: AnswerContext): string {
 }
 
 /**
- * Checks a typed answer against the exercise's accept list. Japanese entries also accept each
- * word's kana spelling unless the exercise tests the kanji; romaji input matches either kana script.
- * English entries forgive a one-letter typo as a near-miss. Throws a ZodError on a payload
- * without an accept list.
+ * Checks a typed answer against an accept list. Japanese entries also accept each word's kana
+ * spelling unless the exercise tests the kanji; romaji input matches either kana script. English
+ * entries forgive a one-letter typo as a near-miss.
  */
-export function checkAnswer(given: string, exercise: Exercise): CheckResult {
-  const { accept, testsKanji } = acceptOf(exercise);
+export function checkAnswer(
+  given: string,
+  accept: readonly AnswerText[],
+  testsKanji: boolean,
+): CheckResult {
   const japanese = accept.filter((a) => isJapanese(a.text));
   const english = accept.filter((a) => !isJapanese(a.text)).map((a) => normalizeEnglish(a.text));
 

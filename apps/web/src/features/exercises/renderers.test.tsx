@@ -1,14 +1,19 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { CHOICE_TYPE, gradeResponse, MATCH_PAIRS_TYPE, WORD_BANK_TYPE } from '@manabi/core';
-import type { Exercise, LanguagePlugin } from '@manabi/core';
+import {
+  CHOICE_TYPE,
+  gradeResponse,
+  MATCH_PAIRS_TYPE,
+  TYPED_ANSWER_TYPE,
+  WORD_BANK_TYPE,
+} from '@manabi/core';
+import type { Exercise } from '@manabi/core';
+import { japanese as plugin } from '@manabi/lang-ja';
 import '../../i18n';
 import { ExerciseRendererHarness } from './ExerciseRendererHarness';
 import './renderers';
 
-// FR-042 (EX-01 to EX-03) and IF-03: the registered renderers report answers the shared grader
+// FR-042 (EX-01 to EX-04) and IF-03: the registered renderers report answers the shared grader
 // accepts, by tap and by keyboard, with tap targets of at least 44 px.
-
-const plugin = {} as LanguagePlugin;
 
 beforeEach(() => {
   window.matchMedia = (() => ({
@@ -20,10 +25,10 @@ beforeEach(() => {
 
 function renderExercise(exercise: Exercise) {
   const onAnswer = jest.fn();
-  render(<ExerciseRendererHarness exercise={exercise} onAnswer={onAnswer} />);
-  const grade = () =>
-    gradeResponse(exercise, { attempts: [onAnswer.mock.lastCall?.[0]] }, plugin).result;
-  return { onAnswer, grade };
+  render(<ExerciseRendererHarness exercise={exercise} plugin={plugin} onAnswer={onAnswer} />);
+  const result = () => gradeResponse(exercise, { attempts: [onAnswer.mock.lastCall?.[0]] }, plugin);
+  const grade = () => result().result;
+  return { onAnswer, grade, result };
 }
 
 const choice: Exercise = {
@@ -163,5 +168,37 @@ describe('EX-03 word bank renderer', () => {
     expect(answerText()).toEqual(['私は', 'です']);
     expect(document.activeElement).toBe(bankRow().getByRole('button', { name: '学生' }));
     expect(onAnswer).toHaveBeenLastCalledWith([0, 2]);
+  });
+});
+
+const typed = (answerLanguage: 'target' | 'base', prompt: string, text: string): Exercise => ({
+  type: TYPED_ANSWER_TYPE,
+  payload: { prompt, answerLanguage, accept: [{ text, tiles: [] }] },
+});
+
+describe('EX-04 typed answer renderer', () => {
+  it('converts romaji to kana in a target-language answer', async () => {
+    const { onAnswer, grade } = renderExercise(typed('target', 'Type the reading of 水', 'みず'));
+    const input = (await screen.findByRole('textbox', {
+      name: 'Type the reading of 水',
+    })) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'mizu' } });
+    expect(input.value).toBe('みず');
+    expect(onAnswer).toHaveBeenLastCalledWith('みず');
+    expect(grade()).toBe('correct');
+    expect(getComputedStyle(input).minHeight).toBe('44px');
+  });
+
+  it('keeps an English answer as typed and gives the spelling note on a near-miss', async () => {
+    const { onAnswer, result } = renderExercise(typed('base', 'What does 水 mean?', 'water'));
+    const input = (await screen.findByRole('textbox', {
+      name: 'What does 水 mean?',
+    })) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'watr' } });
+    expect(input.value).toBe('watr');
+    expect(onAnswer).toHaveBeenLastCalledWith('watr');
+    expect(result()).toEqual({ result: 'near-miss', hint: 'Watch your spelling' });
+    fireEvent.change(input, { target: { value: 'The Water' } });
+    expect(result()).toEqual({ result: 'correct' });
   });
 });

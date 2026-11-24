@@ -1,5 +1,7 @@
-import type { AnswerText, CheckResult, Exercise } from '@manabi/core';
+import type { AnswerCheckPayload, AnswerText, CheckResult, Exercise } from '@manabi/core';
+import { gradeResponse, TYPED_ANSWER_TYPE } from '@manabi/core';
 import { checkAnswer, normalizeAnswer } from './answer';
+import { japanese } from './index';
 import { romajiToHiragana } from './romaji';
 
 // NFR-51: table-driven tests for the answer checking rules (Product Spec section 4, FR-143).
@@ -151,11 +153,40 @@ describe('checkAnswer', () => {
     ['mixed: English', 'japan', mixed, CORRECT],
     ['mixed: English typo', 'Japn', mixed, SPELLING],
   ])('%s: %j', (_name, given, ex, expected) => {
-    expect(checkAnswer(given, ex)).toEqual(expected);
+    const { accept, testsKanji } = ex.payload as AnswerCheckPayload;
+    expect(checkAnswer(given, accept, testsKanji ?? false)).toEqual(expected);
+  });
+});
+
+describe('EX-04 typed answer graded through the plugin (FR-042, FR-143)', () => {
+  const typed = (accept: AnswerText[], extra: object = {}): Exercise => ({
+    type: TYPED_ANSWER_TYPE,
+    payload: { prompt: 'p', answerLanguage: 'base', accept, ...extra },
+  });
+  const grade = (ex: Exercise, ...attempts: string[]) => gradeResponse(ex, { attempts }, japanese);
+
+  it('accepts any entry of the accept list, normalized', () => {
+    const ex = typed([en('to eat'), en('to dine')]);
+    expect(grade(ex, ' Dine! ')).toEqual(CORRECT);
+    expect(grade(ex, 'EAT')).toEqual(CORRECT);
+    expect(grade(typed([ja('水', t('水', 'みず'))]), 'ＭＩＺＵ')).toEqual(CORRECT);
   });
 
-  it('throws on a payload without an accept list', () => {
-    expect(() => checkAnswer('water', { type: 'typed_answer', payload: {} })).toThrow();
+  it('gives a near-miss with the spelling hint for a one-letter English typo', () => {
+    expect(grade(typed([en('water')]), 'watre')).toEqual(SPELLING);
+  });
+
+  it('shows the first accept entry when wrong, and honours testsKanji', () => {
+    const kanji = typed([ja('水', t('水', 'みず'))], { testsKanji: true });
+    expect(grade(kanji, 'みず')).toEqual({ result: 'wrong', feedback: '水' });
+    expect(grade(kanji, 'fire', '水')).toEqual(CORRECT);
+  });
+
+  it('rejects a payload without an accept list or answer language', () => {
+    expect(() => grade(typed([]), 'water')).toThrow();
+    expect(() =>
+      grade({ type: TYPED_ANSWER_TYPE, payload: { prompt: 'p', accept: [en('water')] } }, 'x'),
+    ).toThrow();
   });
 });
 

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Exercise } from './exerciseRegistry';
 import { registerExerciseType } from './exerciseRegistry';
 import type { LanguagePlugin } from './languagePlugin';
+import type { AnswerText } from './sentence';
 
 // Test code only, not exported from the package: a dummy exercise type that proves the extension
 // path end to end (core registry, shared grader, web renderer). Importing this file registers it.
@@ -13,15 +14,15 @@ registerExerciseType({
   payloadSchema: z.object({ prompt: z.string(), answer: z.string().min(1) }),
   answerSchema: z.string(),
   grade: (payload, answer, plugin) => {
-    const check = plugin.checkAnswer(answer, { type: TEST_EXERCISE_TYPE, payload });
+    const check = plugin.checkAnswer(answer, [{ text: payload.answer, tiles: [] }], false);
     return check.result === 'wrong' ? { ...check, feedback: payload.answer } : check;
   },
 });
 
 /** A test plugin: exact match is correct, a match ignoring case is a near-miss. */
 export const testPlugin = {
-  checkAnswer: (given: string, exercise: Exercise) => {
-    const { answer } = exercise.payload as { answer: string };
+  checkAnswer: (given: string, accept: readonly AnswerText[]) => {
+    const answer = accept[0]!.text;
     if (given === answer) return { result: 'correct' };
     if (given.toLowerCase() === answer.toLowerCase()) {
       return { result: 'near-miss', hint: 'Watch your capitals' };

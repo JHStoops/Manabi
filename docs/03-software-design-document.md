@@ -62,7 +62,7 @@ Adding a language means writing one plugin package and one content pack; core, A
 | `features` | Flags: `characterStudy`, `strokeDrawing`, `readingAnnotations`, `inputConversion` |
 | `itemSchemas` | Zod schema per item type for the language-specific `data` fields (for example on and kun readings) |
 | `normalizeAnswer(text, context)` | Canonical form for comparison (kana folding, width, case, punctuation) |
-| `checkAnswer(given, exercise)` | Returns correct, near-miss with a hint, or wrong |
+| `checkAnswer(given, accept, testsKanji)` | Checks a typed answer against an exercise's accept list (only what checking needs, never the whole exercise); returns correct, near-miss with a hint, or wrong |
 | `convertInput(text, mode)` | Live input help (romaji to kana) |
 | `tokenize({ text, tiles })` | Returns a sentence's or answer's tappable words and word-bank tiles: the tiles stored with it, unchanged; only as a last resort, when none are stored, a simple fallback (one tile per run of the same script, or spaces for languages that use them) whose base form and reading are just the surface, so it is never used for audio or furigana |
 | `analyzer` | Which Node-only morphological analyzer the plugin's segmentation needs, by adapter id (Japanese: `'kuromoji-ipadic'`), or null for languages split on spaces: the importers' generic whitespace adapter then supplies the tokens (part-of-speech tags empty, base form and reading null) |
@@ -247,7 +247,7 @@ The web app is a client-rendered React SPA organized by feature, with all state 
 | Routing | React Router with lazy-loaded route chunks: learn, review, library, social, profile, admin, authoring. Admin and authoring code never loads for learners |
 | Server state | A handful of context providers (session, course path, review summary, stats, social), each a reducer filled by the generated API client. After a progress write, the response carries the updated summary data and the affected providers dispatch it, so nothing is refetched needlessly |
 | Local state | Component state and reducers. The lesson player is one reducer-driven state machine (teaching, answering, feedback, retry, results) shared by lessons, reviews and drills |
-| Exercise renderers | A registry maps exercise type id to a lazily loaded component with one contract: `payload` in, `onAnswer(response)` out |
+| Exercise renderers | A registry maps exercise type id to a lazily loaded component with one contract: `payload` and the course's language `plugin` in, `onAnswer(response)` out |
 | Styling and theming | Emotion (CSS-in-JS). Each theme is one typed object (colors, lesson-type colors, spacing, radii, type scale) with a light and a dark variant, supplied through Emotion's ThemeProvider; components read it in their style functions and share style objects from a common styles module |
 | Motion and sound | A small animation library for transitions and confetti; short audio sprites for effects; both gated by settings and `prefers-reduced-motion` |
 | Japanese text | One `<AnnotatedText>` component renders the stored tiles with `<ruby>` furigana from their stored readings according to the setting; tapping a tile opens the word card, looked up by the tile's base form |

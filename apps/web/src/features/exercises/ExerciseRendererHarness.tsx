@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Exercise } from '@manabi/core';
+import type { Exercise, LanguagePlugin } from '@manabi/core';
 import { AppThemeProvider } from '../../theme';
 import { getExerciseRenderer } from './registry';
 
@@ -11,9 +11,11 @@ import { getExerciseRenderer } from './registry';
  */
 export function ExerciseRendererHarness({
   exercise,
+  plugin,
   onAnswer,
 }: {
   exercise: Exercise;
+  plugin: LanguagePlugin;
   onAnswer(answer: unknown): void;
 }) {
   const { t } = useTranslation();
@@ -21,7 +23,7 @@ export function ExerciseRendererHarness({
   return (
     <AppThemeProvider>
       <Suspense fallback={<p>{t('app.loading')}</p>}>
-        <Renderer payload={exercise.payload} onAnswer={onAnswer} />
+        <Renderer payload={exercise.payload} plugin={plugin} onAnswer={onAnswer} />
       </Suspense>
     </AppThemeProvider>
   );

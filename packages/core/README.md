@@ -16,7 +16,7 @@ An exercise type is one registry entry, one grader and one renderer (SDD section
    Re-export the file from `src/index.ts`, so importing `@manabi/core` registers it in the web app
    and the API alike.
 2. **Web: renderer.** Write a component taking `ExerciseRendererProps<Payload, Answer>`
-   (`payload` in, `onAnswer(answer)` out, see `apps/web/src/features/exercises/registry.ts`) and
+   (`payload` and the course `plugin` in, `onAnswer(answer)` out, see `apps/web/src/features/exercises/registry.ts`) and
    register it in `apps/web/src/features/exercises/renderers.ts` with
    `registerExerciseRenderer('<id>', () => import('./MyRenderer'))`. Test it with
    `ExerciseRendererHarness`.
