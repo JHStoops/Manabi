@@ -1694,7 +1694,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Published courses, with the caller's enrollments and active course */
+    /** Published courses (and drafts for admins), with the caller's enrollments and active course */
     get: {
       parameters: {
         query?: never;
