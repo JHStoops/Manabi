@@ -12,6 +12,7 @@ import {
   passwordResetRequestSchema,
   sessionListSchema,
   sessionParamsSchema,
+  updateMeRequestSchema,
   userSchema,
   z,
 } from '@manabi/core';
@@ -196,6 +197,26 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => auth.me(requireAuth(request)),
+  );
+
+  // FR-007, NFR-14, NFR-61
+  app.patch(
+    '/me',
+    {
+      schema: {
+        summary: 'Change your display name, time zone or settings',
+        tags: ['auth'],
+        querystring: emptyQuerySchema,
+        body: updateMeRequestSchema,
+        response: {
+          200: userSchema,
+          400: apiErrorSchema,
+          401: apiErrorSchema,
+          403: apiErrorSchema,
+        },
+      },
+    },
+    async (request) => auth.updateMe(app.db, requireAuth(request), request.body),
   );
 
   // FR-004

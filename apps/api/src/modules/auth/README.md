@@ -2,7 +2,7 @@
 
 Accounts, sign-in, sessions and the guard every `/api/v1` route goes through (SDD section 11; FR-001, FR-003 to FR-006, IF-06, NFR-10 to NFR-12, NFR-14).
 
-- `routes.ts`: `POST /auth/login`, `POST /auth/accept-invite`, `POST /auth/logout`, `POST /auth/change-password`, `GET /me`, `GET /me/sessions`, `DELETE /me/sessions/:id`. Zod schemas come from `@manabi/core` (`auth.ts`).
+- `routes.ts`: `POST /auth/login`, `POST /auth/accept-invite`, `POST /auth/logout`, `POST /auth/change-password`, `GET /me`, `PATCH /me` (profile and settings, FR-007), `GET /me/sessions`, `DELETE /me/sessions/:id`. Zod schemas come from `@manabi/core` (`auth.ts`).
 - `service.ts`: business rules and transactions. Also `createInvite` and `setTemporaryPassword`, which the admin console (#23) exposes.
 - `queries.ts`: all SQL. Expiry comparisons use the database clock.
 - `guard.ts`: the `onRequest` hook registered by `buildApp`, cookie helpers, `requireAuth` and `scopedUserId`.

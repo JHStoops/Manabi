@@ -866,6 +866,107 @@ describeWithDb('auth API', () => {
     for (const { h } of hashes) expect(h).toMatch(/^\$argon2id\$v=19\$m=19456,t=2,p=1\$/);
   });
 
+  describe('PATCH /me (FR-007, NFR-14, NFR-61)', () => {
+    function patch(app: FastifyInstance, auth: object, body: unknown) {
+      return app.inject({ method: 'PATCH', url: '/api/v1/me', payload: body, ...auth } as never);
+    }
+
+    // One non-default value per setting in the Product Spec's table.
+    const changed = {
+      avatarColor: '#336699',
+      avatarInitial: 'は',
+      dailyGoal: 50,
+      newItemCap: 0,
+      reviewCap: 1000,
+      drawingExercises: false,
+      preferWordBank: true,
+      theme: 'sumi',
+      colorMode: 'dark',
+      readingAnnotations: 'never',
+      targetTextSize: 'large',
+      soundEffects: false,
+      audioAutoplay: false,
+      reducedMotion: true,
+      appearOnLeaderboard: false,
+      allowNudges: false,
+    } as const;
+
+    it.each(Object.entries(changed))('round-trips %s', async (key, value) => {
+      await user();
+      const app = await start();
+      const auth = withCookie(await cookieFor(app, 'learner'));
+      const response = await patch(app, auth, { settings: { [key]: value } });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().settings[key]).toEqual(value);
+      expect((await me(app, auth)).json().settings[key]).toEqual(value);
+    });
+
+    it('changes display name and time zone, and keeps settings not sent', async () => {
+      await user();
+      const app = await start();
+      const auth = withCookie(await cookieFor(app, 'learner'));
+      await patch(app, auth, { settings: { theme: 'umi', avatarColor: '#112233' } });
+      const response = await patch(app, auth, {
+        displayName: 'Hana',
+        timeZone: 'America/Denver',
+        settings: { avatarColor: null },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        displayName: 'Hana',
+        timeZone: 'America/Denver',
+        settings: { theme: 'umi', avatarColor: null, dailyGoal: 20 },
+      });
+    });
+
+    it.each([
+      ['an unknown time zone', { timeZone: 'Mars/Olympus' }],
+      ['an empty display name', { displayName: '' }],
+      ['a bad setting value', { settings: { dailyGoal: 15 } }],
+      ['an unknown setting', { settings: { furigana: 'never' } }],
+      ['the active course', { settings: { activeCourseId: 1 } }],
+      ['a role', { role: 'admin' }],
+      ['an email (NFR-61: no new personal fields)', { email: 'new@example.com' }],
+      ['another user id', { id: 999 }],
+    ])('rejects %s and changes nothing', async (_name, body) => {
+      const row = await user();
+      const app = await start();
+      const auth = withCookie(await cookieFor(app, 'learner'));
+      await expectError(await patch(app, auth, body), 400, 'validation_failed');
+      const after = await queryOne<{ settings: object; role: string }>(
+        pool(),
+        `SELECT settings, role FROM users WHERE id = $1`,
+        [row.id],
+      );
+      expect(after).toEqual({ settings: {}, role: 'learner' });
+    });
+
+    it("changes only the caller's own row (NFR-14)", async () => {
+      await user();
+      const other = await user({ username: 'other' });
+      const app = await start();
+      const auth = withCookie(await cookieFor(app, 'learner'));
+      expect(
+        (await patch(app, auth, { displayName: 'Mine', settings: { theme: 'sumi' } })).statusCode,
+      ).toBe(200);
+      const untouched = await queryOne<{ display_name: string; settings: object }>(
+        pool(),
+        `SELECT display_name, settings FROM users WHERE id = $1`,
+        [other.id],
+      );
+      expect(untouched).toEqual({ display_name: 'other', settings: {} });
+    });
+
+    it('needs a signed-in session', async () => {
+      const app = await start();
+      await expectError(
+        await patch(app, { headers: { origin: ORIGIN } }, {}),
+        401,
+        'unauthenticated',
+      );
+    });
+  });
+
   it('creates an admin from the CLI who can sign in, with sign-up password rules (FR-009)', async () => {
     const user = await createAdmin(pool(), 'owner', PASSWORD);
     expect(user).toMatchObject({ username: 'owner', role: 'admin', email: null });

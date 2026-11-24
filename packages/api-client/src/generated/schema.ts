@@ -1459,7 +1459,199 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    patch?: never;
+    /** Change your display name, time zone or settings */
+    patch: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            displayName?: string;
+            timeZone?: string;
+            settings?: {
+              avatarColor?: string | null;
+              avatarInitial?: string | null;
+              dailyGoal?: 10 | 20 | 30 | 50;
+              newItemCap?: number;
+              reviewCap?: number;
+              drawingExercises?: boolean;
+              preferWordBank?: boolean;
+              /** @enum {string} */
+              theme?: 'sakura' | 'matcha' | 'umi' | 'yuyake' | 'sumi';
+              /** @enum {string} */
+              colorMode?: 'system' | 'light' | 'dark';
+              /** @enum {string} */
+              readingAnnotations?: 'always' | 'unlearned' | 'never';
+              /** @enum {string} */
+              targetTextSize?: 'normal' | 'large';
+              soundEffects?: boolean;
+              audioAutoplay?: boolean;
+              reducedMotion?: boolean;
+              appearOnLeaderboard?: boolean;
+              allowNudges?: boolean;
+            };
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              id: number;
+              username: string;
+              email: string | null;
+              displayName: string;
+              /** @enum {string} */
+              role: 'admin' | 'learner';
+              mustChangePassword: boolean;
+              timeZone: string;
+              settings: {
+                /** @default null */
+                avatarColor: string | null;
+                /** @default null */
+                avatarInitial: string | null;
+                /** @default 20 */
+                dailyGoal: 10 | 20 | 30 | 50;
+                /** @default 20 */
+                newItemCap: number;
+                /** @default 100 */
+                reviewCap: number;
+                /** @default true */
+                drawingExercises: boolean;
+                /** @default false */
+                preferWordBank: boolean;
+                /**
+                 * @default sakura
+                 * @enum {string}
+                 */
+                theme: 'sakura' | 'matcha' | 'umi' | 'yuyake' | 'sumi';
+                /**
+                 * @default system
+                 * @enum {string}
+                 */
+                colorMode: 'system' | 'light' | 'dark';
+                /**
+                 * @default unlearned
+                 * @enum {string}
+                 */
+                readingAnnotations: 'always' | 'unlearned' | 'never';
+                /**
+                 * @default normal
+                 * @enum {string}
+                 */
+                targetTextSize: 'normal' | 'large';
+                /** @default true */
+                soundEffects: boolean;
+                /** @default true */
+                audioAutoplay: boolean;
+                /** @default false */
+                reducedMotion: boolean;
+                /** @default true */
+                appearOnLeaderboard: boolean;
+                /** @default true */
+                allowNudges: boolean;
+                /** @default null */
+                activeCourseId: number | null;
+              };
+              /** Format: date-time */
+              disabledAt: string | null;
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+      };
+    };
     trace?: never;
   };
   '/api/v1/me/sessions': {

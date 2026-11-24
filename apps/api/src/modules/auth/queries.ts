@@ -68,6 +68,26 @@ export function findUserById(db: Queryable, id: number): Promise<UserWithExpiry 
   ]);
 }
 
+/**
+ * FR-007: updates the caller's profile; null leaves a column as is, and `settings` merges key by key
+ * into the stored object in one statement, so concurrent patches of different keys both land.
+ */
+export function updateProfile(
+  db: Queryable,
+  userId: number,
+  p: { displayName: string | null; timeZone: string | null; settings: object },
+): Promise<UserWithExpiry | null> {
+  return queryOne<UserWithExpiry>(
+    db,
+    `UPDATE users u
+        SET display_name = COALESCE($2, display_name), time_zone = COALESCE($3, time_zone),
+            settings = settings || $4::jsonb, updated_at = now()
+      WHERE id = $1
+      RETURNING ${USER_WITH_EXPIRY}`,
+    [userId, p.displayName, p.timeZone, p.settings],
+  );
+}
+
 /** Replaces the hash only (a rehash with current Argon2 parameters at sign-in). */
 export async function updatePasswordHash(db: Queryable, userId: number, hash: string) {
   await query(db, `UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1`, [

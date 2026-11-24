@@ -4,6 +4,7 @@ import {
   loginRequestSchema,
   newPasswordSchema,
   opaqueTokenSchema,
+  updateMeRequestSchema,
 } from './index';
 import { describeSchema } from './testCases';
 
@@ -83,3 +84,20 @@ it('defaults the client kind to web and the time zone to UTC', () => {
     timeZone: 'UTC',
   });
 });
+
+describeSchema(
+  'updateMeRequestSchema',
+  updateMeRequestSchema,
+  [
+    ['an empty patch', {}],
+    ['profile fields', { displayName: 'Hana', timeZone: 'Europe/Paris' }],
+    ['settings only', { settings: { theme: 'umi', avatarInitial: 'は' } }],
+  ],
+  [
+    ['an empty display name', { displayName: '' }],
+    ['an unknown time zone', { timeZone: 'Mars/Olympus' }],
+    ['a role', { role: 'admin' }],
+    ['an email', { email: 'a@b.c' }],
+    ['a bad setting', { settings: { dailyGoal: 15 } }],
+  ],
+);
