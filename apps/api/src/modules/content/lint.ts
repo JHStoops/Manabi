@@ -1,19 +1,18 @@
-import { ContentPackError, findBlockedWords } from '@manabi/core';
-import type { ContentPack } from '@manabi/core';
+import { ContentPackError, findBlockedWords, UnknownExerciseTypeError } from '@manabi/core';
+import type { ContentPack, LanguagePlugin, PackExercise, Tile } from '@manabi/core';
+import { segmentText } from '@manabi/importers';
 import type { Queryable } from '../../db/db';
 import { languagePlugins } from '../../plugins';
 import { originOf, readPack } from './packFiles';
 import { findCourseByKey, findLintItems } from './queries';
 import type { JsonObject } from './rows';
-import { itemDataProblems, packProblems } from './service';
+import { itemDataProblems, packProblems, storedPayload } from './service';
 import type { PackProblem } from './service';
 
 // FR-228 content lint (SDD section 13), run by `manabi pack lint <dir>`. The file checks always
 // run. The database checks run only when a database is given: stroke data and the items the
 // dataset importers create (KANJIDIC2, JMdict, KanjiVG) exist only there.
-// STUB: the taught-so-far rule (FR-048) and blocked words in exercises wait for authored
-// exercises in pack files (#169). STUB: uploaded clips do not count yet (#170), so every word and
-// sentence needs a reading.
+// STUB: uploaded clips do not count yet (#170), so every word and sentence needs a reading.
 
 const WORD_TYPE = 'word';
 
@@ -25,6 +24,28 @@ interface Link {
   label: string;
   at: object;
   field: string | number;
+}
+
+/** Every object inside `value`, itself included, that `match` accepts. */
+function objectsIn(value: unknown, match: (o: JsonObject) => boolean): JsonObject[] {
+  if (Array.isArray(value)) return value.flatMap((v) => objectsIn(v, match));
+  if (typeof value !== 'object' || value === null) return [];
+  const o = value as JsonObject;
+  return [...(match(o) ? [o] : []), ...Object.values(o).flatMap((v) => objectsIn(v, match))];
+}
+
+/** FR-238: answer text a pack exercise leaves untiled, segmented as import would. */
+async function segmentedAnswers(plugin: LanguagePlugin, e: PackExercise) {
+  try {
+    const { untiled } = storedPayload(e, () => 1);
+    return await Promise.all(
+      untiled.map(async ({ text }) => ({ text, tiles: await segmentText(plugin, text) })),
+    );
+  } catch (err) {
+    // packProblems reports the unknown type.
+    if (err instanceof UnknownExerciseTypeError) return [];
+    throw err;
+  }
 }
 
 function format(p: PackProblem): string {
@@ -57,6 +78,33 @@ export async function lintPack(dir: string, db: Queryable | null): Promise<strin
     // TTS can read; add one if authors put kanji in tile readings.
     if (plugin.readingOf(s.tiles) === '')
       problems.push({ message: `sentence "${s.text}": no reading to generate audio from`, ...at });
+  }
+
+  // FR-048: walking lessons in path order, an exercise (and its answer tiles) uses only items
+  // taught in its lesson or an earlier one. FR-237: no blocked word in an exercise's tiles.
+  const taught = new Set<string>();
+  for (const lesson of pack.units.flatMap((u) => u.lessons)) {
+    lesson.items.forEach((key) => taught.add(key));
+    for (const e of lesson.exercises) {
+      const label = `lesson ${lesson.key} exercise ${e.key}`;
+      for (const ref of objectsIn(e.payload, (o) => typeof o.item === 'string')) {
+        if (!taught.has(ref.item as string)) {
+          const message = `${label}: item ${ref.item as string} is not taught in this lesson or an earlier one`;
+          problems.push({ message, at: ref, field: 'item' });
+        }
+      }
+      const tiles = objectsIn(e.payload, (o) => typeof o.surface === 'string') as Tile[];
+      for (const tile of tiles) {
+        for (const word of findBlockedWords([tile], blocked))
+          problems.push({ message: `${label}: blocked word ${word}`, at: tile, field: 'surface' });
+      }
+      for (const answer of await segmentedAnswers(plugin, e)) {
+        for (const word of findBlockedWords(answer.tiles, blocked)) {
+          const message = `${label}: blocked word ${word} in "${answer.text}"`;
+          problems.push({ message, at: e, field: 'payload' });
+        }
+      }
+    }
   }
 
   const authored = new Map(pack.items.filter((i) => i.data).map((i) => [i.key, i]));

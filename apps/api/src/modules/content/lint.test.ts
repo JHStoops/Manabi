@@ -105,6 +105,37 @@ describe('pack lint file checks', () => {
     ]);
   });
 
+  it('reports an exercise item not taught in its lesson or an earlier one (FR-048)', async () => {
+    const exercise = (key: string) =>
+      `\n    exercises:\n      - key: ${key}\n        type: typed_answer\n        payload:\n          prompt: water\n          answerLanguage: target\n          accept: [{ text: 水, tiles: [{ surface: 水, base: 水, reading: みず, item: ja:word:水:みず }] }]`;
+    const later = await fixture([
+      'units/01-hiragana.yaml',
+      'items: [ja:kana:あ, ja:kana:い]',
+      `items: [ja:kana:あ, ja:kana:い]${exercise('early')}`,
+    ]);
+    expect(await lintPack(later, null)).toEqual([
+      'units/01-hiragana.yaml:17: lesson ja-en:kana:hiragana:a-i exercise early: item ja:word:水:みず is not taught in this lesson or an earlier one',
+    ]);
+    const earlier = await fixture([
+      'units/02-ordering.yaml',
+      'items: [ja:grammar:wo-kudasai]',
+      `items: [ja:grammar:wo-kudasai]${exercise('recall')}`,
+    ]);
+    expect(await lintPack(earlier, null)).toEqual([]);
+  });
+
+  it('reports a blocked word in exercise tiles and in answer text import segments (FR-237)', async () => {
+    const dir = await fixture(
+      ['lists/blocked-words.yaml', '- 殺す', '- 殺す\n- 火'],
+      ['units/02-ordering.yaml', 'accept: [{ text: 水 }]', 'accept: [{ text: 火 }]'],
+    );
+    const label = 'lesson ja-en:n5:ordering:words exercise';
+    expect(await lintPack(dir, null)).toEqual([
+      `units/02-ordering.yaml:17: ${label} build-water: blocked word 火`,
+      `units/02-ordering.yaml:22: ${label} type-water: blocked word 火 in "火"`,
+    ]);
+  });
+
   it('reports a sentence or authored word without a reading', async () => {
     const noTiles = await fixture([
       'sentences.yaml',

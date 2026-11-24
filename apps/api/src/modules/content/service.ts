@@ -138,7 +138,7 @@ function storedTiles(value: unknown, out = new Map<string, Tile[]>()): Map<strin
  * that leave out tiles: the objects with a `text` where the type's schema requires `tiles`, for
  * the caller to fill (DR-12, FR-238).
  */
-function storedPayload(
+export function storedPayload(
   e: PackExercise,
   idOf: (key: string) => number,
 ): { payload: JsonObject; untiled: { text: string; tiles?: Tile[] }[] } {
