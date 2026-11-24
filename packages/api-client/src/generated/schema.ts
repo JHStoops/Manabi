@@ -2445,6 +2445,16 @@ export interface paths {
                   /** Format: date-time */
                   archivedAt: string | null;
                 };
+                example?: {
+                  text: string;
+                  translation: string;
+                  tiles: {
+                    surface: string;
+                    base: string;
+                    reading: string;
+                    itemId?: number | null;
+                  }[];
+                };
               }[];
               exercises: {
                 type: string;

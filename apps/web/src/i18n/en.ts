@@ -220,6 +220,7 @@ export const en = {
     newItem: 'New item {{n}} of {{total}}',
     reading: 'Reading',
     meaning: 'Meaning',
+    example: 'Example',
     unknownLanguage: 'This version of Manabi cannot play this course yet. Reload the page.',
     next: 'Next',
     exercise: 'Exercise',

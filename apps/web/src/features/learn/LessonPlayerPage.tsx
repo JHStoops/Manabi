@@ -9,7 +9,13 @@ import {
   createLanguagePluginRegistry,
   gradeResponse,
 } from '@manabi/core';
-import type { AnswerText, ExerciseResponse, Item, LanguagePlugin, Tile } from '@manabi/core';
+import type {
+  AnswerText,
+  ExerciseResponse,
+  LanguagePlugin,
+  TeachingCard as TeachingCardData,
+  Tile,
+} from '@manabi/core';
 import { japanese } from '@manabi/lang-ja';
 import { SpeakerButton } from '../audio/SpeakerButton';
 import { SpeechProvider, useSpeech } from '../audio/speech';
@@ -132,13 +138,17 @@ const Term = styled.p`
 `;
 
 /** Product Spec section 4: one new item, as the course's plugin shows it (FR-141). */
-function TeachingCard(props: { item: Item; plugin: LanguagePlugin; sectionLevel: string }) {
+function TeachingCard(props: {
+  card: TeachingCardData;
+  plugin: LanguagePlugin;
+  sectionLevel: string;
+}) {
   const { t } = useTranslation();
   const { term, reading, meaning, spoken } = props.plugin.teachingCard(
-    props.item,
+    props.card.item,
     props.sectionLevel,
   );
-  // shortcut: no example sentence yet (#194).
+  const { example } = props.card;
   return (
     <Card>
       {/* The session has no targetLang; the plugin code is the language code (ja). */}
@@ -156,9 +166,17 @@ function TeachingCard(props: { item: Item; plugin: LanguagePlugin; sectionLevel:
             <dd>{meaning}</dd>
           </div>
         )}
+        {example && (
+          <div>
+            <dt>{t('player.example')}</dt>
+            <dd lang={props.plugin.code}>{example.text}</dd>
+            <dd>{example.translation}</dd>
+          </div>
+        )}
       </dl>
       <SpeakerButton reading={spoken} />
       <SpeakerButton reading={spoken} slow />
+      {example && <SpeakerButton reading={props.plugin.readingOf(example.tiles)} />}
     </Card>
   );
 }
@@ -311,7 +329,7 @@ export default function LessonPlayerPage() {
       <>
         <h1>{t('player.newItem', { n: state.card + 1, total: cards.length })}</h1>
         <TeachingCard
-          item={cards[state.card]!.item}
+          card={cards[state.card]!}
           plugin={plugin}
           sectionLevel={session.sectionLevel}
         />

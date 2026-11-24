@@ -107,6 +107,14 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
   const newItems = (await q.listLessonItems(db, lesson.id)).map(toItem);
   const taughtItems = (await q.listTaughtItems(db, lesson.id)).map(toItem);
   const taught = new Set(taughtItems.map((i) => i.id));
+  // FR-056, FR-048: sentences at or below the section level, not challenging, taught items only.
+  const sentences = await q.listSentences(
+    db,
+    lesson.course_id,
+    lesson.level_code,
+    newItems.map((i) => i.id),
+    [...taught],
+  );
   const usesTaughtOnly = (payload: unknown) =>
     payloadItemIds(payload).every((id) => taught.has(id));
 
@@ -130,13 +138,6 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
     Object.hasOwn(plugin.generators, type) ? [plugin.generators[type]!] : [],
   );
   if (generators.length > 0 && exercises.length < LESSON_MIN_EXERCISES) {
-    const sentences = await q.listSentences(
-      db,
-      lesson.course_id,
-      lesson.level_code,
-      newItems.map((i) => i.id),
-      [...taught],
-    );
     const context = { sectionLevel: lesson.level_code, taughtItems, sentences };
     // Step k takes the recipe's types round-robin (each type gets a turn before any gets a second)
     // and the new items in turn; the item shifts by one every lcm(types, items) steps, so a pass
@@ -168,7 +169,11 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
     });
   }
   return lessonSessionStateSchema.parse({
-    teachingCards: newItems.map((item) => ({ item })),
+    // FR-041: the first fitting sentence is a new item's example; none when none fits.
+    teachingCards: newItems.map((item) => {
+      const s = sentences.find((sentence) => sentence.tokens.some((t) => t.itemId === item.id));
+      return { item, example: s && { text: s.text, translation: s.translation, tiles: s.tokens } };
+    }),
     exercises,
   });
 }

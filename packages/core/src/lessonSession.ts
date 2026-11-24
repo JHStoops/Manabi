@@ -3,10 +3,12 @@ import type { LessonType } from './content';
 import { itemSchema, lessonTypeSchema } from './content';
 import { coursePathSchema } from './coursePath';
 import { exerciseResponseSchema } from './exerciseRegistry';
+import { tileSchema } from './sentence';
 import {
   idParamSchema,
   idSchema,
   jsonObjectSchema,
+  nonEmptyTextSchema,
   timestampSchema,
   typeIdSchema,
 } from './primitives';
@@ -35,8 +37,20 @@ export const lessonRecipes: Readonly<Record<LessonType, readonly string[]>> = {
 /** `/lessons/:id/...`. */
 export const lessonIdParamsSchema = z.object({ id: idParamSchema });
 
-/** FR-041: one teaching card per new item of the lesson, in lesson order. */
-export const teachingCardSchema = z.object({ item: itemSchema });
+/**
+ * FR-041, Product Spec section 4: one teaching card per new item of the lesson, in lesson order,
+ * with one example sentence (its tiles for audio) and translation when one fits.
+ */
+export const teachingCardSchema = z.object({
+  item: itemSchema,
+  example: z
+    .object({
+      text: nonEmptyTextSchema,
+      translation: nonEmptyTextSchema,
+      tiles: z.array(tileSchema),
+    })
+    .optional(),
+});
 export type TeachingCard = z.infer<typeof teachingCardSchema>;
 
 /**

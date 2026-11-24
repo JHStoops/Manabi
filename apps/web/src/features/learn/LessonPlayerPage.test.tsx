@@ -130,6 +130,35 @@ describe('LessonPlayerPage', () => {
     expect(screen.getByText('Meaning').nextSibling?.textContent).toBe('water');
   });
 
+  it('shows the example sentence and its translation on a card that has one, and none otherwise (FR-041)', async () => {
+    const water = item(3, 'word', {
+      written: '水',
+      reading: 'みず',
+      senses: [{ partsOfSpeech: ['n'], meanings: ['water'] }],
+    });
+    const example = {
+      text: '水をください。',
+      translation: 'Water, please.',
+      tiles: [{ surface: '水', base: '水', reading: 'みず' }],
+    };
+    show(
+      jest.fn(() =>
+        Promise.resolve({
+          ...session,
+          lessonType: 'vocabulary',
+          sectionLevel: 'N5',
+          teachingCards: [{ item: water, example }, { item: water }],
+        }),
+      ),
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+    expect(screen.getByText('Example')).toBeTruthy();
+    expect(screen.getByText('水をください。').getAttribute('lang')).toBe('ja');
+    expect(screen.getByText('Water, please.')).toBeTruthy();
+    fireEvent.click(button('Next'));
+    expect(screen.queryByText('Example')).toBeNull();
+  });
+
   it('refuses a course whose language plugin this app does not ship', async () => {
     show(jest.fn(() => Promise.resolve({ ...session, plugin: 'xx' })));
     expect((await screen.findByRole('alert')).textContent).toMatch(/cannot play this course/);
