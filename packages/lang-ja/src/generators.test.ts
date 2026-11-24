@@ -1,0 +1,224 @@
+import type { Exercise, GeneratorContext, GeneratorSentence, Item } from '@manabi/core';
+import { getExerciseType, gradeResponse, payloadItemIds } from '@manabi/core';
+import { generators, KANA_SECTION_LEVEL } from './generators';
+import japanese from './index';
+import { courseKana } from './kana';
+import { kanaToRomaji } from './romaji';
+
+// FR-049, FR-048, FR-141: kana and vocabulary exercise generators.
+
+let nextId = 1;
+const item = (type: string, levelCode: string, data: object): Item => ({
+  id: nextId++,
+  courseId: 1,
+  key: `k${nextId}`,
+  type,
+  levelCode,
+  data: data as Item['data'],
+  overrides: {},
+  source: null,
+  datasetVersion: null,
+  archivedAt: null,
+});
+const kanaItem = (character: string) =>
+  item(
+    'kana',
+    'kana',
+    courseKana.find((k) => k.character === character)!,
+  );
+const word = (written: string, reading: string, ...meanings: string[]) =>
+  item('word', 'N5', { written, reading, senses: [{ partsOfSpeech: ['n'], meanings }] });
+
+const kana = [...'あいうえおかきくけこ'].map(kanaItem);
+const words = [
+  word('犬', 'いぬ', 'dog'),
+  word('猫', 'ねこ', 'cat'),
+  word('水', 'みず', 'water'),
+  word('山', 'やま', 'mountain'),
+  word('川', 'かわ', 'river'),
+  word('食べる', 'たべる', 'to eat', 'to dine'),
+];
+const sentence: GeneratorSentence = {
+  id: 9,
+  text: '犬を見る。',
+  tokens: [
+    { surface: '犬', base: '犬', reading: 'いぬ', itemId: words[0]!.id },
+    { surface: 'を', base: 'を', reading: 'を' },
+    { surface: '見る', base: '見る', reading: 'みる' },
+  ],
+  translation: 'I see a dog.',
+  grammar: [],
+};
+const context = (sectionLevel: string, taughtItems: Item[]): GeneratorContext => ({
+  sectionLevel,
+  taughtItems,
+  sentences: [sentence],
+});
+const kanaContext = context(KANA_SECTION_LEVEL, [...kana, ...words]);
+const n5Context = context('N5', [...kana, ...words]);
+
+/** Each generator run many times, since direction and distractors are random. */
+const runs = (type: string, target: Item, ctx: GeneratorContext): Exercise[] =>
+  Array.from({ length: 40 }, () => generators[type]!(target, ctx)).flat();
+
+/** The answer each exercise type grades as correct. */
+const rightAnswer = (e: Exercise): unknown => {
+  const p = e.payload as Record<string, unknown>;
+  if (e.type === 'choice') return p.correct;
+  if (e.type === 'match_pairs') return [0, 1, 2, 3, 4];
+  if (e.type === 'word_bank') return (p.acceptedOrders as number[][])[0];
+  return (p.accept as { text: string }[])[0]!.text;
+};
+
+describe.each([
+  ['choice', kana[5]!, kanaContext],
+  ['choice', words[0]!, kanaContext],
+  ['choice', words[5]!, n5Context],
+  ['match_pairs', kana[0]!, kanaContext],
+  ['match_pairs', words[1]!, n5Context],
+  ['typed_answer', kana[2]!, kanaContext],
+  ['typed_answer', words[5]!, n5Context],
+  ['word_bank', words[0]!, n5Context],
+])('%s generator for %j', (type, target, ctx) => {
+  const exercises = runs(type, target, ctx);
+
+  it('builds payloads valid per the registry schema that grade correct with the right answer', () => {
+    expect(exercises.length).toBeGreaterThan(0);
+    for (const e of exercises) {
+      expect(e.type).toBe(type);
+      getExerciseType(type).payloadSchema.parse(e.payload);
+      expect(gradeResponse(e, { attempts: [rightAnswer(e)] }, japanese)).toEqual({
+        result: 'correct',
+      });
+    }
+  });
+
+  it('uses only taught items and names the target item', () => {
+    const taught = new Set(ctx.taughtItems.map((i) => i.id));
+    for (const e of exercises) {
+      const ids = payloadItemIds(e.payload);
+      expect(ids.every((id) => taught.has(id))).toBe(true);
+      if (type !== 'typed_answer') expect(ids).toContain(target.id);
+    }
+  });
+});
+
+describe('distractors', () => {
+  it('are taught items of the same type and level, with the correct option present', () => {
+    const sameKind = new Set(kana.map((i) => i.id));
+    for (const e of runs('choice', kana[5]!, kanaContext)) {
+      const { options, correct } = e.payload as { options: { itemId: number }[]; correct: number };
+      expect(options[correct]!.itemId).toBe(kana[5]!.id);
+      expect(options.every((o) => sameKind.has(o.itemId))).toBe(true);
+    }
+  });
+
+  it('prefer look-alike kana', () => {
+    const [nu, me] = [kanaItem('ぬ'), kanaItem('め')];
+    const ctx = context(KANA_SECTION_LEVEL, [...kana, nu, me]);
+    for (const e of runs('choice', nu, ctx)) {
+      expect(payloadItemIds(e.payload)).toContain(me.id);
+    }
+  });
+
+  it('ignore level in the kana section only', () => {
+    const mixed = [word('あか', 'あか', 'red'), ...words.slice(0, 3)].map((w, i) => ({
+      ...w,
+      levelCode: ['kana', 'N5', 'N4', 'kana'][i]!,
+    }));
+    const kanaCtx = context(KANA_SECTION_LEVEL, mixed);
+    for (const e of runs('choice', mixed[0]!, kanaCtx)) {
+      expect(payloadItemIds(e.payload).sort()).toEqual(mixed.map((i) => i.id).sort());
+    }
+    expect(generators.choice!(mixed[0]!, context('N5', mixed))).toEqual([]);
+  });
+
+  it('are left out when too few taught items differ, so nothing is generated', () => {
+    const ctx = context('N5', words.slice(0, 3));
+    expect(generators.choice!(words[0]!, ctx)).toEqual([]);
+    expect(generators.match_pairs!(words[0]!, ctx)).toEqual([]);
+  });
+
+  it('prefer the script of the target kana', () => {
+    const katakana = [...'カキクケ'].map(kanaItem);
+    const ctx = context(KANA_SECTION_LEVEL, [...kana, ...katakana]);
+    for (const e of runs('choice', katakana[0]!, ctx)) {
+      expect(payloadItemIds(e.payload).sort()).toEqual(katakana.map((i) => i.id).sort());
+    }
+  });
+
+  it('never share any meaning with the target or each other', () => {
+    // 分かる's second meaning is 知る's first.
+    const know = word('知る', 'しる', 'to know');
+    const understand = word('分かる', 'わかる', 'to understand', 'to know');
+    const ctx = context('N5', [...words, know, understand]);
+    for (const type of ['choice', 'match_pairs']) {
+      for (const target of [know, understand]) {
+        for (const e of runs(type, target, ctx)) {
+          const ids = payloadItemIds(e.payload);
+          expect(ids.includes(know.id) && ids.includes(understand.id)).toBe(false);
+        }
+      }
+      for (const e of runs(type, words[0]!, ctx)) {
+        const ids = payloadItemIds(e.payload);
+        expect(ids.includes(know.id) && ids.includes(understand.id)).toBe(false);
+      }
+    }
+  });
+
+  it('never share a meaning with the target', () => {
+    const eat = word('食う', 'くう', 'to eat');
+    const ctx = context('N5', [...words, eat]);
+    for (const e of runs('choice', words[5]!, ctx)) {
+      expect(payloadItemIds(e.payload)).not.toContain(eat.id);
+    }
+  });
+});
+
+describe('author overrides (DR-09)', () => {
+  it('replace the imported fields they name', () => {
+    const rain = {
+      ...word('あめ', 'あめ', 'candy'),
+      overrides: { senses: [{ meanings: ['rain'] }] },
+    };
+    const ctx = context('N5', [...words, rain]);
+    const accepted = runs('typed_answer', rain, ctx).flatMap((e) =>
+      (e.payload as { accept: { text: string }[] }).accept.map((a) => a.text),
+    );
+    expect(accepted).toContain('rain');
+    expect(accepted).not.toContain('candy');
+  });
+});
+
+describe('romaji (FR-141)', () => {
+  it('is shown for kana-section lessons', () => {
+    const json = JSON.stringify(runs('choice', kana[5]!, kanaContext));
+    expect(json).toContain('"ka"');
+    const prompts = runs('typed_answer', words[0]!, kanaContext).map(
+      (e) => (e.payload as { prompt: string }).prompt,
+    );
+    expect(prompts).toContain('What does 犬 (inu) mean?');
+  });
+
+  it('is absent otherwise', () => {
+    for (const type of ['choice', 'match_pairs', 'typed_answer']) {
+      expect(generators[type]!(kana[5]!, n5Context)).toEqual([]);
+      const json = JSON.stringify(runs(type, words[0]!, n5Context));
+      expect(json).not.toContain('inu');
+    }
+  });
+});
+
+describe('kanaToRomaji', () => {
+  it.each([
+    ['いぬ', 'inu'],
+    ['きって', 'kitte'],
+    ['きょう', 'kyou'],
+    ['しゃしん', 'shashin'],
+    ['じゅう', 'juu'],
+    ['まっちゃ', 'matcha'],
+    ['コーヒー', 'koohii'],
+  ])('%s is %s', (text, romaji) => {
+    expect(kanaToRomaji(text)).toBe(romaji);
+  });
+});

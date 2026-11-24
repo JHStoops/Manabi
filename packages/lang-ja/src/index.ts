@@ -2,6 +2,7 @@ import type { LanguagePlugin } from '@manabi/core';
 import { checkAnswer, normalizeAnswer } from './answer';
 import { convertInput } from './convertInput';
 import { detectGrammar } from './grammar';
+import { generators } from './generators';
 import { itemSchemas } from './itemSchemas';
 import { segment } from './segment';
 import { readingOf, tokenize } from './tokenize';
@@ -52,8 +53,8 @@ export const japanese: LanguagePlugin = {
   convertInput,
   tokenize,
   annotate: () => notImplemented('annotate', 57),
-  // Generators are added by #30 (kana and vocabulary) and #53 (kanji).
-  generators: {},
+  // Kana and vocabulary generators (#30); kanji ones join with #53.
+  generators,
   reviewFacets: () => notImplemented('reviewFacets', 48),
   // FR-136, TTS spike: Kokoro misreads kanji, so it is always sent the kana reading.
   ttsVoice: {

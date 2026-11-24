@@ -1,3 +1,5 @@
+import { courseKana } from './kana';
+
 // FR-143: typed romaji (Hepburn, Nihon/Kunrei-shiki and common IME spellings) to hiragana.
 // Characters that are not romaji pass through unchanged.
 
@@ -70,4 +72,30 @@ export function romajiToHiragana(text: string): string {
     }
   }
   return out;
+}
+
+const KANA_ROMAJI = new Map(courseKana.map((k) => [k.character, k.romaji]));
+
+/**
+ * FR-141: Hepburn romaji for a kana reading, shown only in the kana section (いぬ → inu, きょう →
+ * kyou, まっちゃ → matcha, コーヒー → koohii).
+ * shortcut: small vowel kana (ティ) stay as kana, ん before a vowel gets no apostrophe and a
+ * trailing っ (あっ) stays as kana; upgrade when kana-section words use them.
+ */
+export function kanaToRomaji(kana: string): string {
+  let out = '';
+  for (const ch of kana) {
+    const small = 'ゃゅょャュョ'.indexOf(ch);
+    if (small >= 0 && out.endsWith('i')) {
+      // A contracted sound: ki + ゃ → kya, shi + ゃ → sha.
+      const stem = out.slice(0, -1);
+      out = (/(sh|ch|j)$/.test(stem) ? stem : `${stem}y`) + 'auo'[small % 3]!;
+    } else if (ch === 'ー') {
+      out += out.at(-1) ?? '';
+    } else {
+      out += KANA_ROMAJI.get(ch) ?? ch;
+    }
+  }
+  // A small tsu doubles the next consonant (kitte), written t before ch (matcha).
+  return out.replace(/[っッ]([a-z])/g, (_, c: string) => (c === 'c' ? 't' : c) + c);
 }
