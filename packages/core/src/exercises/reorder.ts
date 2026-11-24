@@ -16,6 +16,22 @@ function isPermutation(order: number[], length: number): boolean {
   );
 }
 
+/**
+ * Whether the accepted orders cover every distinct arrangement of the tiles' surfaces: n! over
+ * the factorial of each repeated surface's count.
+ */
+function acceptsEveryArrangement(tiles: { surface: string }[], acceptedOrders: number[][]) {
+  const factorial = (n: number): number => (n <= 1 ? 1 : n * factorial(n - 1));
+  const counts = new Map<string, number>();
+  for (const { surface } of tiles) counts.set(surface, (counts.get(surface) ?? 0) + 1);
+  let arrangements = factorial(tiles.length);
+  for (const count of counts.values()) arrangements /= factorial(count);
+  const accepted = new Set(
+    acceptedOrders.map((order) => JSON.stringify(order.map((i) => tiles[i]?.surface))),
+  );
+  return accepted.size >= arrangements;
+}
+
 export const reorderPayloadSchema = z
   .object({
     /** What the sentence means. */
@@ -28,6 +44,10 @@ export const reorderPayloadSchema = z
   .strict()
   .refine((p) => p.acceptedOrders.every((order) => isPermutation(order, p.answer.tiles.length)), {
     message: 'Each accepted order lists every answer tile index once',
+    path: ['acceptedOrders'],
+  })
+  .refine((p) => !acceptsEveryArrangement(p.answer.tiles, p.acceptedOrders), {
+    message: 'Some arrangement of the tiles must be wrong, or the exercise starts solved',
     path: ['acceptedOrders'],
   });
 export type ReorderPayload = z.infer<typeof reorderPayloadSchema>;

@@ -16,7 +16,11 @@ export const fillBlankPayloadSchema = answerCheckPayloadSchema
     /** The sentence around the blank; either side may be empty. */
     before: z.string(),
     after: z.string(),
-    /** Options to choose from, in display order; absent when the learner types the blank. */
+    /**
+     * Options to choose from, in display order; absent when the learner types the blank. Choices
+     * are graded by `checkAnswer` like typed text, so unless `testsKanji` is set, a distractor
+     * that is the kana spelling of a kanji answer counts as correct: do not author one.
+     */
     options: z.array(nonEmptyTextSchema).min(2).max(4).optional(),
   })
   .strict()

@@ -228,4 +228,21 @@ describe('EX-06 reorder grader', () => {
     const one = { ...payload, answer: { text: 'x', tiles: [tile('x')] }, acceptedOrders: [[0]] };
     expect(() => grade(REORDER_TYPE, one, [0])).toThrow();
   });
+
+  it('rejects a payload that accepts every arrangement, since it would start solved', () => {
+    const two = { prompt: 'p', answer: { text: 'ab', tiles: [tile('a'), tile('b')] } };
+    expect(() => grade(REORDER_TYPE, { ...two, acceptedOrders: [[0, 1]] }, [0, 1])).not.toThrow();
+    const both = {
+      ...two,
+      acceptedOrders: [
+        [0, 1],
+        [1, 0],
+      ],
+    };
+    expect(() => grade(REORDER_TYPE, both, [0, 1])).toThrow('starts solved');
+    const twins = { prompt: 'p', answer: { text: 'aa', tiles: [tile('a'), tile('a')] } };
+    expect(() => grade(REORDER_TYPE, { ...twins, acceptedOrders: [[0, 1]] }, [0, 1])).toThrow(
+      'starts solved',
+    );
+  });
 });

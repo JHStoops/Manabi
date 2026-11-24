@@ -247,6 +247,7 @@ export const en = {
     },
     reorder: {
       chunks: 'Sentence pieces',
+      chunk: '{{text}}, {{position}} of {{count}}',
       hint: 'Drag the pieces into order, or move a piece with the arrow keys.',
     },
   },

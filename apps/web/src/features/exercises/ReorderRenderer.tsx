@@ -91,7 +91,16 @@ export default function ReorderRenderer({
       ?.closest<HTMLElement>('[data-chunk]');
     const index = Number(over?.dataset.chunk);
     if (!over || !root.current?.contains(over) || index === dragging) return;
-    moveTo(dragging, order.indexOf(index));
+    const to = order.indexOf(index);
+    // Move only once past the target's middle in the direction of travel, so a wider target
+    // still under the pointer after the move does not swap straight back.
+    // shortcut: compares x only, so a drag onto another wrapped line uses horizontal position;
+    // upgrade if long sentences wrap and dragging between lines feels wrong.
+    const rect = over.getBoundingClientRect();
+    const middle = rect.left + rect.width / 2;
+    const forward = to > order.indexOf(dragging);
+    if (forward ? event.clientX <= middle : event.clientX >= middle) return;
+    moveTo(dragging, to);
   };
 
   return (
@@ -103,15 +112,22 @@ export default function ReorderRenderer({
         aria-label={t('exercise.reorder.chunks')}
         aria-describedby={hintId}
       >
-        {order.map((index) => (
+        {order.map((index, position) => (
           <Chunk
             key={index}
             type="button"
             lang={plugin.code}
+            // Read again after a keyboard move, so screen readers hear the new position.
+            aria-label={t('exercise.reorder.chunk', {
+              text: tiles[index]!.surface,
+              position: position + 1,
+              count: order.length,
+            })}
             data-chunk={index}
             data-dragging={dragging === index}
             onKeyDown={(event) => onKeyDown(event, index)}
             onPointerDown={(event) => {
+              if (event.button !== 0) return;
               // Captured, so the moves keep coming to this chunk while it passes over others.
               event.currentTarget.setPointerCapture(event.pointerId);
               setDragging(index);
@@ -119,6 +135,7 @@ export default function ReorderRenderer({
             onPointerMove={onPointerMove}
             onPointerUp={() => setDragging(null)}
             onPointerCancel={() => setDragging(null)}
+            onLostPointerCapture={() => setDragging(null)}
           >
             {tiles[index]!.surface}
           </Chunk>

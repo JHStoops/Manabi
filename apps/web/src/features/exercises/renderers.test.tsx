@@ -266,7 +266,8 @@ describe('EX-06 reorder renderer', () => {
     within(screen.getByRole('group', { name: 'Sentence pieces' }))
       .getAllByRole('button')
       .map((b) => b.textContent);
-  const chunk = (name: string) => screen.getByRole('button', { name });
+  // Each chunk is named with its position, e.g. "私は, 4 of 4".
+  const chunk = (text: string) => screen.getByRole('button', { name: new RegExp(`^${text},`) });
 
   it('starts shuffled and reports the order, which is the answer', async () => {
     const { onAnswer, grade } = renderExercise(reorder);
@@ -290,6 +291,7 @@ describe('EX-06 reorder renderer', () => {
     press('私は', 'ArrowLeft');
     press('私は', 'ArrowLeft');
     expect(document.activeElement).toBe(chunk('私は'));
+    expect(chunk('私は').getAttribute('aria-label')).toBe('私は, 2 of 4');
     expect(chunks()).toEqual(['毎朝', '私は', 'コーヒーを', '飲みます']);
     expect(onAnswer).toHaveBeenLastCalledWith([1, 0, 2, 3]);
     expect(grade()).toBe('correct');
@@ -298,30 +300,71 @@ describe('EX-06 reorder renderer', () => {
     expect(grade()).toBe('correct');
   });
 
-  it('drags a chunk over others into place', async () => {
+  it('drags a chunk past each target middle, never swapping back under a wide target', async () => {
     const { onAnswer, grade } = renderExercise(reorder);
     await screen.findByRole('group', { name: 'Sentence pieces' });
+    // jsdom has no layout or PointerEvent: lay the chunks out in one row with these widths.
+    window.PointerEvent ??= class extends MouseEvent {
+      pointerId: number;
+      constructor(type: string, init: PointerEventInit = {}) {
+        super(type, init);
+        this.pointerId = init.pointerId ?? 0;
+      }
+    } as unknown as typeof PointerEvent;
     Element.prototype.setPointerCapture = jest.fn();
-    let under: Element | null = null;
-    document.elementFromPoint = () => under;
+    const widths: Record<string, number> = { 毎朝: 100, コーヒーを: 200, 飲みます: 200, 私は: 60 };
+    const width = (el: Element) => widths[el.textContent ?? ''] ?? 0;
+    jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      let left = 0;
+      for (let el = this.previousElementSibling; el; el = el.previousElementSibling) {
+        left += width(el);
+      }
+      return { left, width: width(this) } as DOMRect;
+    });
+    document.elementFromPoint = (x: number) =>
+      screen.getAllByRole('button').find((b) => {
+        const { left } = b.getBoundingClientRect();
+        return x >= left && x < left + width(b);
+      }) ?? null;
     const dragged = chunk('私は');
+    const moveTo = (clientX: number, times = 1) => {
+      for (let i = 0; i < times; i++) fireEvent.pointerMove(dragged, { pointerId: 1, clientX });
+    };
 
-    fireEvent.pointerDown(dragged, { pointerId: 1 });
+    // Only the primary button starts a drag.
+    fireEvent.pointerDown(dragged, { pointerId: 1, button: 2 });
+    expect(dragged.getAttribute('data-dragging')).toBe('false');
+    fireEvent.pointerDown(dragged, { pointerId: 1, button: 0 });
     expect(dragged.getAttribute('data-dragging')).toBe('true');
-    under = chunk('飲みます');
-    fireEvent.pointerMove(dragged, { pointerId: 1 });
+
+    // 飲みます spans 300 to 500: nothing moves until the pointer passes its middle.
+    moveTo(450);
+    expect(chunks()).toEqual(['毎朝', 'コーヒーを', '飲みます', '私は']);
+    moveTo(350);
     expect(chunks()).toEqual(['毎朝', 'コーヒーを', '私は', '飲みます']);
-    under = chunk('毎朝');
-    fireEvent.pointerMove(dragged, { pointerId: 1 });
+    // コーヒーを (100 to 300) stays under the pointer over several moves short of its middle.
+    moveTo(250, 3);
+    expect(chunks()).toEqual(['毎朝', 'コーヒーを', '私は', '飲みます']);
+    moveTo(150);
+    expect(chunks()).toEqual(['毎朝', '私は', 'コーヒーを', '飲みます']);
+    // Back over the wide コーヒーを, now 160 to 360: it does not flip back and forth.
+    moveTo(200, 3);
+    expect(chunks()).toEqual(['毎朝', '私は', 'コーヒーを', '飲みます']);
+    moveTo(40);
     fireEvent.pointerUp(dragged, { pointerId: 1 });
     expect(chunks()).toEqual(['私は', '毎朝', 'コーヒーを', '飲みます']);
     expect(dragged.getAttribute('data-dragging')).toBe('false');
     expect(onAnswer).toHaveBeenLastCalledWith([0, 1, 2, 3]);
     expect(grade()).toBe('correct');
 
-    // Moving without a drag in progress changes nothing.
-    under = chunk('飲みます');
-    fireEvent.pointerMove(dragged, { pointerId: 1 });
+    // Moving without a drag in progress changes nothing, and a lost capture ends a drag.
+    moveTo(450);
     expect(chunks()).toEqual(['私は', '毎朝', 'コーヒーを', '飲みます']);
+    fireEvent.pointerDown(dragged, { pointerId: 1, button: 0 });
+    expect(dragged.getAttribute('data-dragging')).toBe('true');
+    fireEvent.lostPointerCapture(dragged, { pointerId: 1 });
+    expect(dragged.getAttribute('data-dragging')).toBe('false');
   });
 });
