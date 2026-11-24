@@ -1,7 +1,7 @@
 import type { ZodTypeAny } from 'zod';
 import type { Course, Item } from './content';
 import type { Exercise } from './exerciseRegistry';
-import type { Sentence, Tile } from './sentence';
+import type { AnswerText, Sentence, Tile } from './sentence';
 
 // NOTE: Several types below are placeholders. They will be replaced by the real
 // domain types (learner state) as the corresponding features land.
@@ -161,8 +161,11 @@ export interface LanguagePlugin {
   itemSchemas: Record<string, ZodTypeAny>;
   /** Normalizes a typed answer before comparison (kana folding, width, case, punctuation). */
   normalizeAnswer(text: string, context: AnswerContext): string;
-  /** Checks a learner's answer: correct, near-miss with a hint, or wrong. */
-  checkAnswer(given: string, exercise: Exercise): CheckResult;
+  /**
+   * Checks a learner's typed answer against an exercise's accept list: correct, near-miss with a
+   * hint, or wrong. `testsKanji`: only the written (kanji) form of an answer is accepted.
+   */
+  checkAnswer(given: string, accept: readonly AnswerText[], testsKanji: boolean): CheckResult;
   /** Converts raw input for the given input mode (e.g. romaji to kana). */
   convertInput(text: string, mode: InputMode): string;
   /**

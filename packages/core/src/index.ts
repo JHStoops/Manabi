@@ -15,6 +15,7 @@ export * from './contentPack';
 export * from './exerciseRegistry';
 export * from './exercises/choice';
 export * from './exercises/match_pairs';
+export * from './exercises/typed_answer';
 export * from './exercises/word_bank';
 export * from './http';
 export * from './languagePlugin';

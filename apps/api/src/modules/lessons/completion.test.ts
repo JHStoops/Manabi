@@ -24,9 +24,9 @@ jest.mock('../../plugins', () => {
   const test: LanguagePlugin = {
     ...japanese,
     code: 'test',
-    checkAnswer: (given, exercise) => {
+    checkAnswer: (given, accept, testsKanji) => {
       if (given === 'boom') throw new Error('plugin bug');
-      return testPlugin.checkAnswer(given, exercise);
+      return testPlugin.checkAnswer(given, accept, testsKanji);
     },
   };
   return { languagePlugins: core.createLanguagePluginRegistry([japanese, test]) };

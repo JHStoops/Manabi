@@ -22,7 +22,9 @@ describe('exercise renderer registry', () => {
   it('loads the renderer lazily and reports an answer the shared grader accepts', async () => {
     expect(load).not.toHaveBeenCalled();
     const onAnswer = jest.fn();
-    render(<ExerciseRendererHarness exercise={testExercise} onAnswer={onAnswer} />);
+    render(
+      <ExerciseRendererHarness exercise={testExercise} plugin={testPlugin} onAnswer={onAnswer} />,
+    );
     expect(screen.getByText('Loading…')).toBeTruthy();
 
     fireEvent.change(await screen.findByLabelText('Type "Water"'), {
