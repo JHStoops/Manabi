@@ -134,15 +134,22 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
       [...taught],
     );
     const context = { sectionLevel: lesson.level_code, taughtItems, sentences };
-    // Rounds over the recipe's types and the new items until full, or a round adds nothing new.
+    // Step k takes the recipe's types round-robin (each type gets a turn before any gets a second)
+    // and the new items in turn; the item shifts by one every lcm(types, items) steps, so a pass
+    // of types × items steps pairs every type with every item. Passes repeat until full, or a pass
+    // adds nothing new.
+    const types = generators.length;
+    const items = newItems.length;
+    const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+    const lcm = (types * items) / gcd(types, items);
     for (let added = true; added && exercises.length < LESSON_MIN_EXERCISES;) {
       added = false;
-      for (const generate of generators) {
-        for (const item of newItems) {
-          for (const e of generate(item, context) as SessionExercise[]) {
-            if (exercises.length >= LESSON_MIN_EXERCISES) break;
-            if (usesTaughtOnly(e.payload) && add(e)) added = true;
-          }
+      for (let k = 0; k < types * items; k++) {
+        const generate = generators[k % types]!;
+        const item = newItems[(k + Math.floor(k / lcm)) % items]!;
+        for (const e of generate(item, context) as SessionExercise[]) {
+          if (exercises.length >= LESSON_MIN_EXERCISES) break;
+          if (usesTaughtOnly(e.payload) && add(e)) added = true;
         }
       }
     }

@@ -362,6 +362,12 @@ describeWithDb('lesson sessions API', () => {
       expect(response.statusCode).toBe(200);
       const { id, exercises } = response.json<LessonSession>();
       expect(exercises.length).toBeGreaterThanOrEqual(10);
+      // #179: the recipe's types are interleaved, so 5 new kana reach every kana type.
+      if (lessonId === kanaLesson!.id) {
+        expect(new Set(exercises.map((e) => e.type))).toEqual(
+          new Set(['choice', 'typed_answer', 'match_pairs']),
+        );
+      }
       // Answer each exercise right, as the player would.
       const answers = exercises.map((e) => {
         const p = e.payload as { correct?: number; accept?: { text: string }[] };
