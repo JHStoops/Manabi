@@ -134,12 +134,13 @@ function TeachingCard(props: { item: Item; plugin: LanguagePlugin; sectionLevel:
   // shortcut: no audio or example sentence yet; the speaker button (#188) and example (#194) go here.
   return (
     <Card>
+      {/* The session has no targetLang; the plugin code is the language code (ja). */}
       <Term lang={props.plugin.code}>{term}</Term>
       <dl>
         {reading && (
           <div>
             <dt>{t('player.reading')}</dt>
-            <dd>{reading}</dd>
+            <dd lang={props.plugin.code}>{reading}</dd>
           </div>
         )}
         {meaning && (

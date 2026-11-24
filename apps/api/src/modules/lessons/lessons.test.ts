@@ -367,7 +367,7 @@ describeWithDb('lesson sessions API', () => {
     for (const lessonId of [kanaLesson!.id, wordLesson!.id]) {
       const response = await start(lessonId, session);
       expect(response.statusCode).toBe(200);
-      const { id, exercises } = response.json<LessonSession>();
+      const { id, exercises, teachingCards } = response.json<LessonSession>();
       expect(exercises.length).toBeGreaterThanOrEqual(10);
       // #179: the recipe's types are interleaved, so 5 new kana reach every kana type.
       if (lessonId === kanaLesson!.id) {
@@ -375,6 +375,9 @@ describeWithDb('lesson sessions API', () => {
           new Set(['choice', 'typed_answer', 'match_pairs']),
         );
       }
+      // #179: every new item is exercised.
+      const used = new Set(exercises.flatMap((e) => payloadItemIds(e.payload)));
+      expect(teachingCards.filter(({ item }) => !used.has(item.id))).toEqual([]);
       // Answer each exercise right, as the player would.
       const answers = exercises.map((e) => {
         const p = e.payload as { correct?: number; accept?: { text: string }[] };
