@@ -28,6 +28,16 @@ export interface GeneratorContext {
 /** An exercise generator: builds exercises of one type for an item (FR-049). */
 export type ExerciseGenerator = (item: Item, context: GeneratorContext) => Exercise[];
 
+/**
+ * Product Spec section 4: what a teaching card shows for an item: the item itself, its reading
+ * and its meaning, each null when the item has none to show.
+ */
+export interface TeachingCardFields {
+  term: string;
+  reading: string | null;
+  meaning: string | null;
+}
+
 /** A review facet is one independently scheduled way of recalling an item (e.g. "reading"). */
 export type ReviewFacet = string;
 
@@ -179,6 +189,8 @@ export interface LanguagePlugin {
    * items into account. Offsets are into the tiles' surfaces joined.
    */
   annotate(tiles: readonly Tile[], learnedItems: Item[]): Annotation[];
+  /** The teaching-card fields of an item in a section at `sectionLevel` (FR-041, FR-141). */
+  teachingCard(item: Item, sectionLevel: string): TeachingCardFields;
   /** Exercise generators keyed by exercise type. */
   generators: Record<string, ExerciseGenerator>;
   /** The review facets scheduled independently for an item type. */

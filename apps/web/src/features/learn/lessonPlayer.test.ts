@@ -9,6 +9,10 @@ const session = (cards: number, exercises: number): LessonSession => ({
   id: 7,
   lessonId: 3,
   expiresAt: '2026-11-24T00:00:00.000Z',
+  lessonTitle: 'Lesson',
+  lessonType: 'vocabulary',
+  sectionLevel: 'N5',
+  plugin: 'ja',
   teachingCards: Array.from({ length: cards }, () => ({ item })),
   exercises: Array.from({ length: exercises }, (_, i) => ({ type: 'test_echo', payload: { i } })),
 });

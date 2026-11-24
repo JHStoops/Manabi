@@ -2267,6 +2267,11 @@ export interface paths {
               lessonId: number;
               /** Format: date-time */
               expiresAt: string;
+              lessonTitle: string;
+              /** @enum {string} */
+              lessonType: 'kana' | 'vocabulary' | 'kanji' | 'grammar' | 'listening' | 'unit_review';
+              sectionLevel: string;
+              plugin: string;
             };
           };
         };

@@ -3,6 +3,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ApiClient } from '@manabi/api-client';
 import type { Item, LessonSession } from '@manabi/core';
 import { TEST_EXERCISE_TYPE } from '@manabi/core/src/testExerciseType';
+import type * as TestType from '@manabi/core/src/testExerciseType';
+import type * as LangJa from '@manabi/lang-ja';
 import '../../i18n';
 import { ApiContext } from '../../state/session';
 import { AppThemeProvider } from '../../theme';
@@ -11,10 +13,13 @@ import LessonPlayerPage from './LessonPlayerPage';
 
 // FR-046, FR-047, NFR-03, IF-03: the lesson player with the dummy test_echo exercise type.
 
-// The player grades with the core test plugin: exact match is correct.
-jest.mock('@manabi/lang-ja', () => ({
-  japanese: jest.requireActual('@manabi/core/src/testExerciseType').testPlugin,
-}));
+// The real ja plugin shows items; answers are graded like the core test plugin: exact match is
+// correct.
+jest.mock('@manabi/lang-ja', () => {
+  const actual = jest.requireActual<typeof LangJa>('@manabi/lang-ja');
+  const { testPlugin } = jest.requireActual<typeof TestType>('@manabi/core/src/testExerciseType');
+  return { japanese: { ...actual.japanese, checkAnswer: testPlugin.checkAnswer } };
+});
 
 registerExerciseRenderer(TEST_EXERCISE_TYPE, () => import('../exercises/TestEchoRenderer'));
 
@@ -26,17 +31,18 @@ beforeEach(() => {
   })) as unknown as typeof window.matchMedia;
 });
 
-const item = {
-  id: 1,
-  key: 'a',
-  type: 'kana',
-  data: { character: 'あ', romaji: 'a' },
-} as unknown as Item;
+const item = (id: number, type: string, data: object) =>
+  ({ id, key: `k${id}`, type, data, overrides: {} }) as unknown as Item;
+const kana = item(1, 'kana', { character: 'あ', script: 'hiragana', romaji: 'a' });
 const session: LessonSession = {
   id: 7,
   lessonId: 3,
   expiresAt: '2026-11-24T00:00:00.000Z',
-  teachingCards: [{ item }],
+  lessonTitle: 'Vowels',
+  lessonType: 'kana',
+  sectionLevel: 'kana',
+  plugin: 'ja',
+  teachingCards: [{ item: kana }],
   exercises: Array.from({ length: 10 }, (_, i) => ({
     type: TEST_EXERCISE_TYPE,
     payload: { prompt: `Type a${i}`, answer: `a${i}` },
@@ -80,6 +86,53 @@ async function startExercises() {
 }
 
 describe('LessonPlayerPage', () => {
+  it('introduces the lesson by title, type and items, then teaches a kana with romaji (FR-141)', async () => {
+    const twoKana = {
+      ...session,
+      teachingCards: [
+        { item: kana },
+        { item: item(2, 'kana', { character: 'い', script: 'hiragana', romaji: 'i' }) },
+      ],
+    };
+    show(jest.fn(() => Promise.resolve(twoKana)));
+    expect(await screen.findByRole('heading', { name: 'Vowels' })).toBeTruthy();
+    expect(screen.getByText('Kana')).toBeTruthy();
+    expect(screen.getByText('This lesson teaches 2 new items.')).toBeTruthy();
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['あ', 'い']);
+
+    fireEvent.click(button('Start'));
+    expect(screen.getByText('あ').getAttribute('lang')).toBe('ja');
+    expect(screen.getByText('Reading').nextSibling?.textContent).toBe('a');
+    expect(screen.queryByText('Meaning')).toBeNull();
+  });
+
+  it('teaches a word with its reading and meaning, without romaji outside the kana section', async () => {
+    const water = item(3, 'word', {
+      written: '水',
+      reading: 'みず',
+      senses: [{ partsOfSpeech: ['n'], meanings: ['water'] }],
+    });
+    show(
+      jest.fn(() =>
+        Promise.resolve({
+          ...session,
+          lessonType: 'vocabulary',
+          sectionLevel: 'N5',
+          teachingCards: [{ item: water }],
+        }),
+      ),
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+    expect(screen.getByText('水')).toBeTruthy();
+    expect(screen.getByText('Reading').nextSibling?.textContent).toBe('みず');
+    expect(screen.getByText('Meaning').nextSibling?.textContent).toBe('water');
+  });
+
+  it('refuses a course whose language plugin this app does not ship', async () => {
+    show(jest.fn(() => Promise.resolve({ ...session, plugin: 'xx' })));
+    expect((await screen.findByRole('alert')).textContent).toMatch(/cannot play this course/);
+  });
+
   it('counts wrong-then-right as correct and re-queues an exercise wrong twice', async () => {
     const api = show();
     await startExercises();

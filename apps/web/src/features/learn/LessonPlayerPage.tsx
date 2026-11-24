@@ -3,8 +3,12 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import styled from '@emotion/styled';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { gradeResponse } from '@manabi/core';
-import type { ExerciseResponse, Item } from '@manabi/core';
+import {
+  UnknownLanguagePluginError,
+  createLanguagePluginRegistry,
+  gradeResponse,
+} from '@manabi/core';
+import type { ExerciseResponse, Item, LanguagePlugin } from '@manabi/core';
 import { japanese } from '@manabi/lang-ja';
 import { useApi } from '../../state/session';
 import { tapTarget } from '../../theme';
@@ -13,9 +17,8 @@ import { getExerciseRenderer } from '../exercises/registry';
 import { LessonResults } from './LessonResults';
 import { initialPlayerState, lessonPlayerReducer } from './lessonPlayer';
 
-// shortcut: grades with the only shipped plugin (ja); look up the course's plugin when a second
-// language plugin lands (the session response would then need to name it).
-const plugin = japanese;
+/** The language plugins the web app ships; a session names its course's plugin (FR-242). */
+const plugins = createLanguagePluginRegistry([japanese]);
 
 // NFR-31: every feedback color comes with an icon (and text).
 const icons = { close: '✕', correct: '✓', tryAgain: '!', wrong: '✗' };
@@ -100,11 +103,14 @@ const Action = styled.button`
 
 const DoneLink = Action.withComponent(Link);
 
-const Card = styled.dl`
+const Card = styled.div`
   padding: ${({ theme }) => theme.spacing(4)};
   border: 2px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.medium};
   background: ${({ theme }) => theme.colors.surface};
+  dl {
+    margin: 0;
+  }
   dt {
     color: ${({ theme }) => theme.colors.textMuted};
     font-size: ${({ theme }) => theme.fontSizes.small};
@@ -115,24 +121,34 @@ const Card = styled.dl`
   }
 `;
 
-// shortcut: lists the item's plain data fields; a designed card per item type (reading, meaning,
-// audio, one example: Product Spec section 4) needs a display member on the language plugin.
-function TeachingCard({ item }: { item: Item }) {
-  const fields = Object.entries(item.data).flatMap(([key, value]) =>
-    typeof value === 'string' || typeof value === 'number'
-      ? [[key, String(value)]]
-      : Array.isArray(value) && value.every((v) => typeof v === 'string')
-        ? [[key, value.join(', ')]]
-        : [],
-  );
+const Term = styled.p`
+  margin: 0 0 ${({ theme }) => theme.spacing(4)};
+  font-size: 4rem;
+  text-align: center;
+`;
+
+/** Product Spec section 4: one new item, as the course's plugin shows it (FR-141). */
+function TeachingCard(props: { item: Item; plugin: LanguagePlugin; sectionLevel: string }) {
+  const { t } = useTranslation();
+  const { term, reading, meaning } = props.plugin.teachingCard(props.item, props.sectionLevel);
+  // shortcut: no audio or example sentence yet; the speaker button (#188) and example (#194) go here.
   return (
     <Card>
-      {fields.map(([key, value]) => (
-        <div key={key}>
-          <dt>{key}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
+      <Term lang={props.plugin.code}>{term}</Term>
+      <dl>
+        {reading && (
+          <div>
+            <dt>{t('player.reading')}</dt>
+            <dd>{reading}</dd>
+          </div>
+        )}
+        {meaning && (
+          <div>
+            <dt>{t('player.meaning')}</dt>
+            <dd>{meaning}</dd>
+          </div>
+        )}
+      </dl>
     </Card>
   );
 }
@@ -153,7 +169,13 @@ export default function LessonPlayerPage() {
     api
       .POST('/api/v1/lessons/{id}/sessions', { params: { path: { id: lessonId } }, body: {} })
       .then(
-        (loaded) => current && dispatch({ type: 'loaded', session: loaded }),
+        (loaded) =>
+          current &&
+          dispatch(
+            plugins.has(loaded.plugin)
+              ? { type: 'loaded', session: loaded }
+              : { type: 'failed', error: new UnknownLanguagePluginError(loaded.plugin) },
+          ),
         (err: unknown) => current && dispatch({ type: 'failed', error: err }),
       );
     return () => {
@@ -181,6 +203,7 @@ export default function LessonPlayerPage() {
     };
   }, [api, phase, error, session, responses]);
 
+  const plugin = session && plugins.get(session.plugin);
   const exerciseIndex = state.queue[0];
   const exercise = exerciseIndex === undefined ? undefined : session?.exercises[exerciseIndex];
   const onAnswer = useCallback((answer: unknown) => dispatch({ type: 'answered', answer }), []);
@@ -193,7 +216,7 @@ export default function LessonPlayerPage() {
 
   function act() {
     if (phase !== 'answering') return dispatch({ type: 'next' });
-    if (state.answer === undefined || !exercise) return;
+    if (state.answer === undefined || !exercise || !plugin) return;
     // NFR-03: graded here with the shared grader, no network round-trip.
     try {
       dispatch({
@@ -235,26 +258,43 @@ export default function LessonPlayerPage() {
   let content;
   let actionLabel = t('player.next');
   if (error && phase !== 'completing' && phase !== 'answering') {
-    content = <p role="alert">{apiErrorMessage(t, error)}</p>;
+    content = (
+      <p role="alert">
+        {error instanceof UnknownLanguagePluginError
+          ? t('player.unknownLanguage')
+          : apiErrorMessage(t, error)}
+      </p>
+    );
   } else if (phase === 'loading') {
     content = <p>{t('app.loading')}</p>;
-  } else if (phase === 'intro') {
+  } else if (phase === 'intro' && session && plugin) {
+    // Product Spec section 4: the lesson's title, type and the items it will teach.
     content = (
       <>
-        <h1>{t('area.lesson')}</h1>
-        <p>{t('player.intro', { count: session!.teachingCards.length })}</p>
+        <h1>{session.lessonTitle}</h1>
+        <p>{t(`learn.lessonType.${session.lessonType}`)}</p>
+        <p>{t('player.intro', { count: session.teachingCards.length })}</p>
+        <ul lang={plugin.code}>
+          {session.teachingCards.map(({ item }) => (
+            <li key={item.id}>{plugin.teachingCard(item, session.sectionLevel).term}</li>
+          ))}
+        </ul>
       </>
     );
     actionLabel = t('player.start');
-  } else if (phase === 'teaching') {
-    const cards = session!.teachingCards;
+  } else if (phase === 'teaching' && session && plugin) {
+    const cards = session.teachingCards;
     content = (
       <>
         <h1>{t('player.newItem', { n: state.card + 1, total: cards.length })}</h1>
-        <TeachingCard item={cards[state.card]!.item} />
+        <TeachingCard
+          item={cards[state.card]!.item}
+          plugin={plugin}
+          sectionLevel={session.sectionLevel}
+        />
       </>
     );
-  } else if (exercise && (phase === 'answering' || phase === 'feedback')) {
+  } else if (exercise && plugin && (phase === 'answering' || phase === 'feedback')) {
     const Renderer = getExerciseRenderer(exercise.type);
     content = (
       <Suspense fallback={<p>{t('app.loading')}</p>}>

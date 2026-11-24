@@ -90,6 +90,10 @@ export async function startSession(
     id: row.id,
     lessonId: row.lesson_id,
     expiresAt: row.expires_at.toISOString(),
+    lessonTitle: lesson.title,
+    lessonType: lesson.type,
+    sectionLevel: lesson.level_code,
+    plugin: lesson.plugin,
     ...lessonSessionStateSchema.parse(row.state),
   };
 }
