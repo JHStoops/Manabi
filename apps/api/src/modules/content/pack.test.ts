@@ -515,7 +515,14 @@ describeWithDb('content packs', () => {
         { level: 'kana', written: '人', reading: 'ひと' },
       ],
     };
-    await expect(importPack(pool(), pack)).rejects.toThrow(ContentPackError);
+    await expect(importPack(pool(), pack)).rejects.toThrow(
+      /item ja:word:水:みず: no imported word/,
+    );
+    const withoutOverride = {
+      ...pack,
+      items: pack.items.filter((i) => i.key !== 'ja:word:水:みず'),
+    };
+    await expect(importPack(pool(), withoutOverride)).rejects.toThrow(/no active item ja:kana:あ/);
 
     await importPack(pool(), pack, true);
     expect(await query(pool(), 'SELECT key FROM units')).toEqual([]);

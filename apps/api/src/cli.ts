@@ -31,7 +31,10 @@ const USAGE = `Usage: manabi pack lint <dir>   (database checks too when DATABAS
        manabi rebuild-xp   (recomputes course XP totals and levels from the XP ledger)`;
 
 /** Picks the command to run, or null for bad arguments. */
-function command([group, name, arg, file]: string[]): ((pool: Pool) => Promise<unknown>) | null {
+function command(args: string[]): ((pool: Pool) => Promise<unknown>) | null {
+  const structureOnly = args.includes('--structure-only');
+  const [group, name, arg, file] = args.filter((a) => a !== '--structure-only');
+  if (structureOnly && !(group === 'pack' && name === 'import')) return null;
   if (group === 'create-admin' && name && !arg) {
     return async (pool) => {
       const user = await createAdmin(pool, name, await readPassword());
@@ -60,9 +63,9 @@ function command([group, name, arg, file]: string[]): ((pool: Pool) => Promise<u
     return (pool) => importLevelLists(pool, { courseKey: arg, ceiling: loadConfig().levelCeiling });
   }
   const dir = resolve(cwd, arg);
-  if (group === 'pack' && name === 'import' && (!file || file === '--structure-only')) {
+  if (group === 'pack' && name === 'import' && !file) {
     return async (pool) => {
-      await importPack(pool, await readPack(dir), file === '--structure-only');
+      await importPack(pool, await readPack(dir), structureOnly);
       return `Imported ${dir}`;
     };
   }
