@@ -10,6 +10,10 @@ export interface ManabiTheme {
     primary: string;
     primaryText: string;
     border: string;
+    /** Answer feedback (FR-046); NFR-31: always shown with an icon and text too. */
+    correct: string;
+    tryAgain: string;
+    wrong: string;
   };
   /** Each lesson type keeps its color in every theme (Product Spec section 10). */
   lessonColors: {
