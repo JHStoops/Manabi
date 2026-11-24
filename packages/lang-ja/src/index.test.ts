@@ -41,8 +41,13 @@ describe('japanese language plugin', () => {
     expect(japanese.checkAnswer).toBe(checkAnswer);
   });
 
-  it('has no generators yet', () => {
-    expect(japanese.generators).toEqual({});
+  it('generates choice, match pairs, word bank and typed answer exercises (FR-049)', () => {
+    expect(Object.keys(japanese.generators).sort()).toEqual([
+      'choice',
+      'match_pairs',
+      'typed_answer',
+      'word_bank',
+    ]);
   });
 
   // Each stubbed member must throw instead of returning a fake result.
