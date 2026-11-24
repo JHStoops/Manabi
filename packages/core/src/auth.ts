@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { emailSchema, timeZoneSchema, userSchema, usernameSchema } from './account';
+import { emailSchema, userSchema, usernameSchema } from './account';
 import { idParamSchema, idSchema, nonEmptyTextSchema, timestampSchema } from './primitives';
 import { dailyGoalSchema, learnerSettingsPatchSchema } from './settings';
 
@@ -52,7 +52,6 @@ export const acceptInviteRequestSchema = z.object({
   /** Used only when the invite has no email address of its own. */
   email: emailSchema.optional(),
   dailyGoal: dailyGoalSchema,
-  timeZone: timeZoneSchema.default('UTC'),
   clientKind: clientKindSchema.default('web'),
 });
 export type AcceptInviteRequest = z.infer<typeof acceptInviteRequestSchema>;

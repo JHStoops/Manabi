@@ -61,13 +61,12 @@ describeSchema(
   acceptInviteRequestSchema,
   [
     ['the required fields', invite],
-    ['an email and time zone', { ...invite, email: 'h@x.jp', timeZone: 'Asia/Tokyo' }],
+    ['an email', { ...invite, email: 'h@x.jp' }],
   ],
   [
     ['a short password', { ...invite, password: 'short' }],
     ['a username with @', { ...invite, username: 'h@x' }],
     ['an unknown daily goal', { ...invite, dailyGoal: 15 }],
-    ['a bad time zone', { ...invite, timeZone: 'Mars/Base' }],
   ],
 );
 
@@ -78,10 +77,10 @@ describeSchema(
   [['a short new password', { currentPassword: 'x', newPassword: 'short' }]],
 );
 
-it('defaults the client kind to web and the time zone to UTC', () => {
-  expect(acceptInviteRequestSchema.parse(invite)).toMatchObject({
+it('defaults the client kind to web and drops a time zone, which comes from the header', () => {
+  expect(acceptInviteRequestSchema.parse({ ...invite, timeZone: 'Asia/Tokyo' })).toEqual({
+    ...invite,
     clientKind: 'web',
-    timeZone: 'UTC',
   });
 });
 

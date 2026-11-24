@@ -88,6 +88,24 @@ export function updateProfile(
   );
 }
 
+/** FR-163: whether Postgres can use this zone name in AT TIME ZONE (offsets are not names). */
+export async function isKnownTimeZone(db: Queryable, zone: string): Promise<boolean> {
+  const row = await queryOne<{ known: boolean }>(
+    db,
+    `SELECT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = $1) AS known`,
+    [zone],
+  );
+  return row!.known;
+}
+
+/** FR-163: the learner's last-seen device zone. */
+export async function setTimeZone(db: Queryable, userId: number, zone: string) {
+  await query(db, `UPDATE users SET time_zone = $2, updated_at = now() WHERE id = $1`, [
+    userId,
+    zone,
+  ]);
+}
+
 /** Replaces the hash only (a rehash with current Argon2 parameters at sign-in). */
 export async function updatePasswordHash(db: Queryable, userId: number, hash: string) {
   await query(db, `UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1`, [

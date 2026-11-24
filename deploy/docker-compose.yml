@@ -61,7 +61,10 @@ services:
     command: ['node', 'dist/worker.js']
 
   db:
-    image: postgres:17
+    # postgres:17 plus tzdata-legacy (db/Dockerfile); built here, never pulled.
+    build: ./db
+    image: manabi-db:17
+    pull_policy: build
     restart: unless-stopped
     environment:
       POSTGRES_USER: manabi

@@ -1,11 +1,11 @@
 import type { FastifyReply, FastifyRequest, onRequestAsyncHookHandler } from 'fastify';
-import { opaqueTokenSchema } from '@manabi/core';
+import { opaqueTokenSchema, TIME_ZONE_HEADER } from '@manabi/core';
 import type { Role } from '@manabi/core';
 import type { Config } from '../../config';
 import { AppError } from '../../errors';
 import { API_PREFIX } from '../../routeSchemas';
 import type { AuthContext, IssuedSession, ScopedUserId } from './service';
-import { authenticate, SESSION_TTL_DAYS } from './service';
+import { authenticate, followDeviceTimeZone, SESSION_TTL_DAYS } from './service';
 
 /**
  * HTTP side of authentication (SDD section 11, IF-06): reading the session token from the
@@ -127,6 +127,8 @@ export function authGuard(config: Config): onRequestAsyncHookHandler {
       throw new AppError('unauthenticated', 'Sign in to continue');
     }
     request.auth = found.context;
+    const zone = request.headers[TIME_ZONE_HEADER.toLowerCase()];
+    await followDeviceTimeZone(request.server.db, found.context, zone);
     // FR-003: the cookie's lifetime slides with the session's.
     if (found.renewedUntil && source?.via === 'cookie') {
       setSessionCookie(request, reply, source.token);

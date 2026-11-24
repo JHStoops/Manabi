@@ -57,7 +57,6 @@ export default function AcceptInvitePage() {
                 displayName: displayName.trim(),
                 password,
                 dailyGoal,
-                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 clientKind: 'web',
               },
             });

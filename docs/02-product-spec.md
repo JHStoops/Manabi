@@ -241,7 +241,7 @@ A booster multiplies every XP award for a short time and starts the moment it is
 
 - Daily goal: the learner picks 10, 20, 30 or 50 XP (20 until the learner picks one); a ring on the Learn tab fills as XP is earned.
 - Level: kept separately for each course and rises with the XP earned in that course; each level needs 100 XP more than the last (level 2 at 100, level 3 at 300, level 4 at 600).
-- Streak: counts consecutive days on which the learner earned at least 10 XP, using the learner's own time zone.
+- Streak: counts consecutive days on which the learner earned at least 10 XP, using the learner's own time zone. The time zone is not a setting: it follows the device the learner last used.
 - Streak freeze: covers one missed day, but only if the learner chooses to. A learner holds at most 2 and earns one for every 7-day run. On returning after missing as many days as freezes held or fewer, the Learn tab asks whether to spend that many freezes to keep the streak; saying no, or earning XP before answering, resets the streak (freezes are kept). Missing more days than freezes held resets the streak without asking.
 - Milestone streaks (7, 30, 100, 365 days) get a full-screen celebration.
 
@@ -305,7 +305,7 @@ Sign-in is by username or email and password, and a device stays signed in for 3
 
 | Group | Settings |
 | --- | --- |
-| Profile | Display name, avatar color and initial, time zone, password |
+| Profile | Display name, avatar color and initial, password |
 | Study | Daily goal, new-item cap, review cap, drawing exercises on or off, prefer word bank on phones |
 | Display | Theme, light, dark or follow the device (default), furigana mode, Japanese text size |
 | Sound and motion | Sound effects, audio auto-play, reduced motion |

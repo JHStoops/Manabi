@@ -163,7 +163,7 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 | `answer_reports` | id, user_id, exercise_id (nullable), item_id (nullable), exercise_type, exercise_payload (JSONB), given_answer, status, resolved_by, resolved_at | Author inbox; keeps a copy of the exercise, since session-generated ones are not stored; points at the stored exercise and/or the item; user_id is nulled when the reporter's account is deleted |
 | `import_runs` | id, importer, started_at, finished_at, status, summary (JSONB) |  |
 
-All timestamps are stored in UTC. `local_date` on `xp_events` is the learner's calendar date at the time, computed from `users.time_zone`, so streaks do not shift if the learner later changes zone.
+All timestamps are stored in UTC. `local_date` on `xp_events` is the learner's calendar date at the time, computed from `users.time_zone`, so streaks do not shift if the learner later changes zone. `users.time_zone` is the learner's last-seen device zone (FR-163): the API client sends the device's IANA zone in an `X-Time-Zone` header on every call, and the auth guard stores it when it differs and appears in `pg_timezone_names`; unknown names and offsets such as `+05:00` are ignored. Accept-invite takes the new account's zone from the same header (UTC when unknown). The database image adds `tzdata-legacy`, so legacy names browsers still report (Asia/Calcutta, Europe/Kiev) are known.
 
 ## 6. Exercise engine
 

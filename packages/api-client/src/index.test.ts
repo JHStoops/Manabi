@@ -182,6 +182,18 @@ describe('credentials', () => {
 });
 
 // FR-052
+// FR-163
+describe('device time zone', () => {
+  it('is sent as the X-Time-Zone header on every call', async () => {
+    const { fetch, requests } = mockFetch(() => json(200, user));
+    const api = createApiClient({ baseUrl: BASE_URL, fetch });
+    await api.GET('/api/v1/me');
+    expect(requests[0]?.headers.get('X-Time-Zone')).toBe(
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+    );
+  });
+});
+
 describe('idempotency keys', () => {
   const body = { identifier: 'hana', password: 'x' };
 

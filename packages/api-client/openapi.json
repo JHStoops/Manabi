@@ -503,7 +503,6 @@
                       { "type": "number", "enum": [50] }
                     ]
                   },
-                  "timeZone": { "default": "UTC", "type": "string" },
                   "clientKind": { "default": "web", "type": "string", "enum": ["web", "mobile"] }
                 },
                 "required": ["token", "username", "displayName", "password", "dailyGoal"]
