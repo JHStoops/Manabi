@@ -6,7 +6,9 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': 'http://localhost:3000',
+      // Keep the browser's Host (the string shorthand rewrites it), so the API's non-production
+      // origin check accepts Origin http://localhost:5173 (#184).
+      '/api': { target: 'http://localhost:3000', changeOrigin: false },
     },
   },
 });
