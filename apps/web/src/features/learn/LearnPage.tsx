@@ -49,6 +49,33 @@ const Header = styled.header`
   }
 `;
 
+const Stats = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing(4)};
+  margin: 0 0 ${({ theme }) => theme.spacing(4)};
+  flex-wrap: wrap;
+  button {
+    ${({ theme }) => tapTarget(theme)};
+    margin-right: ${({ theme }) => theme.spacing(2)};
+    padding: 0 ${({ theme }) => theme.spacing(3)};
+    border-radius: ${({ theme }) => theme.radii.small};
+    border: 1px solid ${({ theme }) => theme.colors.border};
+    background: ${({ theme }) => theme.colors.surface};
+    color: ${({ theme }) => theme.colors.text};
+    font-size: ${({ theme }) => theme.fontSizes.body};
+  }
+  svg {
+    display: block;
+  }
+  .ring-track {
+    stroke: ${({ theme }) => theme.colors.border};
+  }
+  .ring-fill {
+    stroke: ${({ theme }) => theme.colors.primary};
+  }
+`;
+
 const Path = styled.div`
   max-width: 560px;
   margin: 0 auto;
@@ -175,6 +202,84 @@ function CourseHeader() {
   );
 }
 
+const icons = { streak: '🔥', freeze: '🧊' };
+const RING_RADIUS = 24;
+const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
+
+/** FR-161, FR-163, FR-164: the daily goal ring, the streak flame and the freezes held. */
+function DailyStats() {
+  const { t } = useTranslation();
+  const api = useApi();
+  const dispatch = useCoursePathDispatch();
+  const { stats } = useCoursePath();
+  if (!stats) return null;
+
+  // FR-164: the learner chooses whether to spend freezes; no resets the streak.
+  async function choose(spend: boolean) {
+    try {
+      dispatch({
+        type: 'statsLoaded',
+        stats: await api.POST('/api/v1/me/streak/freezes', { body: { spend } }),
+      });
+    } catch (error) {
+      dispatch({ type: 'failed', error });
+    }
+  }
+  const done = Math.min(stats.todayXp, stats.dailyGoal);
+  return (
+    <Stats>
+      {/* NFR-31: the numbers are text, not only the ring's fill. */}
+      <div
+        role="progressbar"
+        aria-label={t('learn.dailyGoal')}
+        aria-valuemin={0}
+        aria-valuemax={stats.dailyGoal}
+        aria-valuenow={done}
+        aria-valuetext={t('learn.dailyGoalValue', { xp: stats.todayXp, goal: stats.dailyGoal })}
+      >
+        <svg width="56" height="56" viewBox="0 0 56 56" aria-hidden="true">
+          <g fill="none" strokeWidth="6" transform="rotate(-90 28 28)">
+            <circle className="ring-track" cx="28" cy="28" r={RING_RADIUS} />
+            <circle
+              className="ring-fill"
+              data-testid="goal-ring-fill"
+              cx="28"
+              cy="28"
+              r={RING_RADIUS}
+              strokeLinecap="round"
+              strokeDasharray={RING_LENGTH}
+              strokeDashoffset={RING_LENGTH * (1 - done / stats.dailyGoal)}
+            />
+          </g>
+        </svg>
+      </div>
+      <span>{t('learn.dailyGoalValue', { xp: stats.todayXp, goal: stats.dailyGoal })}</span>
+      <span aria-label={t('learn.streak', { count: stats.currentStreak })}>
+        <span aria-hidden="true">{`${icons.streak} ${stats.currentStreak}`}</span>
+      </span>
+      <span aria-label={t('learn.freezes', { count: stats.freezes })}>
+        <span aria-hidden="true">{`${icons.freeze} ${stats.freezes}`}</span>
+      </span>
+      {stats.pendingFreezeSpend && (
+        <div role="group" aria-label={t('learn.freezeOffer')}>
+          <p>
+            {t('learn.freezePrompt', {
+              count: stats.pendingFreezeSpend.days,
+              streak: stats.currentStreak,
+            })}
+          </p>
+          <button type="button" onClick={() => void choose(true)}>
+            {t('learn.yes')}
+          </button>
+          <button type="button" onClick={() => void choose(false)}>
+            {t('learn.no')}
+          </button>
+        </div>
+      )}
+    </Stats>
+  );
+}
+
 function PathScreen() {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -218,6 +323,7 @@ function PathScreen() {
   return (
     <>
       <CourseHeader />
+      <DailyStats />
       {body}
     </>
   );

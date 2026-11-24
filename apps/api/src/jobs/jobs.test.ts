@@ -9,6 +9,7 @@ import { BOSS_SCHEMA } from './boss';
 import { defineJob } from './define';
 import { allJobs } from './index';
 import { purgeExpiredJob } from './purgeExpired';
+import { settleStreaksJob } from './settleStreaks';
 import { createJobQueue } from './queue';
 import type { JobQueue } from './queue';
 import { startWorker } from './worker';
@@ -191,10 +192,11 @@ describeWithDb('jobs with a database', () => {
 
     const schedules = await query<{ name: string; cron: string; timezone: string }>(
       pool(),
-      `SELECT name, cron, timezone FROM ${BOSS_SCHEMA}.schedule`,
+      `SELECT name, cron, timezone FROM ${BOSS_SCHEMA}.schedule ORDER BY name`,
     );
     expect(schedules).toEqual([
       { name: 'purge-expired', cron: purgeExpiredJob.cron, timezone: 'Asia/Tokyo' },
+      { name: 'settle-streaks', cron: settleStreaksJob.cron, timezone: 'Asia/Tokyo' },
     ]);
 
     queue = createJobQueue({

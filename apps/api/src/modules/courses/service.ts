@@ -12,6 +12,7 @@ import { withTransaction } from '../../db/db';
 import { AppError } from '../../errors';
 import type { CourseRow } from '../content/rows';
 import type { AuthContext, ScopedUserId } from '../auth/service';
+import { recordXpForStreak } from '../stats/service';
 import * as q from './queries';
 
 // Courses, enrollment and the learning path (FR-020 to FR-023). Every query is scoped to the
@@ -154,6 +155,8 @@ export async function awardXp(
     earnedAt: at,
     localDate: enrollment.local_date,
   });
+  // FR-163, FR-164: the day may now count toward the learner's streak.
+  await recordXpForStreak(db, userId, enrollment.local_date);
   const totalXp = enrollment.total_xp + amount;
   const level = levelForXp(totalXp);
   await q.setEnrollmentXp(db, userId, courseId, totalXp, level);
