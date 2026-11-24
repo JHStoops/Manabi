@@ -228,13 +228,13 @@ function CourseHeader() {
           <ul>
             {available.map((c) => (
               <li key={c.id}>
-                  <button type="button" onClick={() => void switchTo(c.id)}>
+                <button type="button" onClick={() => void switchTo(c.id)}>
                   {t('learn.enroll', { title: c.title })}
                 </button>
               </li>
             ))}
           </ul>
-        </section>
+        </Available>
       )}
     </>
   );
