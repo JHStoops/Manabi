@@ -5,6 +5,7 @@ import { testApp } from '../../test/app';
 import type { TestApp } from '../../test/app';
 import { describeWithDb, useTestDatabase } from '../../test/db';
 import { seedUser } from '../../test/fixtures';
+import { settleStreaks } from '../stats/service';
 import { scopedUserId, SESSION_COOKIE } from './guard';
 import { hashPassword } from './passwords';
 import type { NewUser } from './queries';
@@ -83,7 +84,12 @@ describeWithDb('auth API', () => {
       return createInvite(pool(), { email, role, createdBy: admin.id });
     }
 
-    function accept(app: FastifyInstance, body: Record<string, unknown>, ip = '198.51.100.1') {
+    function accept(
+      app: FastifyInstance,
+      body: Record<string, unknown>,
+      ip = '198.51.100.1',
+      timeZone = 'Asia/Tokyo',
+    ) {
       return app.inject({
         method: 'POST',
         url: '/api/v1/auth/accept-invite',
@@ -92,10 +98,9 @@ describeWithDb('auth API', () => {
           displayName: 'Hana',
           password: PASSWORD,
           dailyGoal: 30,
-          timeZone: 'Asia/Tokyo',
           ...body,
         },
-        headers: { 'x-forwarded-for': ip },
+        headers: { 'x-forwarded-for': ip, 'x-time-zone': timeZone },
       });
     }
 
@@ -864,6 +869,95 @@ describeWithDb('auth API', () => {
     for (const secret of secrets) expect(text).not.toContain(secret);
     const hashes = await query<{ h: string }>(pool(), `SELECT password_hash AS h FROM users`);
     for (const { h } of hashes) expect(h).toMatch(/^\$argon2id\$v=19\$m=19456,t=2,p=1\$/);
+  });
+
+  describe('device time zone header (FR-163)', () => {
+    const zoneOf = async (id: number) =>
+      (await queryOne<{ z: string }>(pool(), `SELECT time_zone AS z FROM users WHERE id = $1`, [
+        id,
+      ]))!.z;
+
+    it('stores a zone Postgres knows and ignores offsets and junk', async () => {
+      const row = await user();
+      const app = await start();
+      const cookie = await cookieFor(app, 'learner');
+      const send = (zone: string) =>
+        me(app, withCookie(cookie, { 'x-time-zone': zone })).then((r) => r.json().timeZone);
+
+      expect(await send('Europe/Paris')).toBe('Europe/Paris');
+      expect(await zoneOf(row.id)).toBe('Europe/Paris');
+      for (const ignored of ['+05:00', 'Mars/Olympus', "'; DROP TABLE users; --", 'x'.repeat(65)]) {
+        expect(await send(ignored)).toBe('Europe/Paris');
+      }
+      expect(await zoneOf(row.id)).toBe('Europe/Paris');
+      // No header leaves it too.
+      expect((await me(app, withCookie(cookie))).json().timeZone).toBe('Europe/Paris');
+      // The streak job and stats still work after an ignored zone.
+      await expect(settleStreaks(pool())).resolves.toEqual(expect.any(Number));
+      const stats = await app.inject({
+        method: 'GET',
+        url: '/api/v1/me/stats',
+        ...withCookie(cookie, { 'x-time-zone': 'Mars/Olympus' }),
+      });
+      expect(stats.statusCode).toBe(200);
+    });
+
+    it('takes legacy names only when the database knows them (deploy image has tzdata-legacy)', async () => {
+      const row = await user();
+      const app = await start();
+      const cookie = await cookieFor(app, 'learner');
+      const known = await queryOne<{ k: boolean }>(
+        pool(),
+        `SELECT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = 'Asia/Calcutta') AS k`,
+      );
+      await me(app, withCookie(cookie, { 'x-time-zone': 'Asia/Calcutta' }));
+      expect(await zoneOf(row.id)).toBe(known!.k ? 'Asia/Calcutta' : 'Asia/Tokyo');
+      // Either way the zone in use works with AT TIME ZONE.
+      const stats = await app.inject({
+        method: 'GET',
+        url: '/api/v1/me/stats',
+        ...withCookie(cookie, { 'x-time-zone': 'Asia/Calcutta' }),
+      });
+      expect(stats.statusCode).toBe(200);
+    });
+
+    it('changes nothing for an unauthenticated request', async () => {
+      const row = await user();
+      const app = await start();
+      const response = await me(app, {
+        headers: { origin: ORIGIN, 'x-time-zone': 'Europe/Paris' },
+      });
+      expect(response.statusCode).toBe(401);
+      expect(await zoneOf(row.id)).toBe('Asia/Tokyo');
+    });
+
+    it('sets a new account zone from the header, or UTC when unknown', async () => {
+      const admin = await user({ username: 'admin', role: 'admin' });
+      const app = await start();
+      const first = await createInvite(pool(), {
+        email: null,
+        role: 'learner',
+        createdBy: admin.id,
+      });
+      const a = await accept(app, first.token, 'Europe/Paris');
+      expect(a.json().user.timeZone).toBe('Europe/Paris');
+      const second = await createInvite(pool(), {
+        email: null,
+        role: 'learner',
+        createdBy: admin.id,
+      });
+      const b = await accept(app, second.token, '+05:00', 'hana2');
+      expect(b.json().user.timeZone).toBe('UTC');
+    });
+
+    function accept(app: FastifyInstance, token: string, zone: string, username = 'hana') {
+      return app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/accept-invite',
+        payload: { token, username, displayName: 'Hana', password: PASSWORD, dailyGoal: 20 },
+        headers: { 'x-time-zone': zone },
+      });
+    }
   });
 
   describe('PATCH /me (FR-007, NFR-14, NFR-61)', () => {

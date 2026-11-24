@@ -24,6 +24,12 @@ export const idempotencyHeadersSchema = z.looseObject({
     .optional(),
 });
 
+/**
+ * FR-163: the device's IANA time zone, sent by the API client on every call. The server keeps the
+ * learner's last-seen zone from it and ignores names its database does not know.
+ */
+export const TIME_ZONE_HEADER = 'X-Time-Zone';
+
 /** FR-203: status of one dependency in the health report. */
 export const healthStatusSchema = z.enum(['ok', 'unavailable']);
 export type HealthStatus = z.infer<typeof healthStatusSchema>;

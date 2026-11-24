@@ -379,8 +379,6 @@ export interface paths {
             password: string;
             email?: string;
             dailyGoal: 10 | 20 | 30 | 50;
-            /** @default UTC */
-            timeZone?: string;
             /**
              * @default web
              * @enum {string}

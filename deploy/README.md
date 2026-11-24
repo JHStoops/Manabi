@@ -6,7 +6,7 @@ Manabi runs with Docker Compose inside a Proxmox LXC, behind your existing Nginx
 
 - `app`: API, serves the built web app, runs database migrations on start.
 - `worker`: same image, runs background and scheduled jobs with pg-boss, whose queue lives in the `pgboss` schema of the same database (pg-boss creates and upgrades it; our migrations never touch it). Its first job purges expired sessions, invites, reset links and lesson sessions nightly at 03:30 in `TZ`. The app keeps working while the worker is stopped; jobs sent meanwhile wait in the queue.
-- `db`: official `postgres` image with a named volume.
+- `db`: `postgres:17` plus `tzdata-legacy` (`db/Dockerfile`, built by `docker compose up` the first time) with a named volume.
 - `tts`: Kokoro-FastAPI CPU, pinned by version and digest, on the internal network only (no published port). Holds about 1.35 GB of RAM; set `OMP_NUM_THREADS` to the LXC's vCPU count. Study keeps working while it is stopped (`docker compose stop tts`).
 - `backup`: nightly `pg_dump` into `DUMPS_DIR`, keeping 14 days.
 
@@ -19,7 +19,7 @@ Manabi runs with Docker Compose inside a Proxmox LXC, behind your existing Nginx
 5. Create the first admin: `docker compose exec app node dist/cli.js create-admin <username>`. It asks for the password twice (or reads one line from stdin) and applies the sign-up rules: at least 10 characters, not a common password.
 6. Only `APP_PORT` is published. Check from another machine with `nmap -p- <LXC IP>`: only `APP_PORT` (and SSH, if enabled) should be open.
 
-To upgrade, set `MANABI_VERSION` to the new tag and run `docker compose up -d`; set the old tag to roll back (migrations are forward-only, so restore a dump from before the upgrade if a rollback needs the old schema).
+To upgrade, set `MANABI_VERSION` to the new tag and run `docker compose build db && docker compose up -d` (the `db` image is `postgres:17` plus `tzdata-legacy`, built from `db/Dockerfile`; the existing `pgdata` volume is reused); set the old tag to roll back (migrations are forward-only, so restore a dump from before the upgrade if a rollback needs the old schema).
 
 ## Datasets
 

@@ -53,7 +53,7 @@ Manabi is a self-contained system: one server deployment used through web browse
 | FR-004 | Let a user sign out, list their active sessions and revoke any of them | PR-71 | M0 |
 | FR-005 | Support password reset by emailed link, and let an admin set a temporary password; signing in with a temporary password shall require choosing a new password before anything else | PR-71 | M0 |
 | FR-006 | Enforce two account types (learner and admin) on every API route; content authoring requires admin | PR-72 | M0 |
-| FR-007 | Let a user edit display name, time zone, password and all settings listed in the Product Spec | PR-65 | M1 |
+| FR-007 | Let a user edit display name, password and all settings listed in the Product Spec; the time zone follows the device the learner uses | PR-65 | M1 |
 | FR-008 | Let a user export their progress as a JSON file and delete their account and all personal data | PR-76 | v1.0 |
 | FR-009 | Provide a command-line action that creates the first admin account | PR-85 | M0 |
 

@@ -6,7 +6,7 @@ import type {
   PathsWithMethod,
   RequiredKeysOf,
 } from 'openapi-typescript-helpers';
-import { apiErrorSchema, errorCodeForStatus } from '@manabi/core';
+import { apiErrorSchema, errorCodeForStatus, TIME_ZONE_HEADER } from '@manabi/core';
 import type { ErrorCode } from '@manabi/core';
 import type { paths } from './generated/schema';
 
@@ -126,6 +126,8 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     async onRequest({ request }) {
       const token = await currentToken(options.token);
       if (token) request.headers.set('Authorization', `Bearer ${token}`);
+      // FR-163: the learner's time zone follows the device.
+      request.headers.set(TIME_ZONE_HEADER, Intl.DateTimeFormat().resolvedOptions().timeZone);
       return request;
     },
   });

@@ -201,11 +201,13 @@ export async function acceptInvite(
   limiter: AttemptLimiter,
   ip: string,
   body: AcceptInviteRequest,
+  timeZoneHeader: unknown,
 ): Promise<IssuedSession> {
   limit(limiter, [`invite:ip:${ipKey(ip)}`, `invite:name:${body.username.toLowerCase()}`]);
   checkNewPassword(body.password, body.username, 'password');
   // Hashing takes tens of milliseconds; do it before the transaction locks the invite.
   const passwordHash = await hashPassword(body.password);
+  const timeZone = (await knownTimeZone(pool, timeZoneHeader)) ?? 'UTC';
 
   return withTransaction(pool, async (client) => {
     const invite = await q.findInviteForUpdate(client, hashToken(body.token));
@@ -221,7 +223,7 @@ export async function acceptInvite(
         passwordHash,
         displayName: body.displayName,
         role: invite.role,
-        timeZone: body.timeZone,
+        timeZone,
         settings: { dailyGoal: body.dailyGoal },
       });
     } catch (err) {
@@ -293,6 +295,27 @@ export async function authenticate(
     },
     renewedUntil,
   };
+}
+
+/**
+ * FR-163: the zone a request's time-zone header names, when Postgres knows it. Unknown names
+ * (legacy ones on a database without tzdata-legacy, junk) and offsets such as '+05:00', which
+ * Postgres would read with the opposite sign, give null.
+ */
+export async function knownTimeZone(db: Queryable, header: unknown): Promise<string | null> {
+  if (typeof header !== 'string' || header.length > 64) return null;
+  return (await q.isKnownTimeZone(db, header)) ? header : null;
+}
+
+/** FR-163: keeps the learner's stored zone in step with the device they use. */
+export async function followDeviceTimeZone(db: Queryable, auth: AuthContext, header: unknown) {
+  if (header === auth.user.time_zone) return;
+  // shortcut: a zone the database lacks is looked up again on every request; cache misses if
+  // pg_timezone_names shows up in request latency.
+  const zone = await knownTimeZone(db, header);
+  if (!zone) return;
+  await q.setTimeZone(db, auth.userId, zone);
+  auth.user.time_zone = zone;
 }
 
 /** FR-004: signs out the current session. */

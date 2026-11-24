@@ -12,6 +12,7 @@ import {
   passwordResetRequestSchema,
   sessionListSchema,
   sessionParamsSchema,
+  TIME_ZONE_HEADER,
   updateMeRequestSchema,
   userSchema,
   z,
@@ -82,7 +83,13 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => {
-      const issued = await auth.acceptInvite(app.db, app.attemptLimiter, request.ip, request.body);
+      const issued = await auth.acceptInvite(
+        app.db,
+        app.attemptLimiter,
+        request.ip,
+        request.body,
+        request.headers[TIME_ZONE_HEADER.toLowerCase()],
+      );
       return reply.status(201).send(deliverSession(request, reply, issued));
     },
   );
