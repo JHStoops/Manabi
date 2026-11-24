@@ -218,4 +218,25 @@ describe('LearnPage', () => {
     show(fakeApi([]));
     expect(await screen.findByText('You are not enrolled in a course yet.')).toBeTruthy();
   });
+
+  // FR-023, NFR-32
+  it('lets a learner with no enrollment enroll from the Learn tab and see the course path', async () => {
+    const api = fakeApi([{ ...spanish, enrolled: false }]);
+    show(api);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enroll in Spanish' }));
+
+    expect(await screen.findByRole('button', { name: /^Hola/ })).toBeTruthy();
+    expect(api.POST).toHaveBeenCalledWith('/api/v1/courses/{id}/enroll', {
+      params: { path: { id: '2' } },
+      body: {},
+    });
+    expect(screen.queryByRole('button', { name: 'Enroll in Spanish' })).toBeNull();
+  });
+
+  it('offers no Enroll button for a draft course an admin can see', async () => {
+    show(fakeApi([{ ...spanish, enrolled: false, status: 'draft' }]));
+    await screen.findByText('You are not enrolled in a course yet.');
+    expect(screen.queryByRole('button', { name: /^Enroll in/ })).toBeNull();
+  });
 });

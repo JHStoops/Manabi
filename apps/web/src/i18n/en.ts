@@ -153,6 +153,8 @@ export const en = {
   // FR-020, FR-023: the Learn tab path screen.
   learn: {
     course: 'Course',
+    availableCourses: 'Courses you can start',
+    enroll: 'Enroll in {{title}}',
     noCourse: 'You are not enrolled in a course yet.',
     dailyGoal: 'Daily goal',
     dailyGoalValue: '{{xp}} of {{goal}} XP today',

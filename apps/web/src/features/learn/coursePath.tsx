@@ -42,7 +42,12 @@ export function coursePathReducer(
     case 'activated':
       return {
         ...state,
-        courses: state.courses?.map((c) => ({ ...c, active: c.id === action.courseId })) ?? null,
+        courses:
+          state.courses?.map((c) => ({
+            ...c,
+            active: c.id === action.courseId,
+            enrolled: c.enrolled || c.id === action.courseId,
+          })) ?? null,
         activeId: action.courseId,
         path: null,
         error: null,
