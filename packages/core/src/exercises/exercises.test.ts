@@ -1,5 +1,11 @@
 import type { LanguagePlugin } from '../index';
-import { CHOICE_TYPE, gradeResponse, MATCH_PAIRS_TYPE, WORD_BANK_TYPE } from '../index';
+import {
+  CHOICE_TYPE,
+  gradeResponse,
+  MATCH_PAIRS_TYPE,
+  TYPED_ANSWER_TYPE,
+  WORD_BANK_TYPE,
+} from '../index';
 
 // FR-042: graders of EX-01 choice, EX-02 match pairs and EX-03 word bank. None reads the plugin.
 const plugin = {} as LanguagePlugin;
@@ -97,5 +103,39 @@ describe('EX-03 word bank grader', () => {
     }
     const noTiles = { ...wordBankPayload, answer: { text: 'x', tiles: [] } };
     expect(() => grade(WORD_BANK_TYPE, noTiles, [0])).toThrow();
+  });
+});
+
+describe('EX-04 typed answer grader', () => {
+  // A plugin that accepts the first entry exactly and calls anything else a near-miss or wrong.
+  const checkAnswer = jest.fn((given: string, accept: readonly { text: string }[]) =>
+    given === accept[0]!.text
+      ? { result: 'correct' as const }
+      : given === 'near'
+        ? { result: 'near-miss' as const, hint: 'Watch your spelling' }
+        : { result: 'wrong' as const },
+  );
+  const typedPlugin = { checkAnswer } as unknown as LanguagePlugin;
+  const accept = [{ text: 'water', tiles: [] }];
+  const payload = { prompt: '水', answerLanguage: 'base', accept };
+  const typed = (p: object, ...attempts: unknown[]) =>
+    gradeResponse({ type: TYPED_ANSWER_TYPE, payload: p }, { attempts }, typedPlugin);
+
+  it('passes the plugin only the answer, accept list and testsKanji', () => {
+    expect(typed(payload, 'water')).toEqual({ result: 'correct' });
+    expect(checkAnswer).toHaveBeenLastCalledWith('water', accept, false);
+    typed({ ...payload, testsKanji: true }, 'water');
+    expect(checkAnswer).toHaveBeenLastCalledWith('water', accept, true);
+  });
+
+  it('keeps a near-miss hint and shows the first accepted answer when wrong', () => {
+    expect(typed(payload, 'near')).toEqual({ result: 'near-miss', hint: 'Watch your spelling' });
+    expect(typed(payload, 'fire')).toEqual({ result: 'wrong', feedback: 'water' });
+  });
+
+  it('rejects malformed payloads and answers', () => {
+    expect(() => typed({ ...payload, accept: [] }, 'water')).toThrow();
+    expect(() => typed({ ...payload, answerLanguage: 'ja' }, 'water')).toThrow();
+    expect(() => typed(payload, 3)).toThrow();
   });
 });
