@@ -6,6 +6,22 @@ lessons:
     type: vocabulary
     title: Drinks
     items: [ja:word:水:みず]
+    exercises:
+      - key: build-water
+        type: word_bank
+        payload:
+          prompt: Water
+          answer:
+            text: 水
+            tiles: [{ surface: 水, base: 水, reading: みず, item: ja:word:水:みず }]
+          distractors: [{ surface: 火, base: 火, reading: ひ }]
+          acceptedOrders: [[0]]
+      - key: type-water
+        type: typed_answer
+        payload:
+          prompt: water
+          answerLanguage: target
+          accept: [{ text: 水 }]
   - key: ja-en:n5:ordering:please
     type: grammar
     title: Asking for things
