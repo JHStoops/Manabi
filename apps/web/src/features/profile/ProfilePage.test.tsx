@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ApiRequestError } from '@manabi/api-client';
 import type { ApiClient } from '@manabi/api-client';
@@ -61,7 +61,7 @@ describe('ProfilePage', () => {
     );
     const profile = group('Profile');
     expect((profile.getByLabelText('Display name') as HTMLInputElement).value).toBe('Hana');
-    expect((profile.getByLabelText('Time zone') as HTMLSelectElement).value).toBe('Asia/Tokyo');
+    expect(profile.queryByLabelText('Time zone')).toBeNull();
     profile.getByLabelText('Avatar color');
     profile.getByLabelText(/Avatar initial/);
     expect(profile.getByRole('link', { name: 'Change password' }).getAttribute('href')).toBe(
@@ -91,7 +91,7 @@ describe('ProfilePage', () => {
     }
   });
 
-  it('saves the changed settings through PATCH /me, leaving out the active course', async () => {
+  it('sends only the changed fields through PATCH /me', async () => {
     const patch = jest.fn().mockImplementation((_url, { body }) =>
       Promise.resolve({
         ...user,
@@ -101,8 +101,7 @@ describe('ProfilePage', () => {
     );
     mount(patch);
     const display = await screen.findByLabelText('Display name');
-    fireEvent.change(display, { target: { value: 'Hanako' } });
-    fireEvent.change(screen.getByLabelText('Time zone'), { target: { value: 'Europe/Paris' } });
+    fireEvent.change(display, { target: { value: ' Hanako ' } });
     fireEvent.change(screen.getByLabelText('Daily goal'), { target: { value: '50' } });
     fireEvent.change(screen.getByLabelText('Reviews per day'), { target: { value: '250' } });
     fireEvent.change(screen.getByLabelText('Theme'), { target: { value: 'sumi' } });
@@ -112,13 +111,10 @@ describe('ProfilePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
 
     expect((await screen.findByRole('status')).textContent).toBe('Settings saved.');
-    const defaults = learnerSettingsSchema.omit({ activeCourseId: true }).parse({});
     expect(patch).toHaveBeenCalledWith('/api/v1/me', {
       body: {
         displayName: 'Hanako',
-        timeZone: 'Europe/Paris',
         settings: {
-          ...defaults,
           dailyGoal: 50,
           reviewCap: 250,
           theme: 'sumi',
@@ -128,23 +124,49 @@ describe('ProfilePage', () => {
         },
       },
     });
+    expect((screen.getByLabelText('Display name') as HTMLInputElement).value).toBe('Hanako');
+
+    // After saving, nothing is pending: the next save sends an empty patch.
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    await waitFor(() =>
+      expect(patch).toHaveBeenLastCalledWith('/api/v1/me', { body: { settings: {} } }),
+    );
   });
 
-  it('blocks an empty display name and shows server rejections', async () => {
-    const patch = jest
-      .fn()
-      .mockRejectedValue(new ApiRequestError(400, 'validation_failed', 'Expected one character'));
+  it('marks invalid fields and does not send them', async () => {
+    const patch = jest.fn();
     mount(patch);
     const display = await screen.findByLabelText('Display name');
     fireEvent.change(display, { target: { value: ' ' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
-    expect((await screen.findByRole('alert')).textContent).toBe('Enter a display name.');
-    expect(patch).not.toHaveBeenCalled();
-
-    fireEvent.change(display, { target: { value: 'Hana' } });
+    const cap = screen.getByLabelText('New items per day');
+    fireEvent.change(cap, { target: { value: '' } });
     fireEvent.change(screen.getByLabelText(/Avatar initial/), { target: { value: 'ab' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
-    expect((await screen.findByRole('alert')).textContent).toBe('Expected one character');
+
+    for (const [field, message] of [
+      [display, 'Enter a display name.'],
+      [cap, 'Enter a whole number from 0 to 200.'],
+      [screen.getByLabelText(/Avatar initial/), 'Use one character, or leave this empty.'],
+    ] as const) {
+      expect(field.getAttribute('aria-invalid')).toBe('true');
+      expect(document.getElementById(field.getAttribute('aria-describedby')!)?.textContent).toBe(
+        message,
+      );
+    }
+    expect(
+      (screen.getByLabelText('Reviews per day') as HTMLElement).getAttribute('aria-invalid'),
+    ).toBe('false');
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('shows server rejections', async () => {
+    const patch = jest
+      .fn()
+      .mockRejectedValue(new ApiRequestError(400, 'validation_failed', 'Something is off'));
+    mount(patch);
+    fireEvent.click(await screen.findByLabelText('Reduce motion'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    expect((await screen.findByRole('alert')).textContent).toBe('Something is off');
     expect(screen.getByRole('status').textContent).toBe('');
   });
 });

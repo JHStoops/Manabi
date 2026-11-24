@@ -68,14 +68,14 @@ export const changePasswordRequestSchema = z.object({
 export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
 
 /**
- * FR-007: `PATCH /me`, the caller's own profile and settings; only the fields sent change. Strict, so
- * nothing outside NFR-61 (or role, email, username) can be written here. The password changes
+ * FR-007: `PATCH /me`, the caller's display name and settings; only the fields sent change. Strict, so
+ * nothing outside NFR-61 (or role, email, username) can be written here. The time zone follows
+ * the device (#196), not this request. The password changes
  * through `POST /auth/change-password`, which also signs out other sessions.
  */
 export const updateMeRequestSchema = z
   .object({
-    displayName: nonEmptyTextSchema.max(100).optional(),
-    timeZone: timeZoneSchema.optional(),
+    displayName: z.string().trim().min(1).max(100).optional(),
     settings: learnerSettingsPatchSchema.optional(),
   })
   .strict();

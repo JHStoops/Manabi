@@ -204,7 +204,7 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
     '/me',
     {
       schema: {
-        summary: 'Change your display name, time zone or settings',
+        summary: 'Change your display name or settings',
         tags: ['auth'],
         querystring: emptyQuerySchema,
         body: updateMeRequestSchema,

@@ -901,27 +901,26 @@ describeWithDb('auth API', () => {
       expect((await me(app, auth)).json().settings[key]).toEqual(value);
     });
 
-    it('changes display name and time zone, and keeps settings not sent', async () => {
+    it('changes the display name, trimmed, and keeps settings not sent', async () => {
       await user();
       const app = await start();
       const auth = withCookie(await cookieFor(app, 'learner'));
       await patch(app, auth, { settings: { theme: 'umi', avatarColor: '#112233' } });
       const response = await patch(app, auth, {
-        displayName: 'Hana',
-        timeZone: 'America/Denver',
+        displayName: '  Hana ',
         settings: { avatarColor: null },
       });
       expect(response.statusCode).toBe(200);
       expect(response.json()).toMatchObject({
         displayName: 'Hana',
-        timeZone: 'America/Denver',
+        timeZone: 'Asia/Tokyo',
         settings: { theme: 'umi', avatarColor: null, dailyGoal: 20 },
       });
     });
 
     it.each([
-      ['an unknown time zone', { timeZone: 'Mars/Olympus' }],
-      ['an empty display name', { displayName: '' }],
+      ['a time zone, which follows the device (#196)', { timeZone: 'Europe/Paris' }],
+      ['a blank display name', { displayName: '   ' }],
       ['a bad setting value', { settings: { dailyGoal: 15 } }],
       ['an unknown setting', { settings: { furigana: 'never' } }],
       ['the active course', { settings: { activeCourseId: 1 } }],

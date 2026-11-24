@@ -368,7 +368,6 @@ export async function updateMe(
 ): Promise<User> {
   const row = await q.updateProfile(db, auth.userId, {
     displayName: body.displayName ?? null,
-    timeZone: body.timeZone ?? null,
     settings: body.settings ?? {},
   });
   if (!row) throw new AppError('unauthenticated', 'Not signed in');

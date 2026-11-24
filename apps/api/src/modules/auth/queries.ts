@@ -69,22 +69,22 @@ export function findUserById(db: Queryable, id: number): Promise<UserWithExpiry 
 }
 
 /**
- * FR-007: updates the caller's profile; null leaves a column as is, and `settings` merges key by key
+ * FR-007: updates the caller's profile; a null name leaves it as is, and `settings` merges key by key
  * into the stored object in one statement, so concurrent patches of different keys both land.
  */
 export function updateProfile(
   db: Queryable,
   userId: number,
-  p: { displayName: string | null; timeZone: string | null; settings: object },
+  p: { displayName: string | null; settings: object },
 ): Promise<UserWithExpiry | null> {
   return queryOne<UserWithExpiry>(
     db,
     `UPDATE users u
-        SET display_name = COALESCE($2, display_name), time_zone = COALESCE($3, time_zone),
-            settings = settings || $4::jsonb, updated_at = now()
+        SET display_name = COALESCE($2, display_name), settings = settings || $3::jsonb,
+            updated_at = now()
       WHERE id = $1
       RETURNING ${USER_WITH_EXPIRY}`,
-    [userId, p.displayName, p.timeZone, p.settings],
+    [userId, p.displayName, p.settings],
   );
 }
 

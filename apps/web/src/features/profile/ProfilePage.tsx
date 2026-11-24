@@ -13,6 +13,7 @@ import {
   readingAnnotationModeSchema,
   textSizeSchema,
   themeSchema,
+  updateMeRequestSchema,
 } from '@manabi/core';
 import type { User, z } from '@manabi/core';
 import { useApi, useSession, useSessionDispatch } from '../../state/session';
@@ -24,6 +25,11 @@ import SignOutButton from '../auth/SignOutButton';
 // The active course changes only by enrolling, so PATCH /me refuses it.
 const editable = learnerSettingsSchema.omit({ activeCourseId: true });
 type Settings = z.infer<typeof editable>;
+/** Fields edited in this tab; a cleared cap holds '' so validation can flag it. */
+type Changes = Partial<Omit<Settings, 'newItemCap' | 'reviewCap'>> & {
+  newItemCap?: number | '';
+  reviewCap?: number | '';
+};
 
 const GOALS = dailyGoalSchema.options.map((goal) => goal.value);
 
@@ -89,45 +95,67 @@ function Choice<T extends string | number>(props: {
 }
 
 // FR-007, Product Spec section 11: the learner's profile and settings, saved through PATCH /me.
-// Most settings are stored here and take effect in the features that read them.
+// Most settings are stored here and take effect in the features that read them. Only the fields
+// changed in this tab are sent, so an open tab does not undo changes saved elsewhere.
 function SettingsForm({ user }: { user: User }) {
   const { t } = useTranslation();
   const api = useApi();
   const dispatch = useSessionDispatch();
   const theme = useTheme();
-  const [displayName, setDisplayName] = useState(user.displayName);
-  const [timeZone, setTimeZone] = useState(user.timeZone);
-  const [settings, setSettings] = useState<Settings>(() => editable.parse(user.settings));
+  // null: unchanged.
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [changes, setChanges] = useState<Changes>({});
+  const [invalid, setInvalid] = useState<string[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const set = (patch: Partial<Settings>) => {
+  const set = (patch: Changes) => {
     setSaved(false);
-    setSettings((current) => ({ ...current, ...patch }));
+    setChanges((current) => ({ ...current, ...patch }));
   };
-  const s = settings;
-  // The stored zone first: the runtime's list may lack it (some omit 'UTC').
-  const zones = [...new Set([timeZone, ...Intl.supportedValuesOf('timeZone')])];
+  const s = { ...editable.parse(user.settings), ...changes };
+  const fieldErrors: Record<string, string> = {
+    displayName: t('invite.noDisplayName'),
+    avatarInitial: t('profile.badInitial'),
+    newItemCap: t('profile.badCap', { min: 0, max: MAX_NEW_ITEM_CAP }),
+    reviewCap: t('profile.badCap', { min: 1, max: MAX_REVIEW_CAP }),
+  };
+  /** aria props and message for a field that can be invalid. */
+  const check = (key: string) => {
+    const bad = invalid.includes(key);
+    return {
+      props: { 'aria-invalid': bad, 'aria-describedby': bad ? `${key}-error` : undefined },
+      message: bad && <p id={`${key}-error`}>{fieldErrors[key]}</p>,
+    };
+  };
 
   async function save(event: FormEvent) {
     event.preventDefault();
     setSaved(false);
-    if (!displayName.trim()) {
-      setProblem(t('invite.noDisplayName'));
-      return;
-    }
     setProblem(null);
+    const parsed = updateMeRequestSchema.safeParse({
+      ...(displayName !== null && { displayName }),
+      settings: changes,
+    });
+    setInvalid(parsed.success ? [] : parsed.error.issues.map((i) => String(i.path.at(-1))));
+    if (!parsed.success) return;
     setBusy(true);
     try {
-      const updated = await api.PATCH('/api/v1/me', { body: { displayName, timeZone, settings } });
-      dispatch({ type: 'signedIn', user: updated });
+      dispatch({ type: 'signedIn', user: await api.PATCH('/api/v1/me', { body: parsed.data }) });
+      setDisplayName(null);
+      setChanges({});
       setSaved(true);
     } catch (err) {
       setProblem(apiErrorMessage(t, err));
     }
     setBusy(false);
   }
+
+  const name = check('displayName');
+  const initial = check('avatarInitial');
+  const newCap = check('newItemCap');
+  const reviewCap = check('reviewCap');
 
   const group = (legend: string, children: ReactNode) => (
     <Group>
@@ -143,13 +171,15 @@ function SettingsForm({ user }: { user: User }) {
         <>
           <Field
             label={t('invite.displayName')}
-            value={displayName}
+            value={displayName ?? user.displayName}
             maxLength={100}
+            {...name.props}
             onChange={(e) => {
               setSaved(false);
               setDisplayName(e.target.value);
             }}
           />
+          {name.message}
           <Label>
             {t('profile.avatarColor')}
             {/* Null derives the color from the name; the picker shows the theme color until set. */}
@@ -162,18 +192,10 @@ function SettingsForm({ user }: { user: User }) {
           <Field
             label={t('profile.avatarInitial')}
             value={s.avatarInitial ?? ''}
+            {...initial.props}
             onChange={(e) => set({ avatarInitial: e.target.value || null })}
           />
-          <Choice
-            label={t('profile.timeZone')}
-            value={timeZone}
-            options={zones}
-            optionLabel={(zone) => zone}
-            onChange={(zone) => {
-              setSaved(false);
-              setTimeZone(zone);
-            }}
-          />
+          {initial.message}
           <p>
             <Link to="/change-password">{t('changePassword.submit')}</Link>
           </p>
@@ -195,16 +217,20 @@ function SettingsForm({ user }: { user: User }) {
             min={0}
             max={MAX_NEW_ITEM_CAP}
             value={s.newItemCap}
-            onChange={(e) => set({ newItemCap: Number(e.target.value) })}
+            {...newCap.props}
+            onChange={(e) => set({ newItemCap: e.target.value && Number(e.target.value) })}
           />
+          {newCap.message}
           <Field
             label={t('profile.reviewCap')}
             type="number"
             min={1}
             max={MAX_REVIEW_CAP}
             value={s.reviewCap}
-            onChange={(e) => set({ reviewCap: Number(e.target.value) })}
+            {...reviewCap.props}
+            onChange={(e) => set({ reviewCap: e.target.value && Number(e.target.value) })}
           />
+          {reviewCap.message}
           <Toggle
             label={t('profile.drawingExercises')}
             checked={s.drawingExercises}
@@ -225,7 +251,7 @@ function SettingsForm({ user }: { user: User }) {
             value={s.theme}
             options={themeSchema.options}
             optionLabel={(name) => t(`profile.themes.${name}`)}
-            onChange={(theme) => set({ theme })}
+            onChange={(themeName) => set({ theme: themeName })}
           />
           <Choice
             label={t('profile.colorMode')}

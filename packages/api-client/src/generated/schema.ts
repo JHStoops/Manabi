@@ -1459,7 +1459,7 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    /** Change your display name, time zone or settings */
+    /** Change your display name or settings */
     patch: {
       parameters: {
         query?: never;
@@ -1471,7 +1471,6 @@ export interface paths {
         content: {
           'application/json': {
             displayName?: string;
-            timeZone?: string;
             settings?: {
               avatarColor?: string | null;
               avatarInitial?: string | null;

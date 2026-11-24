@@ -90,12 +90,12 @@ describeSchema(
   updateMeRequestSchema,
   [
     ['an empty patch', {}],
-    ['profile fields', { displayName: 'Hana', timeZone: 'Europe/Paris' }],
+    ['a display name', { displayName: 'Hana' }],
     ['settings only', { settings: { theme: 'umi', avatarInitial: 'は' } }],
   ],
   [
-    ['an empty display name', { displayName: '' }],
-    ['an unknown time zone', { timeZone: 'Mars/Olympus' }],
+    ['a blank display name', { displayName: '  ' }],
+    ['a time zone', { timeZone: 'Europe/Paris' }],
     ['a role', { role: 'admin' }],
     ['an email', { email: 'a@b.c' }],
     ['a bad setting', { settings: { dailyGoal: 15 } }],
