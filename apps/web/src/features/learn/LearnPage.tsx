@@ -168,8 +168,9 @@ function CourseHeader() {
   const dispatch = useCoursePathDispatch();
   const { courses, activeId, path } = useCoursePath();
   const enrolled = courses?.filter((c) => c.enrolled) ?? [];
+  const available = courses?.filter((c) => !c.enrolled) ?? [];
 
-  // FR-023: enrolling again in an enrolled course only makes it the active one.
+  // FR-023: enrolling enrolls in a new course; in an enrolled one it only makes it the active one.
   async function switchTo(courseId: number) {
     try {
       await api.POST('/api/v1/courses/{id}/enroll', {
@@ -183,22 +184,39 @@ function CourseHeader() {
   }
 
   return (
-    <Header>
-      <h1>{path?.course.title ?? t('area.learn')}</h1>
-      {enrolled.length > 1 && (
-        <select
-          aria-label={t('learn.course')}
-          value={activeId ?? ''}
-          onChange={(e) => void switchTo(Number(e.target.value))}
-        >
-          {enrolled.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.title}
-            </option>
-          ))}
-        </select>
+    <>
+      <Header>
+        <h1>{path?.course.title ?? t('area.learn')}</h1>
+        {enrolled.length > 1 && (
+          <select
+            aria-label={t('learn.course')}
+            value={activeId ?? ''}
+            onChange={(e) => void switchTo(Number(e.target.value))}
+          >
+            {enrolled.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+        )}
+      </Header>
+      {available.length > 0 && (
+        <section aria-labelledby="available-courses">
+          <h2 id="available-courses">{t('learn.availableCourses')}</h2>
+          <ul>
+            {available.map((c) => (
+              <li key={c.id}>
+                {c.title}{' '}
+                <button type="button" onClick={() => void switchTo(c.id)}>
+                  {t('learn.enroll', { title: c.title })}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
-    </Header>
+    </>
   );
 }
 
