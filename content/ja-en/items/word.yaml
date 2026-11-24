@@ -1,6 +1,7 @@
-# Kana section words (#45): the JMdict import gives a kana-written word every sense of every
-# spelling read that way (あめ: rain or candy, ねこ: cat, shamisen, geisha…). These keep the sense
-# the kana lesson teaches.
+# Kana section words (#45): for a kana-written word the JMdict import keeps one entry read that way
+# (usually-kana and common score higher; a tie keeps the first in the file), with all its senses.
+# So a homophone's entry can win (あめ: 飴 "candy" for 雨 "rain"), and the right one brings extra
+# senses (ねこ: shamisen, geisha). These keep the sense the kana lesson teaches.
 - key: ja:word:あお:あお
   type: word
   overrides: { senses: [{ partsOfSpeech: [n], meanings: [blue, green] }] }
@@ -94,3 +95,30 @@
 - key: ja:word:ソース:ソース
   type: word
   overrides: { senses: [{ partsOfSpeech: [n], meanings: [sauce] }] }
+- key: ja:word:むし:むし
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [insect, bug] }] }
+- key: ja:word:わたし:わたし
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [pn], meanings: [I, me] }] }
+- key: ja:word:かぎ:かぎ
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [key] }] }
+- key: ja:word:ぎんこう:ぎんこう
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [bank] }] }
+- key: ja:word:びょういん:びょういん
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [hospital] }] }
+- key: ja:word:きっぷ:きっぷ
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [ticket] }] }
+- key: ja:word:がくせい:がくせい
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [student] }] }
+- key: ja:word:せんせい:せんせい
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [teacher] }] }
+- key: ja:word:コート:コート
+  type: word
+  overrides: { senses: [{ partsOfSpeech: [n], meanings: [coat] }] }
