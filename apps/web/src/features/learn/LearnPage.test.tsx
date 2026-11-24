@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ApiClient } from '@manabi/api-client';
-import type { CourseListEntry, CoursePath } from '@manabi/core';
+import type { CourseListEntry, CoursePath, UserStats } from '@manabi/core';
 import '../../i18n';
 import { ApiContext } from '../../state/session';
 import { AppThemeProvider } from '../../theme';
@@ -62,10 +62,24 @@ const paths: Record<string, CoursePath> = {
   '2': pathOf(spanish, [lesson(4, 'Hola', 'available')]),
 };
 
-function fakeApi(courses: CourseListEntry[]) {
+const stats: UserStats = {
+  dailyGoal: 30,
+  todayXp: 15,
+  currentStreak: 4,
+  longestStreak: 9,
+  freezes: 1,
+};
+
+function fakeApi(courses: CourseListEntry[], userStats = stats) {
   return {
     GET: jest.fn((path: string, init?: { params: { path: { id: string } } }) =>
-      Promise.resolve(path === '/api/v1/courses' ? { courses } : paths[init!.params.path.id]),
+      Promise.resolve(
+        path === '/api/v1/courses'
+          ? { courses }
+          : path === '/api/v1/me/stats'
+            ? userStats
+            : paths[init!.params.path.id],
+      ),
     ),
     POST: jest.fn(() => Promise.resolve({ ...spanish, active: true })),
   };
@@ -107,6 +121,26 @@ describe('LearnPage', () => {
     expect(screen.getByRole('heading', { name: 'Japanese section' })).toBeTruthy();
     // One enrolled course: no switcher.
     expect(screen.queryByRole('combobox', { name: 'Course' })).toBeNull();
+  });
+
+  // FR-161, FR-163, FR-164
+  it('fills the goal ring to the chosen goal and shows the streak and freezes', async () => {
+    show(fakeApi([japanese], { ...stats, todayXp: 15 }));
+    const ring = await screen.findByRole('progressbar', { name: 'Daily goal' });
+    expect(ring.getAttribute('aria-valuemax')).toBe('30');
+    expect(ring.getAttribute('aria-valuenow')).toBe('15');
+    const fill = screen.getByTestId('goal-ring-fill');
+    const length = Number(fill.getAttribute('stroke-dasharray'));
+    expect(Number(fill.getAttribute('stroke-dashoffset'))).toBeCloseTo(length / 2);
+    expect(screen.getByLabelText('4 day streak')).toBeTruthy();
+    expect(screen.getByLabelText('1 streak freeze')).toBeTruthy();
+  });
+
+  it('closes the ring at the goal and does not overfill it', async () => {
+    show(fakeApi([japanese], { ...stats, todayXp: 45 }));
+    const ring = await screen.findByRole('progressbar', { name: 'Daily goal' });
+    expect(ring.getAttribute('aria-valuenow')).toBe('30');
+    expect(Number(screen.getByTestId('goal-ring-fill').getAttribute('stroke-dashoffset'))).toBe(0);
   });
 
   it('opens the lesson intro when an available node is tapped', async () => {

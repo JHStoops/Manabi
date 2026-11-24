@@ -223,7 +223,7 @@ export async function completeSession(
     await q.upsertLessonProgress(client, userId, lesson.id, accuracy);
     const xp = await awardLessonXp(client, userId, lesson.id, accuracy);
     await q.insertUnitCompletionIfDone(client, userId, lesson.id);
-    // Review entries for the new items (FR-110), the streak (FR-163, #38) and achievements are
+    // Review entries for the new items (FR-110) and achievements are
     // not built yet; each joins this transaction here when its issue lands.
     await q.deleteSession(client, session.id);
 

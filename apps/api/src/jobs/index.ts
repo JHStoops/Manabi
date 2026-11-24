@@ -5,6 +5,7 @@ import { importKanjiVgJob } from './importKanjiVg';
 import { importLevelListsJob } from './importLevelLists';
 import { importTatoebaJob } from './importTatoeba';
 import { purgeExpiredJob } from './purgeExpired';
+import { settleStreaksJob } from './settleStreaks';
 
 /**
  * Every background job the worker runs. Imports, streak and leaderboard jobs are added here as
@@ -12,6 +13,7 @@ import { purgeExpiredJob } from './purgeExpired';
  */
 export const allJobs: readonly AnyJobDefinition[] = [
   purgeExpiredJob,
+  settleStreaksJob,
   importKanjidic2Job,
   importLevelListsJob,
   importJmdictJob,

@@ -7,6 +7,7 @@ import { healthRoutes } from './health/routes';
 import { lessonsRoutes } from './lessons/routes';
 import { reviewsRoutes } from './reviews/routes';
 import { socialRoutes } from './social/routes';
+import { statsRoutes } from './stats/routes';
 
 /**
  * Every feature module's routes, registered under /api/v1 by `buildApp`. Each module folder has
@@ -18,6 +19,7 @@ export const featureModules: readonly FastifyPluginAsyncZod[] = [
   authRoutes,
   coursesRoutes,
   lessonsRoutes,
+  statsRoutes,
   reviewsRoutes,
   socialRoutes,
   adminRoutes,

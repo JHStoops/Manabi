@@ -152,6 +152,12 @@ export const en = {
   learn: {
     course: 'Course',
     noCourse: 'You are not enrolled in a course yet.',
+    dailyGoal: 'Daily goal',
+    dailyGoalValue: '{{xp}} of {{goal}} XP today',
+    streak_one: '{{count}} day streak',
+    streak_other: '{{count}} day streak',
+    freezes_one: '{{count}} streak freeze',
+    freezes_other: '{{count}} streak freezes',
     lessonLabel: '{{title}}, {{type}} lesson, {{state}}',
     lessonType: {
       kana: 'Kana',
