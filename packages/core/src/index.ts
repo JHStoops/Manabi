@@ -27,5 +27,6 @@ export * from './primitives';
 export * from './progress';
 export * from './streak';
 export * from './sentence';
+export * from './social';
 export * from './settings';
 export * from './xp';
