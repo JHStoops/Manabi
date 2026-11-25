@@ -46,7 +46,16 @@ const pathOf = (c: CourseListEntry, lessons: ReturnType<typeof lesson>[]): Cours
       key: 's',
       title: `${c.title} section`,
       levelCode: 'N5',
-      units: [{ id: c.id * 100, key: 'u', title: 'Unit 1', status: 'published', lessons }],
+      units: [
+        {
+          id: c.id * 100,
+          key: 'u',
+          title: 'Unit 1',
+          status: 'published',
+          testOutAvailable: false,
+          lessons,
+        },
+      ],
     },
   ],
 });
@@ -94,6 +103,7 @@ function show(api: ReturnType<typeof fakeApi>) {
           <Routes>
             <Route path="/learn" element={<LearnPage />} />
             <Route path="/lesson/:lessonId" element={<p>lesson intro</p>} />
+            <Route path="/unit/:unitId/test-out" element={<p>test-out</p>} />
           </Routes>
         </MemoryRouter>
       </AppThemeProvider>
@@ -189,6 +199,22 @@ describe('LearnPage', () => {
     show(fakeApi([japanese]));
     fireEvent.click(await screen.findByRole('button', { name: /^Numbers/ }));
     expect(await screen.findByText('lesson intro')).toBeTruthy();
+  });
+
+  // FR-024
+  it('offers a test-out only on units the path marks available, linking to the player', async () => {
+    const api = fakeApi([japanese]);
+    paths['1']!.sections[0]!.units[0]!.testOutAvailable = true;
+    try {
+      show(api);
+      fireEvent.click(await screen.findByRole('link', { name: 'Test out of Unit 1' }));
+      expect(await screen.findByText('test-out')).toBeTruthy();
+    } finally {
+      paths['1']!.sections[0]!.units[0]!.testOutAvailable = false;
+    }
+    show(api);
+    await screen.findAllByRole('button', { name: /^Greetings/ });
+    expect(screen.queryByRole('link', { name: /^Test out/ })).toBeNull();
   });
 
   it('switching course makes it active and reloads the path', async () => {

@@ -239,6 +239,14 @@ export const en = {
       unit_review: 'Unit review',
     },
     state: { locked: 'locked', available: 'available', completed: 'completed' },
+    testOut: 'Test out of {{title}}',
+  },
+  // FR-024: the unit test-out, played by the lesson player.
+  testOut: {
+    title: 'Test out of {{unit}}',
+    intro: 'Answer {{count}} exercises. Get {{pass}}% right to complete the unit and skip ahead.',
+    passed: 'Unit complete!',
+    failed: 'Not this time: you need {{pass}}% to pass. Keep going with the lessons.',
   },
   // FR-046, FR-047, Product Spec section 4: the lesson player.
   player: {

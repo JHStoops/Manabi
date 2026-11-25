@@ -51,15 +51,24 @@ export async function setActiveCourse(db: Queryable, userId: number, courseId: n
 
 /**
  * FR-021, FR-232: records that the user finished a unit (its last visible lesson completed, or a
- * passed test-out). Insert-only; a second call keeps the first completion. Called inside the
+ * passed test-out). Insert-only; a second call keeps the first completion and returns false.
+ * Called inside the
  * lesson-completion (#37) and test-out (#96) transactions.
  */
-export async function insertUnitCompletion(db: Queryable, userId: number, unitId: number) {
-  await query(
+export async function insertUnitCompletion(
+  db: Queryable,
+  userId: number,
+  unitId: number,
+  testedOut = false,
+): Promise<boolean> {
+  const rows = await query(
     db,
-    `INSERT INTO unit_completions (user_id, unit_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-    [userId, unitId],
+    `INSERT INTO unit_completions (user_id, unit_id, tested_out) VALUES ($1, $2, $3)
+     ON CONFLICT DO NOTHING
+     RETURNING unit_id`,
+    [userId, unitId, testedOut],
   );
+  return rows.length > 0;
 }
 
 /** One lesson on the path with its unit and section, and whether the user completed them. */
@@ -79,6 +88,7 @@ export interface PathRow {
   lesson_status: PublishStatus;
   completed: boolean;
   unit_completed: boolean;
+  unit_tested_out: boolean;
 }
 
 /**
@@ -98,7 +108,8 @@ export function listPathRows(
             u.id AS unit_id, u.key AS unit_key, u.title AS unit_title, u.status AS unit_status,
             l.id AS lesson_id, l.key AS lesson_key, l.type AS lesson_type,
             l.title AS lesson_title, l.status AS lesson_status,
-            p.user_id IS NOT NULL AS completed, uc.user_id IS NOT NULL AS unit_completed
+            p.user_id IS NOT NULL AS completed, uc.user_id IS NOT NULL AS unit_completed,
+            COALESCE(uc.tested_out, false) AS unit_tested_out
        FROM sections s
        JOIN units u ON u.section_id = s.id AND u.archived_at IS NULL
        JOIN lessons l ON l.unit_id = u.id AND l.archived_at IS NULL
