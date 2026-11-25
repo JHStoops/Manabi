@@ -15,14 +15,18 @@ const Button = styled.button`
 `;
 
 /** FR-135, IF-03: a native button; renders nothing when the device has no voice. */
-export function SpeakerButton({ slow = false, ...utterance }: Utterance & { slow?: boolean }) {
+export function SpeakerButton({
+  slow = false,
+  what,
+  ...utterance
+}: Utterance & { slow?: boolean; what: 'word' | 'example' | 'answer' }) {
   const { t } = useTranslation();
   const { canSpeak, speak } = useSpeech();
   if (!canSpeak) return null;
   return (
     <Button
       type="button"
-      aria-label={t(slow ? 'audio.playSlow' : 'audio.play')}
+      aria-label={t(slow ? 'audio.playSlow' : 'audio.play', { what: t(`audio.what.${what}`) })}
       onClick={() => void speak({ ...utterance, rate: slow ? 0.75 : 1 })}
     >
       {slow ? '🐢' : '🔊'}

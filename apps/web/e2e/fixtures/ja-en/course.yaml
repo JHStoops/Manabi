@@ -1,0 +1,11 @@
+# Minimal course for the first-lesson e2e test (NFR-32): five hiragana, no imported datasets.
+key: ja-en
+targetLang: ja
+baseLang: en
+plugin: ja
+title: Japanese for English speakers
+status: published
+sections:
+  - key: ja-en:kana
+    title: Kana
+    level: kana

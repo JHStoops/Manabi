@@ -196,6 +196,28 @@ describeWithDb('lesson sessions API', () => {
     expect([...used].sort()).toEqual([item.w1, item.w2, item.w3].sort());
   });
 
+  it('uses stored exercises in position order and skips archived ones', async () => {
+    const { lesson, item } = await seed();
+    const { userId, session } = await signIn('aiko');
+    await complete(userId, lesson.l1!);
+    const payload = (prompt: string) => ({
+      prompt,
+      options: [{ itemId: item.w1 }, { itemId: item.w2 }],
+    });
+    await sql(
+      `INSERT INTO exercises (lesson_id, key, position, type, payload, origin, archived_at)
+       VALUES ($1, 'b', 1, 'choice', $2, 'authored', NULL),
+              ($1, 'a', 0, 'choice', $3, 'authored', NULL),
+              ($1, 'c', 2, 'choice', $4, 'authored', now())`,
+      [lesson.l2, payload('second'), payload('first'), payload('archived')],
+    );
+
+    const body = (await start(lesson.l2!, session)).json<LessonSession>();
+    const prompts = body.exercises.map((e) => e.payload.prompt);
+    expect(prompts.slice(0, 2)).toEqual(['first', 'second']);
+    expect(prompts).not.toContain('archived');
+  });
+
   it('uses only sentences at or below the section level and not challenging (FR-056)', async () => {
     const { courseId, lesson, item } = await seed();
     const { userId, session } = await signIn('aiko');
@@ -217,6 +239,25 @@ describeWithDb('lesson sessions API', () => {
       body.exercises.filter((e) => e.type === 'word_bank').map((e) => e.payload.sentenceId),
     );
     expect([...sentenceIds].sort()).toEqual([ok, unlevelled].sort());
+  });
+
+  it('gives a new item one fitting example sentence on its teaching card, or none (FR-041)', async () => {
+    const { courseId, lesson, item } = await seed();
+    const { userId, session } = await signIn('aiko');
+    await sql(`UPDATE items SET data = '{"variants": 10}'`);
+    // The first sentence is too hard, the second has a word from a later lesson (FR-056, FR-048).
+    await sentence(courseId, [item.w3!], { vocab: 'N5', grammar: 'N5', challenging: true });
+    await sentence(courseId, [item.w3!, item.w4!], { vocab: 'N5', grammar: 'N5' });
+    const fits = await sentence(courseId, [item.w3!, item.w1!], { vocab: 'N5', grammar: 'N5' });
+    await sql(`UPDATE sentences SET text = 'mizu', translation = 'water' WHERE id = $1`, [fits]);
+
+    const first = (await start(lesson.l1!, session)).json<LessonSession>();
+    expect(first.teachingCards.map((c) => c.example)).toEqual([undefined, undefined]);
+
+    await complete(userId, lesson.l1!);
+    const second = (await start(lesson.l2!, session)).json<LessonSession>();
+    expect(second.teachingCards[0]!.example).toMatchObject({ text: 'mizu', translation: 'water' });
+    expect(second.teachingCards[0]!.example!.tiles).toHaveLength(2);
   });
 
   it('resumes the same session for 24 hours from the last return, then builds a new one (FR-050)', async () => {

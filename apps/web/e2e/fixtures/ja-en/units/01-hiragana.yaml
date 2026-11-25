@@ -1,0 +1,10 @@
+key: ja-en:kana:hiragana
+section: ja-en:kana
+title: Hiragana
+status: published
+lessons:
+  - key: ja-en:kana:hiragana:vowels
+    type: kana
+    title: あ い う え お
+    status: published
+    items: [ja:kana:あ, ja:kana:い, ja:kana:う, ja:kana:え, ja:kana:お]

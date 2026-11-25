@@ -134,26 +134,31 @@ function storedTiles(value: unknown, out = new Map<string, Tile[]>()): Map<strin
 }
 
 /**
- * A pack exercise's payload in stored form, with items resolved by `idOf`, and its answer texts
- * that leave out tiles: the objects with a `text` where the type's schema requires `tiles`, for
- * the caller to fill (DR-12, FR-238).
+ * A pack exercise's payload in stored form, with items resolved by `idOf`, and the entries of its
+ * `accept` list that leave out tiles, for the caller to fill (DR-12, FR-238). Only accept-list
+ * answers may: elsewhere (word_bank, reorder) `acceptedOrders` index the tiles the author wrote.
  */
 export function storedPayload(
   e: PackExercise,
   idOf: (key: string) => number,
 ): { payload: JsonObject; untiled: { text: string; tiles?: Tile[] }[] } {
   const payload = resolveItems(e.payload, idOf) as JsonObject;
-  const result = getExerciseType(e.type).payloadSchema.safeParse(payload);
-  const untiled = (result.error?.issues ?? []).flatMap((issue) => {
-    if (issue.path.at(-1) !== 'tiles') return [];
-    const parent = issue.path
-      .slice(0, -1)
-      .reduce<unknown>((v, k) => (isObject(v) || Array.isArray(v) ? v[k as never] : v), payload);
-    return isObject(parent) && typeof parent.text === 'string' && parent.tiles === undefined
-      ? [parent as { text: string }]
-      : [];
-  });
+  const accept: unknown[] = Array.isArray(payload.accept) ? payload.accept : [];
+  const untiled = accept.filter(
+    (a): a is { text: string } =>
+      isObject(a) && typeof a.text === 'string' && a.tiles === undefined,
+  );
   return { payload, untiled };
+}
+
+/** Every object inside `value`, itself included, that `match` accepts. */
+export function objectsIn(value: unknown, match: (o: JsonObject) => boolean): JsonObject[] {
+  if (Array.isArray(value)) return value.flatMap((v) => objectsIn(v, match));
+  if (!isObject(value)) return [];
+  return [
+    ...(match(value) ? [value] : []),
+    ...Object.values(value).flatMap((v) => objectsIn(v, match)),
+  ];
 }
 
 /** Payload schema issues as problems, at the pack object (and field) each issue path ends at. */
@@ -169,13 +174,24 @@ function payloadProblems(label: string, e: PackExercise, issues: Issues): PackPr
       if (typeof child !== 'object' || child === null) break;
       [at, field] = [child, undefined];
     }
-    return { message: `${label}: payload.${path.join('.')}: ${issue.message}`, at, field };
+    const missingTiles = field === 'tiles' && (at as JsonObject).tiles === undefined;
+    const message = missingTiles
+      ? 'write the tiles: only accept-list answers are segmented at import, and acceptedOrders index the tiles'
+      : issue.message;
+    return { message: `${label}: payload.${path.join('.')}: ${message}`, at, field };
   });
 }
 
-/** An authored exercise's type and payload problems. Answer text import would segment passes. */
+/** An authored exercise's type and payload problems. Accept-list answers import segments pass. */
 function exerciseProblems(lessonKey: string, e: PackExercise): PackProblem[] {
   const label = `lesson ${lessonKey} exercise ${e.key}`;
+  // Ids differ between databases, so a pack names items only by key.
+  const ids = objectsIn(e.payload, (o) => 'itemId' in o).map((at) => ({
+    message: `${label}: name the item by key (item: <key>), not itemId`,
+    at,
+    field: 'itemId',
+  }));
+  if (ids.length > 0) return ids;
   try {
     // Item keys are checked at import and by the lint's database checks.
     const { payload, untiled } = storedPayload(e, () => 1);

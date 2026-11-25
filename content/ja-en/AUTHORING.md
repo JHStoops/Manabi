@@ -21,10 +21,13 @@ order they are shown. Each has a `key` unique within the lesson, a `type` from t
 registry (`packages/core/src/exercises`) and a `payload` in that type's payload shape, with two
 differences:
 
-- Items are named by stable key, `item: <key>`, where the stored payload has `itemId`.
-- Answer text (`{ text, tiles }`) may leave out `tiles`: import segments the text. Once stored,
-  those tiles are kept on re-import for as long as the text stays the same, so tiles edited
-  after import are not overwritten. Tiles written in the pack are stored as written.
+- Items are named by stable key, `item: <key>`, where the stored payload has `itemId`. A raw
+  `itemId` is an error, since ids differ between databases.
+- Answers in an `accept` list (`typed_answer`, `fill_blank`) may leave out `tiles`: import
+  segments the text. Once stored, those tiles are kept on re-import for as long as the text stays
+  the same, so tiles edited after import are not overwritten. Every other answer text
+  (`word_bank`, `reorder`) must have its tiles written, because `acceptedOrders` index them.
+  Tiles written in the pack are stored as written.
 
 ```yaml
 lessons:

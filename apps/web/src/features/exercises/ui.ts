@@ -1,5 +1,8 @@
+import { css } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import styled from '@emotion/styled';
 import { tapTarget } from '../../theme';
+import { KanaInput } from './KanaInput';
 
 // Shared pieces of the exercise renderers. IF-03: every control is a native button (keyboard
 // operable) with a tap target of at least 44 px.
@@ -29,6 +32,22 @@ export const ChoiceButton = styled.button`
     opacity: 0.5;
   }
 `;
+
+const field = ({ theme }: { theme: Theme }) => css`
+  ${tapTarget(theme)};
+  box-sizing: border-box;
+  width: 100%;
+  padding: ${theme.spacing(2)};
+  border: 2px solid ${theme.colors.border};
+  border-radius: ${theme.radii.small};
+  background: ${theme.colors.surface};
+  color: ${theme.colors.text};
+  font-size: ${theme.fontSizes.body};
+`;
+/** A typed-answer text field. */
+export const Field = styled.input(field);
+/** A typed-answer field with romaji-to-kana input (FR-142). */
+export const KanaField = styled(KanaInput)(field);
 
 /** A copy of `items` in random order (Fisher-Yates). */
 export function shuffled<T>(items: readonly T[]): T[] {
