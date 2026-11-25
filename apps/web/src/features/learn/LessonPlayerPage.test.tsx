@@ -233,6 +233,7 @@ describe('LessonPlayerPage', () => {
       enter(); // Enter on the focused Continue button
     }
     expect(await screen.findByText('Accuracy 90%')).toBeTruthy();
+    expect(screen.getByTestId('confetti')).toBeTruthy(); // FR-167: motion is on by default
   });
 
   it('keeps the Check button unusable until there is an answer', async () => {

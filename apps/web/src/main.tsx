@@ -8,12 +8,12 @@ import './features/exercises/renderers';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AppThemeProvider>
-      <BrowserRouter>
-        <SessionProvider>
+    <BrowserRouter>
+      <SessionProvider>
+        <AppThemeProvider>
           <App />
-        </SessionProvider>
-      </BrowserRouter>
-    </AppThemeProvider>
+        </AppThemeProvider>
+      </SessionProvider>
+    </BrowserRouter>
   </StrictMode>,
 );
