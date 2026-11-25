@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { levelCodeSchema } from '@manabi/core';
+import { DEFAULT_SRS_INTERVAL_HOURS, levelCodeSchema } from '@manabi/core';
 
 export type NodeEnv = 'development' | 'test' | 'production';
 
@@ -28,6 +28,8 @@ export interface Config {
   trustProxy: TrustProxy;
   /** Highest level the level-list import reads (SDD section 10 step 2); raise it to add a level. */
   levelCeiling: string;
+  /** FR-111: hours until the next review at SRS stages 1 to 7. */
+  srsIntervalHours: number[];
   /** Folder of downloaded open datasets; admin-started imports only read files inside it. */
   datasetsDir: string;
   /** IF-10: the only way email leaves the server; null when SMTP_HOST is unset (no email). */
@@ -98,6 +100,14 @@ const envSchema = z
     TRUST_PROXY: trustProxySchema.prefault('1'),
     LEVEL_CEILING: levelCodeSchema.default('N3'),
     DATASETS_DIR: z.string().min(1).default('./datasets'),
+    // FR-111: the review ladder's intervals, tunable without code changes.
+    SRS_INTERVAL_HOURS: z
+      .string()
+      .default(DEFAULT_SRS_INTERVAL_HOURS.join(','))
+      .transform((v) => v.split(',').map((h) => Number(h.trim())))
+      .refine((hours) => hours.length === 7 && hours.every((h) => Number.isFinite(h) && h > 0), {
+        message: 'Expected 7 comma-separated positive hours, one per stage 1 to 7',
+      }),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
     SMTP_USER: optionalText,
@@ -163,6 +173,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     trustProxy: e.TRUST_PROXY,
     levelCeiling: e.LEVEL_CEILING,
     datasetsDir: e.DATASETS_DIR,
+    srsIntervalHours: e.SRS_INTERVAL_HOURS,
     smtp: e.SMTP_HOST
       ? {
           host: e.SMTP_HOST,

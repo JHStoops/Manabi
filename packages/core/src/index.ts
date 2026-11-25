@@ -25,6 +25,7 @@ export * from './lessonSession';
 export * from './pagination';
 export * from './primitives';
 export * from './progress';
+export * from './srs';
 export * from './streak';
 export * from './sentence';
 export * from './settings';

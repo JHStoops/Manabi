@@ -1,3 +1,4 @@
+import { FixedLadderScheduler } from '@manabi/core';
 import { ConfigError, loadConfig } from './config';
 
 const DB = 'postgres://manabi:pw@db:5432/manabi';
@@ -18,6 +19,7 @@ describe('loadConfig', () => {
       trustProxy: 1,
       levelCeiling: 'N3',
       datasetsDir: './datasets',
+      srsIntervalHours: [4, 24, 72, 168, 336, 720, 2880],
       smtp: null,
     });
   });
@@ -51,6 +53,17 @@ describe('loadConfig', () => {
     });
   });
 
+  it('changes review due times through SRS_INTERVAL_HOURS (FR-111)', () => {
+    const now = new Date('2026-01-01T00:00:00Z');
+    const { srsIntervalHours } = loadConfig({
+      NODE_ENV: 'test',
+      SRS_INTERVAL_HOURS: '4, 48, 72, 168, 336, 720, 2880',
+    });
+    expect(new FixedLadderScheduler(srsIntervalHours).next(1, true, now).dueAt).toEqual(
+      new Date('2026-01-03T00:00:00Z'),
+    );
+  });
+
   it('defaults the log level to info outside tests and treats empty variables as unset', () => {
     expect(loadConfig({ DATABASE_URL: DB, LOG_LEVEL: '' }).logLevel).toBe('info');
   });
@@ -73,6 +86,12 @@ describe('loadConfig', () => {
     ['a bad port', { NODE_ENV: 'test', PORT: '70000' }, 'PORT'],
     ['an unknown NODE_ENV', { NODE_ENV: 'staging' }, 'NODE_ENV'],
     ['a bad TRUST_PROXY', { NODE_ENV: 'test', TRUST_PROXY: 'npm-host' }, 'TRUST_PROXY'],
+    ['too few SRS intervals', { NODE_ENV: 'test', SRS_INTERVAL_HOURS: '4,24' }, 'SRS_INTERVAL'],
+    [
+      'a zero SRS interval',
+      { NODE_ENV: 'test', SRS_INTERVAL_HOURS: '0,1,2,3,4,5,6' },
+      'SRS_INTERVAL',
+    ],
     ['a bad LEVEL_CEILING', { NODE_ENV: 'test', LEVEL_CEILING: 'N 2' }, 'LEVEL_CEILING'],
     [
       'a short production secret',
