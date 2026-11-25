@@ -117,6 +117,31 @@ export const en = {
     internal_error: 'Something went wrong on the server. Try again later.',
     service_unavailable: 'The server is busy. Try again in a moment.',
   },
+  // FR-182, FR-183: friends and nudges (#70).
+  social: {
+    friends: {
+      title: 'Friends',
+      empty: 'You are not following anyone yet.',
+      name: 'Name',
+      streak: 'Streak',
+      level: 'Level',
+      weeklyXp: 'XP this week',
+      section: 'Section',
+      unfollow: 'Unfollow',
+      nudge: { nice_work: 'Nice work', keep_going: 'Keep going' },
+      nudgeSent: 'Nudge sent',
+      forFriend: '{{action}}: {{name}}',
+    },
+    nudges: {
+      title: 'Nudges',
+      empty: 'No nudges yet.',
+      new: '(new)',
+      kinds: {
+        nice_work: '{{name}} says nice work!',
+        keep_going: '{{name}} says keep going!',
+      },
+    },
+  },
   // Admin console and password reset (#23).
   admin: {
     roles: { admin: 'Admin', learner: 'Learner' },
