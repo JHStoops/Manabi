@@ -1,9 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ApiRequestError } from '@manabi/api-client';
 import type { ApiClient } from '@manabi/api-client';
-import type { FriendList, NudgeList } from '@manabi/core';
+import { learnerSettingsSchema } from '@manabi/core';
+import type { FriendList, NudgeList, User } from '@manabi/core';
 import '../../i18n';
-import { ApiContext } from '../../state/session';
+import { ApiContext, SessionProvider } from '../../state/session';
 import { AppThemeProvider } from '../../theme';
 import SocialPage from './SocialPage';
 
@@ -52,16 +53,37 @@ const nudges: NudgeList = {
   ],
 };
 
+const me: User = {
+  id: 1,
+  username: 'hana',
+  email: null,
+  displayName: 'Hana',
+  role: 'learner',
+  mustChangePassword: false,
+  timeZone: 'Asia/Tokyo',
+  settings: learnerSettingsSchema.parse({}),
+  disabledAt: null,
+};
+
 function mount(post = jest.fn().mockResolvedValue(null), del = jest.fn().mockResolvedValue(null)) {
   const api = {
-    GET: (url: string) => Promise.resolve(url === '/api/v1/friends' ? friends : nudges),
+    GET: (url: string) =>
+      Promise.resolve(
+        {
+          '/api/v1/me': me,
+          '/api/v1/friends': friends,
+          '/api/v1/leaderboard': { weekStart: '2026-11-23', entries: [] },
+        }[url] ?? nudges,
+      ),
     POST: post,
     DELETE: del,
   } as unknown as ApiClient;
   render(
     <ApiContext.Provider value={api}>
       <AppThemeProvider>
-        <SocialPage />
+        <SessionProvider>
+          <SocialPage />
+        </SessionProvider>
       </AppThemeProvider>
     </ApiContext.Provider>,
   );

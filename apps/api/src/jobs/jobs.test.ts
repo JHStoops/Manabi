@@ -6,6 +6,7 @@ import { DEAD_DATABASE_URL } from '../test/app';
 import { describeWithDb, testDatabaseUrl, useTestDatabase } from '../test/db';
 import { seedUser, tokenHash } from '../test/fixtures';
 import { BOSS_SCHEMA } from './boss';
+import { closeWeekJob } from './closeWeek';
 import { defineJob } from './define';
 import { allJobs } from './index';
 import { purgeExpiredJob } from './purgeExpired';
@@ -195,6 +196,7 @@ describeWithDb('jobs with a database', () => {
       `SELECT name, cron, timezone FROM ${BOSS_SCHEMA}.schedule ORDER BY name`,
     );
     expect(schedules).toEqual([
+      { name: 'close-week', cron: closeWeekJob.cron, timezone: 'Asia/Tokyo' },
       { name: 'purge-expired', cron: purgeExpiredJob.cron, timezone: 'Asia/Tokyo' },
       { name: 'settle-streaks', cron: settleStreaksJob.cron, timezone: 'Asia/Tokyo' },
     ]);

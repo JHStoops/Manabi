@@ -34,7 +34,8 @@ const user: User = {
 
 function mount(patch: jest.Mock) {
   const api = {
-    GET: (url: string) => Promise.resolve(url === '/api/v1/me' ? user : { sessions: [] }),
+    GET: (url: string) =>
+      Promise.resolve(url === '/api/v1/me' ? user : { sessions: [], badges: [] }),
     PATCH: patch,
   } as unknown as ApiClient;
   render(
