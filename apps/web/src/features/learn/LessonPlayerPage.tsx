@@ -9,7 +9,13 @@ import {
   createLanguagePluginRegistry,
   gradeResponse,
 } from '@manabi/core';
-import type { AnswerText, ExerciseResponse, Item, LanguagePlugin, Tile } from '@manabi/core';
+import type {
+  AnswerText,
+  ExerciseResponse,
+  LanguagePlugin,
+  TeachingCard as TeachingCardData,
+  Tile,
+} from '@manabi/core';
 import { japanese } from '@manabi/lang-ja';
 import { SpeakerButton } from '../audio/SpeakerButton';
 import { SpeechProvider, useSpeech } from '../audio/speech';
@@ -125,6 +131,12 @@ const Card = styled.div`
   }
 `;
 
+const Speakers = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing(2)};
+  margin-top: ${({ theme }) => theme.spacing(3)};
+`;
+
 const Term = styled.p`
   margin: 0 0 ${({ theme }) => theme.spacing(4)};
   font-size: 4rem;
@@ -132,13 +144,17 @@ const Term = styled.p`
 `;
 
 /** Product Spec section 4: one new item, as the course's plugin shows it (FR-141). */
-function TeachingCard(props: { item: Item; plugin: LanguagePlugin; sectionLevel: string }) {
+function TeachingCard(props: {
+  card: TeachingCardData;
+  plugin: LanguagePlugin;
+  sectionLevel: string;
+}) {
   const { t } = useTranslation();
   const { term, reading, meaning, spoken } = props.plugin.teachingCard(
-    props.item,
+    props.card.item,
     props.sectionLevel,
   );
-  // shortcut: no example sentence yet (#194).
+  const { example } = props.card;
   return (
     <Card>
       {/* The session has no targetLang; the plugin code is the language code (ja). */}
@@ -156,9 +172,24 @@ function TeachingCard(props: { item: Item; plugin: LanguagePlugin; sectionLevel:
             <dd>{meaning}</dd>
           </div>
         )}
+        {example && (
+          <div>
+            <dt>{t('player.example')}</dt>
+            <dd lang={props.plugin.code}>{example.text}</dd>
+            <dd>{example.translation}</dd>
+          </div>
+        )}
       </dl>
-      <SpeakerButton reading={spoken} />
-      <SpeakerButton reading={spoken} slow />
+      <Speakers>
+        <SpeakerButton what="word" reading={spoken} />
+        <SpeakerButton what="word" reading={spoken} slow />
+      </Speakers>
+      {example && (
+        <Speakers>
+          <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} />
+          <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} slow />
+        </Speakers>
+      )}
     </Card>
   );
 }
@@ -170,10 +201,18 @@ function SkipListening({ dispatch }: { dispatch: Dispatch<PlayerAction> }) {
   return null;
 }
 
-/** DR-12: the tiles of an exercise's answer text, when its payload has any (typed, word bank). */
+/**
+ * DR-12: the tiles of an exercise's answer text, when its payload has any (typed, word bank, fill
+ * blank) and it is in the course language. shortcut: a fill-blank speaks only the blank word, as
+ * `before` and `after` have no stored readings; upgrade when they gain tiles.
+ */
 function answerTiles(payload: unknown): Tile[] {
-  const { answer, accept } = payload as { answer?: AnswerText; accept?: AnswerText[] };
-  return (answer ?? accept?.[0])?.tiles ?? [];
+  const { answer, accept, answerLanguage } = payload as {
+    answer?: AnswerText;
+    accept?: AnswerText[];
+    answerLanguage?: string;
+  };
+  return answerLanguage === 'base' ? [] : ((answer ?? accept?.[0])?.tiles ?? []);
 }
 
 /** FR-046, FR-047, FR-168, Product Spec section 4: the full-screen lesson player. */
@@ -311,7 +350,7 @@ export default function LessonPlayerPage() {
       <>
         <h1>{t('player.newItem', { n: state.card + 1, total: cards.length })}</h1>
         <TeachingCard
-          item={cards[state.card]!.item}
+          card={cards[state.card]!}
           plugin={plugin}
           sectionLevel={session.sectionLevel}
         />
@@ -382,10 +421,10 @@ export default function LessonPlayerPage() {
           {message}
         </Bar>
         {answerReading && (
-          <div>
-            <SpeakerButton reading={answerReading} />
-            <SpeakerButton reading={answerReading} slow />
-          </div>
+          <Speakers>
+            <SpeakerButton what="answer" reading={answerReading} />
+            <SpeakerButton what="answer" reading={answerReading} slow />
+          </Speakers>
         )}
         {showAction && (
           <Action

@@ -63,6 +63,12 @@ describe('teachingCard', () => {
     });
   });
 
+  it('speaks a kanji without the KANJIDIC okurigana and affix markers', () => {
+    const data = { character: '食', meanings: ['eat'], onReadings: ['ショク'], strokeCount: 9 };
+    expect(card(item('kanji', { ...data, kunReadings: ['た.べる'] })).spoken).toBe('たべる');
+    expect(card(item('kanji', { ...data, kunReadings: ['-ぐい'] })).spoken).toBe('ぐい');
+  });
+
   it("applies the author's overrides, and falls back to the key for other items", () => {
     expect(card(item('word', word.data, { senses: [{ meanings: ['H2O'] }] })).meaning).toBe('H2O');
     expect(card(item('grammar', { pattern: 'は' }))).toEqual({

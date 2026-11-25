@@ -3,7 +3,11 @@ export const en = {
   app: { loading: 'Loading…' },
   nav: { label: 'Main' },
   // FR-135: the speaker buttons.
-  audio: { play: 'Play audio', playSlow: 'Play audio slowly' },
+  audio: {
+    play: 'Play {{what}}',
+    playSlow: 'Play {{what}} slowly',
+    what: { word: 'word', example: 'example', answer: 'answer' },
+  },
   area: {
     learn: 'Learn',
     review: 'Review',
@@ -220,6 +224,7 @@ export const en = {
     newItem: 'New item {{n}} of {{total}}',
     reading: 'Reading',
     meaning: 'Meaning',
+    example: 'Example',
     unknownLanguage: 'This version of Manabi cannot play this course yet. Reload the page.',
     next: 'Next',
     exercise: 'Exercise',
