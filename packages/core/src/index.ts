@@ -32,6 +32,7 @@ export * from './progress';
 export * from './srs';
 export * from './streak';
 export * from './wordLists';
+export * from './tts';
 export * from './sentence';
 export * from './social';
 export * from './settings';

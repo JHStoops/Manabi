@@ -76,7 +76,7 @@ Run one workspace with `npm test --workspace @manabi/core` (or `npm run test:cov
 
 After changing an API route or a shared schema it uses, run `npm run generate:client` and commit the result: the web app (and later a mobile app) calls the API through `createApiClient` from `@manabi/api-client`, typed from that output.
 
-In CI the job also starts a PostgreSQL 17 service container and exports `DATABASE_URL` for API integration tests, and prints an `npm audit` report that does not fail the build. To run database-backed tests locally, point `DATABASE_URL` at a scratch PostgreSQL server: the test harness creates and drops its own databases there (see `apps/api/migrations/README.md`); without it those tests are skipped.
+In CI the job also starts a PostgreSQL 17 service container and exports `DATABASE_URL` for API integration tests, and prints an `npm audit` report that does not fail the build. To run database-backed tests locally, point `DATABASE_URL` at a scratch PostgreSQL server: the test harness creates and drops its own databases there (see `apps/api/migrations/README.md`); without it those tests are skipped. The audio tests also need `ffmpeg` and `ffprobe` on the PATH (CI installs them); they never call the TTS engine.
 
 Apply database migrations with `npm run migrate` (needs `DATABASE_URL`). Migrations are forward-only; the API also applies them on start.
 

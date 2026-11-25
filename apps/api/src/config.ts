@@ -22,6 +22,8 @@ export interface Config {
   sessionSecret: string;
   /** Folder for user-visible media (audio, images); may be a separate HDD mount. */
   mediaDir: string;
+  /** IF-09: base URL of the Kokoro-FastAPI TTS engine, on the internal network only. */
+  ttsUrl: string;
   /** Built web app to serve; empty string disables static serving (dev mode). */
   webDistDir: string;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
@@ -92,6 +94,7 @@ const envSchema = z
       }),
     SESSION_SECRET: optionalText,
     MEDIA_DIR: z.string().min(1).default('./media'),
+    TTS_URL: z.string().url().default('http://localhost:8880'),
     WEB_DIST_DIR: optionalText,
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),
     // IF-08: by default trust one hop, Nginx Proxy Manager, so request.ip is the address it saw
@@ -168,6 +171,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     databaseUrl: e.DATABASE_URL ?? '',
     sessionSecret: e.SESSION_SECRET,
     mediaDir: e.MEDIA_DIR,
+    ttsUrl: e.TTS_URL,
     webDistDir: e.WEB_DIST_DIR,
     logLevel: e.LOG_LEVEL ?? (e.NODE_ENV === 'test' ? 'silent' : 'info'),
     trustProxy: e.TRUST_PROXY,
