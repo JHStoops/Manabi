@@ -1,12 +1,12 @@
-import { ContentPackError, findBlockedWords, UnknownExerciseTypeError } from '@manabi/core';
-import type { ContentPack, LanguagePlugin, PackExercise, Tile } from '@manabi/core';
+import { ContentPackError, findBlockedWords } from '@manabi/core';
+import type { ContentPack, Tile } from '@manabi/core';
 import { segmentText } from '@manabi/importers';
 import type { Queryable } from '../../db/db';
 import { languagePlugins } from '../../plugins';
 import { originOf, readPack } from './packFiles';
 import { findCourseByKey, findLintItems } from './queries';
 import type { JsonObject } from './rows';
-import { itemDataProblems, packProblems, storedPayload } from './service';
+import { itemDataProblems, objectsIn, packProblems } from './service';
 import type { PackProblem } from './service';
 
 // FR-228 content lint (SDD section 13), run by `manabi pack lint <dir>`. The file checks always
@@ -26,26 +26,19 @@ interface Link {
   field: string | number;
 }
 
-/** Every object inside `value`, itself included, that `match` accepts. */
-function objectsIn(value: unknown, match: (o: JsonObject) => boolean): JsonObject[] {
-  if (Array.isArray(value)) return value.flatMap((v) => objectsIn(v, match));
+/**
+ * FR-237: every string field in a pack payload, with its object (or array) and field, outside
+ * tiles and item keys, and leaving out answer text whose tiles are checked instead.
+ */
+function textFields(value: unknown): { at: object; field: string | number; text: string }[] {
   if (typeof value !== 'object' || value === null) return [];
-  const o = value as JsonObject;
-  return [...(match(o) ? [o] : []), ...Object.values(o).flatMap((v) => objectsIn(v, match))];
-}
-
-/** FR-238: answer text a pack exercise leaves untiled, segmented as import would. */
-async function segmentedAnswers(plugin: LanguagePlugin, e: PackExercise) {
-  try {
-    const { untiled } = storedPayload(e, () => 1);
-    return await Promise.all(
-      untiled.map(async ({ text }) => ({ text, tiles: await segmentText(plugin, text) })),
-    );
-  } catch (err) {
-    // packProblems reports the unknown type.
-    if (err instanceof UnknownExerciseTypeError) return [];
-    throw err;
-  }
+  if (!Array.isArray(value) && 'surface' in value) return [];
+  const tiled = !Array.isArray(value) && Array.isArray((value as JsonObject).tiles);
+  return Object.entries(value).flatMap(([k, v]) => {
+    const field = Array.isArray(value) ? Number(k) : k;
+    if (typeof v !== 'string') return textFields(v);
+    return field === 'item' || (tiled && field === 'text') ? [] : [{ at: value, field, text: v }];
+  });
 }
 
 function format(p: PackProblem): string {
@@ -80,30 +73,42 @@ export async function lintPack(dir: string, db: Queryable | null): Promise<strin
       problems.push({ message: `sentence "${s.text}": no reading to generate audio from`, ...at });
   }
 
-  // FR-048: walking lessons in path order, an exercise (and its answer tiles) uses only items
-  // taught in its lesson or an earlier one. FR-237: no blocked word in an exercise's tiles.
+  // FR-048: an exercise (its tiles included) uses only items taught in its lesson or an earlier
+  // one on the path (section, unit, lesson order). As listTaughtItems, an earlier lesson teaches
+  // only once it and its unit are published. FR-237: no blocked word in an exercise's tiles or
+  // text, segmented as import segments answer text.
+  const sectionOrder = new Map(pack.course.sections.map((s, i) => [s.key, i]));
+  const units = [...pack.units].sort(
+    (a, b) => (sectionOrder.get(a.section) ?? 0) - (sectionOrder.get(b.section) ?? 0),
+  );
   const taught = new Set<string>();
-  for (const lesson of pack.units.flatMap((u) => u.lessons)) {
-    lesson.items.forEach((key) => taught.add(key));
-    for (const e of lesson.exercises) {
-      const label = `lesson ${lesson.key} exercise ${e.key}`;
-      for (const ref of objectsIn(e.payload, (o) => typeof o.item === 'string')) {
-        if (!taught.has(ref.item as string)) {
-          const message = `${label}: item ${ref.item as string} is not taught in this lesson or an earlier one`;
-          problems.push({ message, at: ref, field: 'item' });
+  for (const unit of units) {
+    for (const lesson of unit.lessons) {
+      const here = new Set([...taught, ...lesson.items]);
+      for (const e of lesson.exercises) {
+        const label = `lesson ${lesson.key} exercise ${e.key}`;
+        for (const ref of objectsIn(e.payload, (o) => typeof o.item === 'string')) {
+          if (!here.has(ref.item as string)) {
+            const message = `${label}: item ${ref.item as string} is not taught in this lesson or an earlier published one`;
+            problems.push({ message, at: ref, field: 'item' });
+          }
+        }
+        const tiles = objectsIn(e.payload, (o) => typeof o.surface === 'string') as Tile[];
+        for (const tile of tiles) {
+          for (const word of findBlockedWords([tile], blocked))
+            problems.push({
+              message: `${label}: blocked word ${word}`,
+              at: tile,
+              field: 'surface',
+            });
+        }
+        for (const { at, field, text } of textFields(e.payload)) {
+          for (const word of findBlockedWords(await segmentText(plugin, text), blocked))
+            problems.push({ message: `${label}: blocked word ${word} in "${text}"`, at, field });
         }
       }
-      const tiles = objectsIn(e.payload, (o) => typeof o.surface === 'string') as Tile[];
-      for (const tile of tiles) {
-        for (const word of findBlockedWords([tile], blocked))
-          problems.push({ message: `${label}: blocked word ${word}`, at: tile, field: 'surface' });
-      }
-      for (const answer of await segmentedAnswers(plugin, e)) {
-        for (const word of findBlockedWords(answer.tiles, blocked)) {
-          const message = `${label}: blocked word ${word} in "${answer.text}"`;
-          problems.push({ message, at: e, field: 'payload' });
-        }
-      }
+      if (unit.status === 'published' && lesson.status === 'published')
+        lesson.items.forEach((key) => taught.add(key));
     }
   }
 

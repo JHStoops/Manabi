@@ -57,5 +57,7 @@ Re-import updates an exercise in place by its key. An exercise removed from the 
 not deleted, and comes back if its key returns. Export writes every exercise with its tiles.
 `npm run manabi -- pack lint content/ja-en` reports invalid payloads with file, line and path. It
 also reports any item an exercise names (its tiles included) that is not taught in the same lesson
-or an earlier one in path order (FR-048), and any word from `lists/blocked-words.yaml` in an
-exercise's tiles, segmenting answer text without tiles first (FR-237).
+or an earlier one on the path (FR-048). Path order is the sections in `course.yaml`, then the unit
+files within each section, then lessons, and an earlier lesson counts only once it and its unit are
+published. Any word from `lists/blocked-words.yaml` in an exercise's tiles or text (prompts,
+options, answer text) is reported too, with the text segmented as import does (FR-237).

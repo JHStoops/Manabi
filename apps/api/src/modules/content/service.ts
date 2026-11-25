@@ -138,7 +138,7 @@ function storedTiles(value: unknown, out = new Map<string, Tile[]>()): Map<strin
  * `accept` list that leave out tiles, for the caller to fill (DR-12, FR-238). Only accept-list
  * answers may: elsewhere (word_bank, reorder) `acceptedOrders` index the tiles the author wrote.
  */
-export function storedPayload(
+function storedPayload(
   e: PackExercise,
   idOf: (key: string) => number,
 ): { payload: JsonObject; untiled: { text: string; tiles?: Tile[] }[] } {
