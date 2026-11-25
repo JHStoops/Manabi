@@ -28,7 +28,9 @@ export function teachingCard(item: Item, sectionLevel: string): TeachingCardFiel
         term: kanji.character,
         reading: readings.join('、') || null,
         meaning: kanji.meanings.join(', ') || null,
-        spoken: kanji.kunReadings[0] ?? kanji.onReadings[0] ?? kanji.character,
+        // KANJIDIC marks okurigana and affixes with `.` and `-`; they are not spoken.
+        spoken:
+          kanji.kunReadings[0]?.replace(/[-.]/g, '') || kanji.onReadings[0] || kanji.character,
       };
     }
   }

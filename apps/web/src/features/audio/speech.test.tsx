@@ -40,7 +40,7 @@ function renderButton(clip?: () => Promise<string>) {
   render(
     <AppThemeProvider>
       <SpeechProvider locale="ja-JP">
-        <SpeakerButton reading="たべる" clip={clip} />
+        <SpeakerButton what="word" reading="たべる" clip={clip} />
       </SpeechProvider>
     </AppThemeProvider>,
   );
@@ -49,14 +49,14 @@ function renderButton(clip?: () => Promise<string>) {
 describe('SpeakerButton', () => {
   it('plays the server clip when one is returned', async () => {
     renderButton(() => Promise.resolve('/media/clip.opus'));
-    fireEvent.click(screen.getByRole('button', { name: 'Play audio' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Play word' }));
     await waitFor(() => expect(play).toHaveBeenCalled());
     expect(synth.speak).not.toHaveBeenCalled();
   });
 
   it('falls back to the device voice, speaking the reading, when the clip request fails', async () => {
     renderButton(() => Promise.reject(new Error('503')));
-    fireEvent.click(screen.getByRole('button', { name: 'Play audio' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Play word' }));
     await waitFor(() => expect(synth.speak).toHaveBeenCalled());
     const spoken = synth.speak.mock.calls[0]![0];
     expect(spoken).toMatchObject({ text: 'たべる', voice: jaVoice, lang: 'ja-JP' });
@@ -64,7 +64,7 @@ describe('SpeakerButton', () => {
 
   it('uses the device voice when there is no clip source (before #65)', async () => {
     renderButton();
-    fireEvent.click(screen.getByRole('button', { name: 'Play audio' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Play word' }));
     await waitFor(() => expect(synth.speak).toHaveBeenCalled());
   });
 

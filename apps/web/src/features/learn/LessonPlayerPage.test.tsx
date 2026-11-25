@@ -275,7 +275,7 @@ describe('LessonPlayerPage', () => {
   describe('audio (FR-135)', () => {
     const listening = { type: 'listen_choose', payload: {} };
     const withListening = { ...session, exercises: [listening, ...session.exercises] };
-    const speakers = () => screen.queryAllByRole('button', { name: /Play audio/ });
+    const speakers = () => screen.queryAllByRole('button', { name: /^Play / });
 
     afterEach(() => {
       Object.assign(globalThis, { speechSynthesis: undefined });
@@ -331,13 +331,13 @@ describe('LessonPlayerPage', () => {
       expect(speakers()).toHaveLength(2); // normal and slow
       fireEvent.click(speakers()[0]!);
       expect(speak.mock.calls[0]![0]).toMatchObject({ text: 'みず', rate: 1 });
-      fireEvent.click(screen.getByRole('button', { name: 'Play audio slowly' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Play word slowly' }));
       expect(speak.mock.calls[1]![0]).toMatchObject({ rate: 0.75 });
 
       fireEvent.click(button('Next'));
       fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'みず' } });
       fireEvent.click(button('Check'));
-      fireEvent.click(screen.getAllByRole('button', { name: 'Play audio' })[0]!);
+      fireEvent.click(screen.getByRole('button', { name: 'Play answer' }));
       expect(speak).toHaveBeenCalledTimes(3);
       expect(speak.mock.calls[2]![0]).toMatchObject({ text: 'みず' });
     });

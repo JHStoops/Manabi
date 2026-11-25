@@ -131,6 +131,12 @@ const Card = styled.div`
   }
 `;
 
+const Speakers = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing(2)};
+  margin-top: ${({ theme }) => theme.spacing(3)};
+`;
+
 const Term = styled.p`
   margin: 0 0 ${({ theme }) => theme.spacing(4)};
   font-size: 4rem;
@@ -174,9 +180,16 @@ function TeachingCard(props: {
           </div>
         )}
       </dl>
-      <SpeakerButton reading={spoken} />
-      <SpeakerButton reading={spoken} slow />
-      {example && <SpeakerButton reading={props.plugin.readingOf(example.tiles)} />}
+      <Speakers>
+        <SpeakerButton what="word" reading={spoken} />
+        <SpeakerButton what="word" reading={spoken} slow />
+      </Speakers>
+      {example && (
+        <Speakers>
+          <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} />
+          <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} slow />
+        </Speakers>
+      )}
     </Card>
   );
 }
@@ -188,10 +201,18 @@ function SkipListening({ dispatch }: { dispatch: Dispatch<PlayerAction> }) {
   return null;
 }
 
-/** DR-12: the tiles of an exercise's answer text, when its payload has any (typed, word bank). */
+/**
+ * DR-12: the tiles of an exercise's answer text, when its payload has any (typed, word bank, fill
+ * blank) and it is in the course language. shortcut: a fill-blank speaks only the blank word, as
+ * `before` and `after` have no stored readings; upgrade when they gain tiles.
+ */
 function answerTiles(payload: unknown): Tile[] {
-  const { answer, accept } = payload as { answer?: AnswerText; accept?: AnswerText[] };
-  return (answer ?? accept?.[0])?.tiles ?? [];
+  const { answer, accept, answerLanguage } = payload as {
+    answer?: AnswerText;
+    accept?: AnswerText[];
+    answerLanguage?: string;
+  };
+  return answerLanguage === 'base' ? [] : ((answer ?? accept?.[0])?.tiles ?? []);
 }
 
 /** FR-046, FR-047, FR-168, Product Spec section 4: the full-screen lesson player. */
@@ -400,10 +421,10 @@ export default function LessonPlayerPage() {
           {message}
         </Bar>
         {answerReading && (
-          <div>
-            <SpeakerButton reading={answerReading} />
-            <SpeakerButton reading={answerReading} slow />
-          </div>
+          <Speakers>
+            <SpeakerButton what="answer" reading={answerReading} />
+            <SpeakerButton what="answer" reading={answerReading} slow />
+          </Speakers>
         )}
         {showAction && (
           <Action
