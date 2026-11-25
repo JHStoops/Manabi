@@ -1,15 +1,17 @@
 import type { LanguagePlugin } from '../index';
 import {
   CHOICE_TYPE,
+  CONJUGATE_TYPE,
   FILL_BLANK_TYPE,
   gradeResponse,
   MATCH_PAIRS_TYPE,
+  READING_IN_CONTEXT_TYPE,
   REORDER_TYPE,
   TYPED_ANSWER_TYPE,
   WORD_BANK_TYPE,
 } from '../index';
 
-// FR-042: graders of EX-01 to EX-06. Only typed answer and fill the blank read the plugin.
+// FR-042, FR-043: graders of EX-01 to EX-06, EX-09 and EX-10. Only typed ones read the plugin.
 const plugin = {} as LanguagePlugin;
 const grade = (type: string, payload: unknown, ...attempts: unknown[]) =>
   gradeResponse({ type, payload }, { attempts }, plugin);
@@ -244,5 +246,64 @@ describe('EX-06 reorder grader', () => {
     expect(() => grade(REORDER_TYPE, { ...twins, acceptedOrders: [[0, 1]] }, [0, 1])).toThrow(
       'starts solved',
     );
+  });
+});
+
+describe('EX-09 reading in context grader', () => {
+  const payload = {
+    prompt: 'How is 学 read in 学校?',
+    word: { text: '学校', itemId: 4 },
+    kanji: { text: '学', itemId: 2 },
+    options: [{ text: 'がく' }, { text: 'がっ' }, { text: 'まな' }],
+    correct: 1,
+  };
+
+  it('accepts only the correct option and shows it otherwise', () => {
+    expect(grade(READING_IN_CONTEXT_TYPE, payload, 1)).toEqual({ result: 'correct' });
+    expect(grade(READING_IN_CONTEXT_TYPE, payload, 0)).toEqual({
+      result: 'wrong',
+      feedback: 'がっ',
+    });
+  });
+
+  it('rejects malformed payloads and answers', () => {
+    for (const bad of [
+      { ...payload, correct: 3 },
+      { ...payload, options: [{ text: 'がっ' }] },
+      { ...payload, options: [{ text: 'がっ' }, { text: 'がっ' }] },
+      { ...payload, kanji: { text: '水' } },
+    ]) {
+      expect(() => grade(READING_IN_CONTEXT_TYPE, bad, 0)).toThrow();
+    }
+    expect(() => grade(READING_IN_CONTEXT_TYPE, payload, 'がっ')).toThrow();
+  });
+});
+
+describe('EX-10 conjugate grader', () => {
+  const checkAnswer = jest.fn((given: string, accept: readonly { text: string }[]) =>
+    accept.some((a) => a.text === given)
+      ? { result: 'correct' as const }
+      : { result: 'wrong' as const },
+  );
+  const conjugatePlugin = { checkAnswer } as unknown as LanguagePlugin;
+  const accept = [{ text: '食べて', tiles: [tile('食べて')] }];
+  const payload = { prompt: 'Te-form', word: '食べる', accept };
+  const conjugate = (p: object, ...attempts: unknown[]) =>
+    gradeResponse({ type: CONJUGATE_TYPE, payload: p }, { attempts }, conjugatePlugin);
+
+  it('passes the plugin only the answer, accept list and testsKanji', () => {
+    expect(conjugate(payload, '食べて')).toEqual({ result: 'correct' });
+    expect(checkAnswer).toHaveBeenLastCalledWith('食べて', accept, false);
+    expect(conjugate({ ...payload, testsKanji: true }, 'たべて')).toEqual({
+      result: 'wrong',
+      feedback: '食べて',
+    });
+    expect(checkAnswer).toHaveBeenLastCalledWith('たべて', accept, true);
+  });
+
+  it('rejects malformed payloads and answers', () => {
+    expect(() => conjugate({ ...payload, accept: [] }, '食べて')).toThrow();
+    expect(() => conjugate({ ...payload, word: '' }, '食べて')).toThrow();
+    expect(() => conjugate(payload, 0)).toThrow();
   });
 });

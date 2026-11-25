@@ -1,6 +1,7 @@
 import type { Exercise, GeneratorContext, GeneratorSentence, Item } from '@manabi/core';
 import { getExerciseType, gradeResponse, payloadItemIds } from '@manabi/core';
-import { generators, KANA_SECTION_LEVEL } from './generators';
+import { generators, KANA_SECTION_LEVEL, readingInWord } from './generators';
+import type { KanjiData } from './itemSchemas';
 import japanese from './index';
 import { courseKana } from './kana';
 import { kanaToRomaji } from './romaji';
@@ -54,6 +55,19 @@ const context = (sectionLevel: string, taughtItems: Item[]): GeneratorContext =>
   taughtItems,
   sentences: [sentence],
 });
+const kanjiData = (character: string, onReadings: string[], kunReadings: string[]): KanjiData => ({
+  character,
+  meanings: ['m'],
+  onReadings,
+  kunReadings,
+  strokeCount: 1,
+  components: [],
+});
+const study = kanjiData('学', ['ガク'], ['まな.ぶ']);
+const eat = kanjiData('食', ['ショク', 'ジキ'], ['く.う', 'た.べる']);
+const kanji = [study, eat, kanjiData('火', ['カ'], ['ひ'])].map((k) => item('kanji', 'N5', k));
+const kanjiWords = [word('学生', 'がくせい', 'student'), word('学校', 'がっこう', 'school')];
+const kanjiContext = context('N5', [...words, ...kanji, ...kanjiWords]);
 const kanaContext = context(KANA_SECTION_LEVEL, [...kana, ...words]);
 const n5Context = context('N5', [...kana, ...words]);
 
@@ -64,7 +78,7 @@ const runs = (type: string, target: Item, ctx: GeneratorContext): Exercise[] =>
 /** The answer each exercise type grades as correct. */
 const rightAnswer = (e: Exercise): unknown => {
   const p = e.payload as Record<string, unknown>;
-  if (e.type === 'choice') return p.correct;
+  if (e.type === 'choice' || e.type === 'reading_in_context') return p.correct;
   if (e.type === 'match_pairs') return [0, 1, 2, 3, 4];
   if (e.type === 'word_bank') return (p.acceptedOrders as number[][])[0];
   return (p.accept as { text: string }[])[0]!.text;
@@ -79,6 +93,8 @@ describe.each([
   ['typed_answer', kana[2]!, kanaContext],
   ['typed_answer', words[5]!, n5Context],
   ['word_bank', words[0]!, n5Context],
+  ['reading_in_context', kanji[0]!, kanjiContext],
+  ['reading_in_context', kanji[1]!, kanjiContext],
 ])('%s generator for %j', (type, target, ctx) => {
   const exercises = runs(type, target, ctx);
 
@@ -100,6 +116,40 @@ describe.each([
       expect(ids.every((id) => taught.has(id))).toBe(true);
       if (type !== 'typed_answer') expect(ids).toContain(target.id);
     }
+  });
+});
+
+describe('EX-09 reading in context', () => {
+  it.each([
+    ['学生', 'がくせい', study, 'がく'],
+    ['学校', 'がっこう', study, 'がっ'],
+    ['大学', 'だいがく', study, 'がく'],
+    ['学ぶ', 'まなぶ', study, 'まな'],
+    ['食べ物', 'たべもの', eat, 'た'],
+    ['お茶', 'おちゃ', kanjiData('茶', ['チャ', 'サ'], []), 'ちゃ'],
+    ['日曜日', 'にちようび', kanjiData('日', ['ニチ'], ['ひ']), undefined],
+    ['大学生', 'だいがくせい', study, undefined],
+    ['水', 'みず', study, undefined],
+  ])('reads the kanji in %s (%s)', (written, reading, data, expected) => {
+    expect(readingInWord(data, written, reading)).toBe(expected);
+  });
+
+  it("asks about a taught word using the kanji, with the kanji's other readings as options", () => {
+    for (const e of runs('reading_in_context', kanji[0]!, kanjiContext)) {
+      const p = e.payload as {
+        word: { text: string };
+        options: { text: string }[];
+        correct: number;
+      };
+      expect(['学生', '学校']).toContain(p.word.text);
+      expect(p.options[p.correct]!.text).toBe(p.word.text === '学生' ? 'がく' : 'がっ');
+      expect(p.options.map((o) => o.text)).toContain(p.word.text === '学生' ? 'まな' : 'がく');
+    }
+  });
+
+  it('is left out when no taught word gives a sure reading', () => {
+    expect(generators.reading_in_context!(kanji[2]!, kanjiContext)).toEqual([]);
+    expect(generators.reading_in_context!(words[2]!, kanjiContext)).toEqual([]);
   });
 });
 
