@@ -196,6 +196,28 @@ describeWithDb('lesson sessions API', () => {
     expect([...used].sort()).toEqual([item.w1, item.w2, item.w3].sort());
   });
 
+  it('uses stored exercises in position order and skips archived ones', async () => {
+    const { lesson, item } = await seed();
+    const { userId, session } = await signIn('aiko');
+    await complete(userId, lesson.l1!);
+    const payload = (prompt: string) => ({
+      prompt,
+      options: [{ itemId: item.w1 }, { itemId: item.w2 }],
+    });
+    await sql(
+      `INSERT INTO exercises (lesson_id, key, position, type, payload, origin, archived_at)
+       VALUES ($1, 'b', 1, 'choice', $2, 'authored', NULL),
+              ($1, 'a', 0, 'choice', $3, 'authored', NULL),
+              ($1, 'c', 2, 'choice', $4, 'authored', now())`,
+      [lesson.l2, payload('second'), payload('first'), payload('archived')],
+    );
+
+    const body = (await start(lesson.l2!, session)).json<LessonSession>();
+    const prompts = body.exercises.map((e) => e.payload.prompt);
+    expect(prompts.slice(0, 2)).toEqual(['first', 'second']);
+    expect(prompts).not.toContain('archived');
+  });
+
   it('uses only sentences at or below the section level and not challenging (FR-056)', async () => {
     const { courseId, lesson, item } = await seed();
     const { userId, session } = await signIn('aiko');

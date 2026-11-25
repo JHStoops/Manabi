@@ -682,6 +682,34 @@ describeWithDb('content packs', () => {
       'lesson ja-en:n5:ordering:words exercise build-water: payload.acceptedOrders: Each accepted order lists distinct answer tile indexes',
     ],
     [
+      'word bank answer text without tiles',
+      (p) =>
+        delete (p.units[1]!.lessons[0]!.exercises[0]!.payload.answer as { tiles?: unknown }).tiles,
+      'lesson ja-en:n5:ordering:words exercise build-water: payload.answer.tiles: write the tiles: only accept-list answers are segmented at import, and acceptedOrders index the tiles',
+    ],
+    [
+      'reorder answer text without tiles',
+      (p) =>
+        (p.units[1]!.lessons[0]!.exercises[0] = {
+          key: 'order-water',
+          type: 'reorder',
+          payload: {
+            prompt: 'I drink water',
+            answer: { text: '水を飲む' },
+            acceptedOrders: [[0, 1, 2]],
+          },
+        }),
+      'lesson ja-en:n5:ordering:words exercise order-water: payload.answer.tiles: write the tiles: only accept-list answers are segmented at import, and acceptedOrders index the tiles',
+    ],
+    [
+      'an item named by id in an exercise',
+      (p) =>
+        (p.units[1]!.lessons[0]!.exercises[1]!.payload.accept = [
+          { text: '水', tiles: [{ surface: '水', base: '水', reading: 'みず', itemId: 1 }] },
+        ]),
+      'lesson ja-en:n5:ordering:words exercise type-water: name the item by key (item: <key>), not itemId',
+    ],
+    [
       'an unknown exercise type',
       (p) => (p.units[1]!.lessons[0]!.exercises[0]!.type = 'boss'),
       'lesson ja-en:n5:ordering:words exercise build-water: Unknown exercise type "boss"',
