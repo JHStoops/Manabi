@@ -20,7 +20,7 @@ import { japanese } from '@manabi/lang-ja';
 import { SpeakerButton } from '../audio/SpeakerButton';
 import { SpeechProvider, useSpeech } from '../audio/speech';
 import { useApi } from '../../state/session';
-import { tapTarget } from '../../theme';
+import { Confetti, tapTarget, useSound } from '../../theme';
 import { apiErrorMessage } from '../auth/ui';
 import { getExerciseRenderer } from '../exercises/registry';
 import { LessonResults } from './LessonResults';
@@ -317,6 +317,18 @@ export default function LessonPlayerPage() {
       grade.result === 'near-miss' ? `${t('player.correct')} ${grade.hint}` : t('player.correct');
   }
 
+  // FR-167: effects play on feedback and on the results screen, if sound is on.
+  const play = useSound();
+  const outcome =
+    phase === 'feedback' && grade ? (grade.result === 'wrong' ? 'wrong' : 'correct') : null;
+  const inResults = phase === 'results';
+  useEffect(() => {
+    if (outcome) play(outcome);
+  }, [outcome]);
+  useEffect(() => {
+    if (inResults) play('complete');
+  }, [inResults]);
+
   let content;
   let actionLabel = t('player.next');
   if (error && phase !== 'completing' && phase !== 'answering') {
@@ -371,6 +383,7 @@ export default function LessonPlayerPage() {
   } else if (phase === 'results' && state.completion) {
     content = (
       <>
+        <Confetti />
         <h1>{t('area.lesson')}</h1>
         <p>{t('player.accuracy', { accuracy: state.completion.accuracy })}</p>
         <LessonResults xpEarned={state.completion.xpEarned} totalXp={state.completion.totalXp} />

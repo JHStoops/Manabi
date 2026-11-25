@@ -2,7 +2,8 @@ import { createContext, useContext, useEffect, useReducer } from 'react';
 import type { Dispatch, ReactNode } from 'react';
 import { createApiClient } from '@manabi/api-client';
 import type { ApiClient } from '@manabi/api-client';
-import type { User } from '@manabi/core';
+import { learnerSettingsSchema } from '@manabi/core';
+import type { LearnerSettings, User } from '@manabi/core';
 
 /** The generated API client (IF-05); same origin, session cookie. Tests provide a fake. */
 export const ApiContext = createContext<ApiClient>(createApiClient());
@@ -59,4 +60,11 @@ export function useSessionDispatch(): Dispatch<SessionAction> {
   const dispatch = useContext(SessionDispatchContext);
   if (!dispatch) throw new Error('useSessionDispatch must be used inside SessionProvider');
   return dispatch;
+}
+
+const defaultSettings = learnerSettingsSchema.parse({});
+
+/** The signed-in learner's settings, or the defaults when signed out or outside a provider. */
+export function useSettings(): LearnerSettings {
+  return useContext(SessionContext)?.user?.settings ?? defaultSettings;
 }
