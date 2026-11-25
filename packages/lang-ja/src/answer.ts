@@ -11,7 +11,10 @@ const SPELLING_HINT = 'Watch your spelling';
 // A one-letter typo in a shorter word is usually another word (cat, car), so it is not forgiven.
 const MIN_TYPO_LENGTH = 4;
 
-// Particles written は, を, へ but said わ, お, え; romaji typists spell them as said.
+// Particles written は, を, へ but said わ, お, え; learners may spell them as said, in romaji or
+// kana. Only a tile that is the whole particle qualifies, so はな never accepts わな.
+// shortcut: a non-particle word tile spelled just は/へ (歯, 屁 in kana) also accepts わ/え;
+// upgrade by checking the tile's part of speech if tiles gain one.
 const PARTICLE_SOUNDS: Record<string, string> = { は: 'わ', を: 'お', へ: 'え' };
 
 const isJapanese = (text: string) => JAPANESE.test(text);
@@ -43,8 +46,8 @@ function normalizeEnglish(text: string): string {
 
 /**
  * True when `given` spells the tiles in order, each word as written or, for a word with kanji, in
- * kana (its hiragana reading). Romaji input is compared with kana folded to hiragana, and may spell
- * the particles は, を and へ as pronounced (wa, o, e).
+ * kana (its hiragana reading). Romaji input is compared with kana folded to hiragana. The
+ * particles は, を and へ may be spelled as pronounced (wa/わ, o/お, e/え).
  */
 function spellsTiles(given: string, tiles: readonly Tile[], romaji: boolean): boolean {
   const match = (i: number, pos: number): boolean => {
@@ -52,7 +55,7 @@ function spellsTiles(given: string, tiles: readonly Tile[], romaji: boolean): bo
     const { surface, reading } = tiles[i]!;
     const forms = KANJI.test(surface) ? [surface, reading] : [surface];
     const spoken = PARTICLE_SOUNDS[surface];
-    if (romaji && spoken) forms.push(spoken);
+    if (spoken) forms.push(spoken);
     return forms
       .map((f) => (romaji ? toHiragana : (s: string) => s)(normalizeJapanese(f)))
       .some((f) => f !== '' && given.startsWith(f, pos) && match(i + 1, pos + f.length));
