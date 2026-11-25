@@ -4,32 +4,43 @@ import {
   LESSON_MAX_EXERCISES,
   LESSON_MIN_EXERCISES,
   SecondAttemptError,
+  TEST_OUT_EXERCISES,
+  TEST_OUT_PASS_ACCURACY,
   gradeResponse,
   lessonCompletionSchema,
   lessonRecipes,
   lessonSessionStateSchema,
   payloadItemIds,
+  testOutCompletionSchema,
+  testOutStateSchema,
   z,
 } from '@manabi/core';
 import type {
+  ExerciseResponse,
+  GeneratorContext,
   Item,
+  LanguagePlugin,
   LessonCompletion,
   LessonCompletionRequest,
   LessonSession,
   LessonSessionState,
   SessionExercise,
+  TestOutCompletion,
+  TestOutCompletionRequest,
+  TestOutSession,
+  TestOutState,
 } from '@manabi/core';
 import type { Queryable } from '../../db/db';
 import { withTransaction } from '../../db/db';
 import { AppError } from '../../errors';
 import { languagePlugins } from '../../plugins';
 import type { ScopedUserId } from '../auth/service';
-import type { ItemRow } from '../content/rows';
-import { awardLessonXp, getPath } from '../courses/service';
+import type { ExerciseRow, ItemRow } from '../content/rows';
+import { awardLessonXp, getPath, recordTestOut } from '../courses/service';
 import * as q from './queries';
 
-// Lesson sessions: build, save, resume and complete (FR-041, FR-048, FR-050, FR-051 to FR-053,
-// FR-056; SDD sections 6 and 7).
+// Lesson and unit test-out sessions: build, save, resume and complete (FR-024, FR-041, FR-048,
+// FR-050, FR-051 to FR-053, FR-056; SDD sections 6 and 7).
 
 /** JSON with object keys sorted, so equal values compare equal (jsonb reorders keys). */
 function stableJson(value: unknown): string {
@@ -88,7 +99,7 @@ export async function startSession(
   });
   return {
     id: row.id,
-    lessonId: row.lesson_id,
+    lessonId,
     expiresAt: row.expires_at.toISOString(),
     lessonTitle: lesson.title,
     lessonType: lesson.type,
@@ -106,62 +117,23 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
   const plugin = languagePlugins.get(lesson.plugin);
   const newItems = (await q.listLessonItems(db, lesson.id)).map(toItem);
   const taughtItems = (await q.listTaughtItems(db, lesson.id)).map(toItem);
-  const taught = new Set(taughtItems.map((i) => i.id));
   // FR-056, FR-048: sentences at or below the section level, not challenging, taught items only.
   const sentences = await q.listSentences(
     db,
     lesson.course_id,
     lesson.level_code,
     newItems.map((i) => i.id),
-    [...taught],
+    taughtItems.map((i) => i.id),
   );
-  const usesTaughtOnly = (payload: unknown) =>
-    payloadItemIds(payload).every((id) => taught.has(id));
-
-  // No two exercises in a session are identical (same type and deeply equal payload).
-  const exercises: SessionExercise[] = [];
-  const seen = new Set<string>();
-  const add = (e: SessionExercise) => {
-    const key = stableJson(e);
-    if (seen.has(key) || exercises.length >= LESSON_MAX_EXERCISES) return false;
-    seen.add(key);
-    exercises.push(e);
-    return true;
-  };
-  for (const e of await q.listStoredExercises(db, lesson.id)) {
-    if ((e.item_id === null || taught.has(e.item_id)) && usesTaughtOnly(e.payload)) {
-      add({ type: e.type, payload: e.payload });
-    }
-  }
-
-  const generators = lessonRecipes[lesson.type].flatMap((type) =>
-    Object.hasOwn(plugin.generators, type) ? [plugin.generators[type]!] : [],
+  const exercises = fillExercises(
+    plugin,
+    { sectionLevel: lesson.level_code, taughtItems, sentences },
+    newItems,
+    await q.listStoredExercises(db, lesson.id),
+    lessonRecipes[lesson.type],
+    LESSON_MIN_EXERCISES,
+    LESSON_MAX_EXERCISES,
   );
-  if (generators.length > 0 && exercises.length < LESSON_MIN_EXERCISES) {
-    const context = { sectionLevel: lesson.level_code, taughtItems, sentences };
-    // Step k takes the recipe's types round-robin (each type gets a turn before any gets a second)
-    // and the new items in turn; the item shifts by one every lcm(types, items) steps, so a pass
-    // of types × items steps pairs every type with every item. Passes repeat until full, or a pass
-    // adds nothing new.
-    const types = generators.length;
-    const items = newItems.length;
-    const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
-    const lcm = (types * items) / gcd(types, items);
-    // Limit: in a large lesson where a type often generates nothing, the session can reach 10
-    // exercises before every new item is covered.
-    for (let added = true; added && exercises.length < LESSON_MIN_EXERCISES;) {
-      added = false;
-      for (let k = 0; k < types * items; k++) {
-        const generate = generators[k % types]!;
-        const item = newItems[(k + Math.floor(k / lcm)) % items]!;
-        for (const e of generate(item, context) as SessionExercise[]) {
-          if (exercises.length >= LESSON_MIN_EXERCISES) break;
-          if (usesTaughtOnly(e.payload) && add(e)) added = true;
-        }
-      }
-    }
-  }
-
   if (exercises.length < LESSON_MIN_EXERCISES) {
     throw new AppError('conflict', 'This lesson does not have enough exercises yet', {
       exercises: exercises.length,
@@ -179,6 +151,171 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
 }
 
 /**
+ * FR-024: 20 exercises drawn from the unit's items, built like a lesson's: the stored exercises
+ * of its lessons taken in turn (each lesson's first, then each one's second, ...), then the
+ * generators of every lesson type in the unit over all of its items.
+ */
+async function buildTestOutState(db: Queryable, unit: q.UnitContextRow): Promise<TestOutState> {
+  const plugin = languagePlugins.get(unit.plugin);
+  const lessons = await q.listUnitLessons(db, unit.id);
+  const newItems = new Map<number, Item>();
+  const stored: { turn: number; exercise: ExerciseRow }[] = [];
+  for (const lesson of lessons) {
+    for (const row of await q.listLessonItems(db, lesson.id)) newItems.set(row.id, toItem(row));
+    (await q.listStoredExercises(db, lesson.id)).forEach((exercise, turn) =>
+      stored.push({ turn, exercise }),
+    );
+  }
+  const last = lessons.at(-1);
+  const taughtItems = last ? (await q.listTaughtItems(db, last.id)).map(toItem) : [];
+  const sentences = await q.listSentences(
+    db,
+    unit.course_id,
+    unit.level_code,
+    [...newItems.keys()],
+    taughtItems.map((i) => i.id),
+  );
+  const exercises = fillExercises(
+    plugin,
+    { sectionLevel: unit.level_code, taughtItems, sentences },
+    [...newItems.values()],
+    stored.sort((a, b) => a.turn - b.turn).map((s) => s.exercise),
+    [...new Set(lessons.flatMap((l) => lessonRecipes[l.type]))],
+    TEST_OUT_EXERCISES,
+    TEST_OUT_EXERCISES,
+  );
+  if (exercises.length < TEST_OUT_EXERCISES) {
+    throw new AppError('conflict', 'This unit does not have enough exercises for a test-out yet', {
+      exercises: exercises.length,
+      required: TEST_OUT_EXERCISES,
+    });
+  }
+  return testOutStateSchema.parse({ exercises });
+}
+
+/**
+ * SDD section 6: the stored exercises (up to `max`), then the recipe's generators over the new
+ * items until there are `target`. Every exercise uses taught items only (FR-048), and no two are
+ * identical (same type and deeply equal payload).
+ */
+function fillExercises(
+  plugin: LanguagePlugin,
+  context: GeneratorContext,
+  newItems: Item[],
+  stored: ExerciseRow[],
+  recipe: readonly string[],
+  target: number,
+  max: number,
+): SessionExercise[] {
+  const taught = new Set(context.taughtItems.map((i) => i.id));
+  const usesTaughtOnly = (payload: unknown) =>
+    payloadItemIds(payload).every((id) => taught.has(id));
+
+  const exercises: SessionExercise[] = [];
+  const seen = new Set<string>();
+  const add = (e: SessionExercise) => {
+    const key = stableJson(e);
+    if (seen.has(key) || exercises.length >= max) return false;
+    seen.add(key);
+    exercises.push(e);
+    return true;
+  };
+  for (const e of stored) {
+    if ((e.item_id === null || taught.has(e.item_id)) && usesTaughtOnly(e.payload)) {
+      add({ type: e.type, payload: e.payload });
+    }
+  }
+
+  const generators = recipe.flatMap((type) =>
+    Object.hasOwn(plugin.generators, type) ? [plugin.generators[type]!] : [],
+  );
+  if (generators.length > 0 && newItems.length > 0 && exercises.length < target) {
+    // Step k takes the recipe's types round-robin (each type gets a turn before any gets a second)
+    // and the new items in turn; the item shifts by one every lcm(types, items) steps, so a pass
+    // of types × items steps pairs every type with every item. Passes repeat until full, or a pass
+    // adds nothing new.
+    const types = generators.length;
+    const items = newItems.length;
+    const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+    const lcm = (types * items) / gcd(types, items);
+    // Limit: in a large lesson where a type often generates nothing, the session can reach its
+    // target before every new item is covered.
+    for (let added = true; added && exercises.length < target;) {
+      added = false;
+      for (let k = 0; k < types * items; k++) {
+        const generate = generators[k % types]!;
+        const item = newItems[(k + Math.floor(k / lcm)) % items]!;
+        for (const e of generate(item, context) as SessionExercise[]) {
+          if (exercises.length >= target) break;
+          if (usesTaughtOnly(e.payload) && add(e)) added = true;
+        }
+      }
+    }
+  }
+  return exercises;
+}
+
+/** FR-053: how many responses the shared grader counts right; near-misses count as right. */
+function countRight(
+  exercises: SessionExercise[],
+  responses: ExerciseResponse[],
+  plugin: LanguagePlugin,
+): number {
+  if (responses.length !== exercises.length) {
+    throw new AppError('validation_failed', 'Send one response per exercise', [
+      { location: 'body', path: ['responses'], message: `Expected ${exercises.length} responses` },
+    ]);
+  }
+  return exercises.filter((exercise, i) => {
+    try {
+      return gradeResponse(exercise, responses[i]!, plugin).result !== 'wrong';
+    } catch (err) {
+      // A malformed payload or answer, or a second attempt that was not allowed; anything else
+      // the grader or plugin throws is a server fault (500).
+      if (!(err instanceof z.ZodError || err instanceof SecondAttemptError)) throw err;
+      throw new AppError('validation_failed', 'A response is not a valid answer', [
+        { location: 'body', path: ['responses', i], message: 'Not a valid answer' },
+      ]);
+    }
+  }).length;
+}
+
+/**
+ * FR-052, NFR-20: runs a completion in one transaction. With an Idempotency-Key, a repeat of the
+ * same request gets the first response and changes nothing; the key is saved with the result.
+ */
+function completeOnce<T extends object>(
+  db: Pool,
+  userId: ScopedUserId,
+  idempotencyKey: string | undefined,
+  request: unknown,
+  parse: (saved: unknown) => T,
+  complete: (client: Queryable) => Promise<T>,
+): Promise<T> {
+  const requestHash = createHash('sha256').update(stableJson(request)).digest('hex');
+  return withTransaction(db, async (client) => {
+    if (idempotencyKey !== undefined) {
+      await q.lockIdempotencyKey(client, userId, idempotencyKey);
+      const saved = await q.findIdempotencyKey(client, userId, idempotencyKey);
+      if (saved) {
+        if (saved.request_hash !== requestHash) {
+          throw new AppError(
+            'idempotency_conflict',
+            'This Idempotency-Key was already used for a different request',
+          );
+        }
+        return parse(saved.response);
+      }
+    }
+    const result = await complete(client);
+    if (idempotencyKey !== undefined) {
+      await q.insertIdempotencyKey(client, userId, idempotencyKey, requestHash, result);
+    }
+    return result;
+  });
+}
+
+/**
  * FR-051 to FR-053, NFR-20: completes the learner's session in one transaction. The server
  * re-grades every response with the shared grader; then it records lesson progress, awards XP,
  * records a finished unit and uses the session up. With an Idempotency-Key, a repeat of the same
@@ -191,69 +328,124 @@ export async function completeSession(
   body: LessonCompletionRequest,
   idempotencyKey: string | undefined,
 ): Promise<LessonCompletion> {
-  const requestHash = createHash('sha256').update(stableJson({ sessionId, body })).digest('hex');
-  return withTransaction(db, async (client) => {
-    if (idempotencyKey !== undefined) {
-      await q.lockIdempotencyKey(client, userId, idempotencyKey);
-      const saved = await q.findIdempotencyKey(client, userId, idempotencyKey);
-      if (saved) {
-        if (saved.request_hash !== requestHash) {
-          throw new AppError(
-            'idempotency_conflict',
-            'This Idempotency-Key was already used for a different request',
-          );
-        }
-        return lessonCompletionSchema.parse(saved.response);
-      }
-    }
+  return completeOnce(
+    db,
+    userId,
+    idempotencyKey,
+    { sessionId, body },
+    (saved) => lessonCompletionSchema.parse(saved),
+    async (client) => {
+      const session = await q.lockOwnSession(client, userId, sessionId);
+      if (!session?.lesson_id) throw new AppError('not_found', 'Lesson session not found');
+      const lesson = await q.findLesson(client, session.lesson_id);
+      if (!lesson) throw new AppError('not_found', 'Lesson not found');
+      const { exercises } = lessonSessionStateSchema.parse(session.state);
+      const right = countRight(exercises, body.responses, languagePlugins.get(lesson.plugin));
+      const accuracy = Math.round((100 * right) / exercises.length);
 
-    const session = await q.lockOwnSession(client, userId, sessionId);
-    if (!session) throw new AppError('not_found', 'Lesson session not found');
-    const lesson = await q.findLesson(client, session.lesson_id);
-    if (!lesson) throw new AppError('not_found', 'Lesson not found');
-    const { exercises } = lessonSessionStateSchema.parse(session.state);
-    if (body.responses.length !== exercises.length) {
-      throw new AppError('validation_failed', 'Send one response per exercise', [
-        {
-          location: 'body',
-          path: ['responses'],
-          message: `Expected ${exercises.length} responses`,
-        },
-      ]);
-    }
+      await q.upsertLessonProgress(client, userId, lesson.id, accuracy);
+      const xp = await awardLessonXp(client, userId, lesson.id, accuracy);
+      await q.insertUnitCompletionIfDone(client, userId, lesson.id);
+      // Review entries for the new items (FR-110) and achievements are
+      // not built yet; each joins this transaction here when its issue lands.
+      await q.deleteSession(client, session.id);
 
-    // FR-053: the server's grade decides; near-misses count as right.
-    const plugin = languagePlugins.get(lesson.plugin);
-    const right = exercises.filter((exercise, i) => {
-      try {
-        return gradeResponse(exercise, body.responses[i]!, plugin).result !== 'wrong';
-      } catch (err) {
-        // A malformed payload or answer, or a second attempt that was not allowed; anything else
-        // the grader or plugin throws is a server fault (500).
-        if (!(err instanceof z.ZodError || err instanceof SecondAttemptError)) throw err;
-        throw new AppError('validation_failed', 'A response is not a valid answer', [
-          { location: 'body', path: ['responses', i], message: 'Not a valid answer' },
-        ]);
-      }
-    }).length;
-    const accuracy = Math.round((100 * right) / exercises.length);
+      return {
+        lessonId: lesson.id,
+        accuracy,
+        ...xp,
+        path: await getPath(client, userId, lesson.course_id, false),
+      };
+    },
+  );
+}
 
-    await q.upsertLessonProgress(client, userId, lesson.id, accuracy);
-    const xp = await awardLessonXp(client, userId, lesson.id, accuracy);
-    await q.insertUnitCompletionIfDone(client, userId, lesson.id);
-    // Review entries for the new items (FR-110) and achievements are
-    // not built yet; each joins this transaction here when its issue lands.
-    await q.deleteSession(client, session.id);
+/**
+ * FR-024, FR-050: the learner's unexpired test-out session for the unit, or a new one. Only a
+ * unit the path offers a test-out for (open, not finished) can be started.
+ */
+export async function startTestOut(
+  db: Pool,
+  userId: ScopedUserId,
+  unitId: number,
+): Promise<TestOutSession> {
+  const unit = await q.findUnit(db, unitId);
+  if (!unit) throw new AppError('not_found', 'Unit not found');
+  const pathUnit = (await getPath(db, userId, unit.course_id, false)).sections
+    .flatMap((s) => s.units)
+    .find((u) => u.id === unitId);
+  if (!pathUnit) throw new AppError('not_found', 'Unit not found');
+  if (pathUnit.lessons[0]!.state === 'locked') {
+    throw new AppError('forbidden', 'This unit is still locked');
+  }
+  if (!pathUnit.testOutAvailable) throw new AppError('conflict', 'This unit is already finished');
+  if (!(await q.isEnrolled(db, userId, unit.course_id))) {
+    throw new AppError('conflict', 'Not enrolled in this course');
+  }
 
-    const result: LessonCompletion = {
-      lessonId: lesson.id,
-      accuracy,
-      ...xp,
-      path: await getPath(client, userId, lesson.course_id, false),
-    };
-    if (idempotencyKey !== undefined) {
-      await q.insertIdempotencyKey(client, userId, idempotencyKey, requestHash, result);
-    }
-    return result;
+  const row = await withTransaction(db, async (client) => {
+    await q.lockUnitSessions(client, userId, unitId);
+    return (
+      (await q.resumeOpenUnitSession(client, userId, unitId)) ??
+      q.insertUnitSession(client, userId, unitId, await buildTestOutState(client, unit))
+    );
   });
+  return {
+    id: row.id,
+    unitId,
+    unitTitle: unit.title,
+    expiresAt: row.expires_at.toISOString(),
+    sectionLevel: unit.level_code,
+    plugin: unit.plugin,
+    ...testOutStateSchema.parse(row.state),
+  };
+}
+
+/**
+ * FR-024, FR-021, FR-052, NFR-20: completes a test-out in one transaction, re-graded on the
+ * server. At 85% or better the unit is finished by test-out (its lessons open, the next unit
+ * unlocks) and earns test-out XP; below, nothing changes. Either way the session is used up.
+ */
+export async function completeTestOut(
+  db: Pool,
+  userId: ScopedUserId,
+  sessionId: number,
+  body: TestOutCompletionRequest,
+  idempotencyKey: string | undefined,
+): Promise<TestOutCompletion> {
+  return completeOnce(
+    db,
+    userId,
+    idempotencyKey,
+    { testOutSessionId: sessionId, body },
+    (saved) => testOutCompletionSchema.parse(saved),
+    async (client) => {
+      const session = await q.lockOwnSession(client, userId, sessionId);
+      if (!session?.unit_id) throw new AppError('not_found', 'Test-out session not found');
+      const unit = await q.findUnit(client, session.unit_id);
+      if (!unit) throw new AppError('not_found', 'Unit not found');
+      const { exercises } = testOutStateSchema.parse(session.state);
+      const right = countRight(exercises, body.responses, languagePlugins.get(unit.plugin));
+      const accuracy = Math.round((100 * right) / exercises.length);
+      const passed = accuracy >= TEST_OUT_PASS_ACCURACY;
+
+      const xp = await recordTestOut(client, {
+        userId,
+        courseId: unit.course_id,
+        unitId: unit.id,
+        passed,
+      });
+      // shortcut: a pass creates no review entries for the unit's items; add them with the
+      // review scheduler (FR-110, #48).
+      await q.deleteSession(client, session.id);
+
+      return {
+        unitId: unit.id,
+        accuracy,
+        passed,
+        ...xp,
+        path: await getPath(client, userId, unit.course_id, false),
+      };
+    },
+  );
 }

@@ -80,6 +80,8 @@ export const pathUnitSchema = z.object({
   key: stableKeySchema,
   title: nonEmptyTextSchema,
   status: publishStatusSchema,
+  /** FR-024: the unit is open and not finished, so the learner may test out of it. */
+  testOutAvailable: z.boolean(),
   lessons: z.array(pathLessonSchema),
 });
 
