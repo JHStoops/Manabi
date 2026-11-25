@@ -143,6 +143,37 @@ export const en = {
     },
   },
   // Admin console and password reset (#23).
+  // FR-220, FR-225: the course tree editor.
+  authoring: {
+    course: 'Course',
+    sections: 'Sections',
+    unitsOf: 'Units of {{title}}',
+    lessonsOf: 'Lessons of {{title}}',
+    unit: 'Unit',
+    dragHint: 'Drag a row, or use the arrow buttons, to change its order.',
+    status: { draft: 'Draft', published: 'Published' },
+    publish: 'Publish',
+    unpublish: 'Unpublish',
+    up: '↑',
+    down: '↓',
+    moveUp: 'Move {{title}} up',
+    moveDown: 'Move {{title}} down',
+    rename: 'Rename {{title}}',
+    renameShort: 'Rename',
+    delete: 'Delete {{title}}',
+    deleteShort: 'Delete',
+    confirmDelete:
+      'Delete {{title}}? Content that learners have progress in is archived instead of deleted.',
+    save: 'Save',
+    cancel: 'Cancel',
+    slug: 'Key',
+    title: 'Title',
+    type: 'Type',
+    level: 'Level',
+    addSection: 'Add section',
+    addUnitTo: 'Add unit to {{title}}',
+    addLessonTo: 'Add lesson to {{title}}',
+  },
   admin: {
     roles: { admin: 'Admin', learner: 'Learner' },
     users: {
