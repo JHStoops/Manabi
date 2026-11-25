@@ -225,7 +225,7 @@ export default function LessonPlayerPage() {
   const { t } = useTranslation();
   const api = useApi();
   const { user } = useSession();
-  const { lessonId = '' } = useParams();
+  const { lessonId = '', unitId = '' } = useParams();
   const [state, dispatch] = useReducer(lessonPlayerReducer, initialPlayerState);
   const { phase, session, error } = state;
   const bodyRef = useRef<HTMLElement>(null);
