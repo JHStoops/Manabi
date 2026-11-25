@@ -312,6 +312,8 @@ export const en = {
     wordBank: {
       answer: 'Your answer',
       bank: 'Word bank',
+      useInstead: 'Use word bank instead',
+      typeInstead: 'Type instead',
       hint: 'Tap a word to add it or take it back. Move a word in your answer with the arrow keys.',
     },
     reorder: {

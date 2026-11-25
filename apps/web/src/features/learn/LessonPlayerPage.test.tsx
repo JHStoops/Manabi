@@ -6,7 +6,7 @@ import { TEST_EXERCISE_TYPE } from '@manabi/core/src/testExerciseType';
 import type * as TestType from '@manabi/core/src/testExerciseType';
 import type * as LangJa from '@manabi/lang-ja';
 import '../../i18n';
-import { ApiContext } from '../../state/session';
+import { ApiContext, SessionProvider } from '../../state/session';
 import { AppThemeProvider } from '../../theme';
 import { registerExerciseRenderer } from '../exercises/registry';
 import '../exercises/renderers';
@@ -57,16 +57,18 @@ function show(
   ),
   entry = '/lesson/3',
 ) {
-  const api = { POST: post };
+  const api = { POST: post, GET: jest.fn(() => Promise.resolve({ settings: {} })) };
   render(
     <ApiContext.Provider value={api as unknown as ApiClient}>
       <AppThemeProvider>
-        <MemoryRouter initialEntries={[entry]}>
-          <Routes>
-            <Route path="/lesson/:lessonId" element={<LessonPlayerPage />} />
-            <Route path="/unit/:unitId/test-out" element={<LessonPlayerPage />} />
-          </Routes>
-        </MemoryRouter>
+        <SessionProvider>
+          <MemoryRouter initialEntries={[entry]}>
+            <Routes>
+              <Route path="/lesson/:lessonId" element={<LessonPlayerPage />} />
+              <Route path="/unit/:unitId/test-out" element={<LessonPlayerPage />} />
+            </Routes>
+          </MemoryRouter>
+        </SessionProvider>
       </AppThemeProvider>
     </ApiContext.Provider>,
   );
