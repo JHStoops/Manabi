@@ -55,7 +55,7 @@ export const japanese: LanguagePlugin = {
   tokenize,
   annotate: () => notImplemented('annotate', 57),
   teachingCard,
-  // Kana and vocabulary generators (#30); kanji ones join with #53.
+  // Kana and vocabulary generators (#30) and EX-09 (#50); the other kanji ones join with #53.
   generators,
   reviewFacets: () => notImplemented('reviewFacets', 48),
   // FR-136, TTS spike: Kokoro misreads kanji, so it is always sent the kana reading.

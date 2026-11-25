@@ -17,7 +17,9 @@ export interface LessonProgressRow {
 export interface LessonSessionRow {
   id: number;
   user_id: number;
-  lesson_id: number;
+  /** Exactly one of lesson_id and unit_id is set; unit_id for a unit test-out (FR-024). */
+  lesson_id: number | null;
+  unit_id: number | null;
   state: { [key: string]: unknown };
   created_at: Date;
   updated_at: Date;

@@ -116,3 +116,40 @@ export function payloadItemIds(payload: unknown): number[] {
     key === 'itemId' && typeof value === 'number' ? [value] : payloadItemIds(value),
   );
 }
+
+/** FR-024, Product Spec section 3: a unit test-out has 20 exercises and passes at 85%. */
+export const TEST_OUT_EXERCISES = 20;
+export const TEST_OUT_PASS_ACCURACY = 85;
+
+/** `/units/:id/...`. */
+export const unitIdParamsSchema = z.object({ id: idParamSchema });
+
+/** What `lesson_sessions.state` holds for a test-out: exercises only, no teaching cards. */
+export const testOutStateSchema = z.object({
+  exercises: z.array(sessionExerciseSchema).length(TEST_OUT_EXERCISES),
+});
+export type TestOutState = z.infer<typeof testOutStateSchema>;
+
+/** FR-024, FR-050: `POST /units/:id/test-out`, a started or resumed test-out session. */
+export const testOutSessionSchema = testOutStateSchema.extend({
+  id: idSchema,
+  unitId: idSchema,
+  unitTitle: z.string(),
+  expiresAt: timestampSchema,
+  sectionLevel: z.string(),
+  plugin: z.string(),
+});
+export type TestOutSession = z.infer<typeof testOutSessionSchema>;
+
+/** FR-053: body of `POST /test-out-sessions/:id/complete`, one response per exercise. */
+export const testOutCompletionRequestSchema = z.object({
+  responses: z.array(exerciseResponseSchema).length(TEST_OUT_EXERCISES),
+});
+export type TestOutCompletionRequest = z.infer<typeof testOutCompletionRequestSchema>;
+
+/** FR-024: the result of a test-out; a pass completes the unit and earns test-out XP. */
+export const testOutCompletionSchema = lessonCompletionSchema.omit({ lessonId: true }).extend({
+  unitId: idSchema,
+  passed: z.boolean(),
+});
+export type TestOutCompletion = z.infer<typeof testOutCompletionSchema>;

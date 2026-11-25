@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ApiClient } from '@manabi/api-client';
-import type { Item, LessonSession } from '@manabi/core';
+import type { Item, LessonSession, TestOutSession } from '@manabi/core';
 import { TEST_EXERCISE_TYPE } from '@manabi/core/src/testExerciseType';
 import type * as TestType from '@manabi/core/src/testExerciseType';
 import type * as LangJa from '@manabi/lang-ja';
@@ -55,15 +55,17 @@ function show(
   post: jest.Mock = jest.fn((path: string) =>
     Promise.resolve(path === '/api/v1/lessons/{id}/sessions' ? session : completion),
   ),
+  entry = '/lesson/3',
 ) {
   const api = { POST: post, GET: jest.fn(() => Promise.resolve({ settings: {} })) };
   render(
     <ApiContext.Provider value={api as unknown as ApiClient}>
       <AppThemeProvider>
         <SessionProvider>
-          <MemoryRouter initialEntries={['/lesson/3']}>
+          <MemoryRouter initialEntries={[entry]}>
             <Routes>
               <Route path="/lesson/:lessonId" element={<LessonPlayerPage />} />
+              <Route path="/unit/:unitId/test-out" element={<LessonPlayerPage />} />
             </Routes>
           </MemoryRouter>
         </SessionProvider>
@@ -235,6 +237,7 @@ describe('LessonPlayerPage', () => {
       enter(); // Enter on the focused Continue button
     }
     expect(await screen.findByText('Accuracy 90%')).toBeTruthy();
+    expect(screen.getByTestId('confetti')).toBeTruthy(); // FR-167: motion is on by default
   });
 
   it('keeps the Check button unusable until there is an answer', async () => {
@@ -343,5 +346,66 @@ describe('LessonPlayerPage', () => {
       expect(speak).toHaveBeenCalledTimes(3);
       expect(speak.mock.calls[2]![0]).toMatchObject({ text: 'みず' });
     });
+  });
+});
+
+// FR-024: the unit test-out, played by the same player.
+describe('LessonPlayerPage test-out', () => {
+  const testOut: TestOutSession = {
+    id: 9,
+    unitId: 5,
+    unitTitle: 'Greetings',
+    expiresAt: '2026-11-24T00:00:00.000Z',
+    sectionLevel: 'N5',
+    plugin: 'ja',
+    exercises: Array.from({ length: 20 }, (_, i) => ({
+      type: TEST_EXERCISE_TYPE,
+      payload: { prompt: `Type t${i}`, answer: `t${i}` },
+    })),
+  };
+
+  async function play(passed: boolean) {
+    const result = { unitId: 5, passed, accuracy: passed ? 100 : 80, totalXp: 30, level: 1 };
+    const api = show(
+      jest.fn((path: string) =>
+        Promise.resolve(
+          path === '/api/v1/units/{id}/test-out'
+            ? testOut
+            : { ...result, xpEarned: passed ? 30 : 0, path: {} },
+        ),
+      ),
+      '/unit/5/test-out',
+    );
+    expect(await screen.findByRole('heading', { name: 'Test out of Greetings' })).toBeTruthy();
+    expect(screen.getByText(/Answer 20 exercises\. Get 85% right/)).toBeTruthy();
+    fireEvent.click(button('Start'));
+    for (let i = 0; i < 20; i++) {
+      await answer(`t${i}`);
+      fireEvent.click(button('Continue'));
+    }
+    await screen.findByRole('link', { name: 'Done' });
+    return api;
+  }
+
+  it('starts from the unit, completes with its own key, and shows a pass', async () => {
+    const api = await play(true);
+    expect(api.POST).toHaveBeenCalledWith('/api/v1/units/{id}/test-out', {
+      params: { path: { id: '5' } },
+      body: {},
+    });
+    expect(api.POST).toHaveBeenLastCalledWith('/api/v1/test-out-sessions/{id}/complete', {
+      params: { path: { id: '9' } },
+      body: { responses: testOut.exercises.map((_, i) => ({ attempts: [`t${i}`] })) },
+      idempotencyKey: 'test-out-session-9',
+    });
+    expect(screen.getByRole('heading', { name: 'Unit complete!' })).toBeTruthy();
+    expect(screen.getByText('Accuracy 100%')).toBeTruthy();
+    expect(screen.getByText('+30 XP')).toBeTruthy();
+  });
+
+  it('shows a fail with the pass mark', async () => {
+    await play(false);
+    expect(screen.getByRole('heading', { name: /you need 85% to pass/ })).toBeTruthy();
+    expect(screen.getByText('Accuracy 80%')).toBeTruthy();
   });
 });

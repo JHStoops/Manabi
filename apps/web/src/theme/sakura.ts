@@ -1,10 +1,10 @@
 import type { ManabiTheme } from './types';
 
 // PLACEHOLDER palette; real design tokens come later.
-const spacing = (units: number): string => `${units * 4}px`;
-const radii = { small: '8px', medium: '16px', pill: '999px' };
-const fontSizes = { small: '0.875rem', body: '1rem', title: '1.5rem', display: '2rem' };
-const lessonColors = {
+export const spacing = (units: number): string => `${units * 4}px`;
+export const radii = { small: '8px', medium: '16px', pill: '999px' };
+export const fontSizes = { small: '0.875rem', body: '1rem', title: '1.5rem', display: '2rem' };
+export const lessonColors = {
   vocabulary: '#2f7de1',
   kanji: '#8a4fd8',
   grammar: '#2e9d5b',
@@ -12,7 +12,7 @@ const lessonColors = {
   review: '#d4a017',
 };
 // Dark enough for white band titles (WCAG AA).
-const sectionColors = ['#b0306a', '#00796b', '#5e35b1', '#1565c0', '#bf360c'];
+export const sectionColors = ['#b0306a', '#00796b', '#5e35b1', '#1565c0', '#bf360c'];
 
 export const sakuraLight: ManabiTheme = {
   name: 'sakura',
@@ -22,7 +22,7 @@ export const sakuraLight: ManabiTheme = {
     surface: '#ffffff',
     text: '#2b1d22',
     textMuted: '#6e5a62',
-    primary: '#d6457a',
+    primary: '#c2185b',
     primaryText: '#ffffff',
     border: '#f0d5de',
     correct: '#2e7d32',

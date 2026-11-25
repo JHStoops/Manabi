@@ -1,7 +1,9 @@
 import {
   CHOICE_TYPE,
+  CONJUGATE_TYPE,
   FILL_BLANK_TYPE,
   MATCH_PAIRS_TYPE,
+  READING_IN_CONTEXT_TYPE,
   REORDER_TYPE,
   TYPED_ANSWER_TYPE,
   WORD_BANK_TYPE,
@@ -15,3 +17,5 @@ registerExerciseRenderer(TYPED_ANSWER_TYPE, () => import('./TypedAnswerRenderer'
 registerExerciseRenderer(WORD_BANK_TYPE, () => import('./WordBankRenderer'));
 registerExerciseRenderer(FILL_BLANK_TYPE, () => import('./FillBlankRenderer'));
 registerExerciseRenderer(REORDER_TYPE, () => import('./ReorderRenderer'));
+registerExerciseRenderer(READING_IN_CONTEXT_TYPE, () => import('./ReadingInContextRenderer'));
+registerExerciseRenderer(CONJUGATE_TYPE, () => import('./ConjugateRenderer'));
