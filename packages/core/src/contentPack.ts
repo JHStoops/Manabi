@@ -36,7 +36,21 @@ export const packCourseSchema = z
   .strict();
 export type PackCourse = z.infer<typeof packCourseSchema>;
 
-/** One lesson inside a unit file. `items` are the keys of the new items it teaches, in order. */
+/**
+ * An authored exercise in a unit file (DR-12, FR-238). `key` is unique within its lesson.
+ * `payload` is the exercise type's payload with each item named by key (`item: <key>`) where the
+ * stored payload has `itemId`; answer text may leave out its `tiles`, which import segments.
+ * The type's payload schema validates it once keys and tiles are filled in.
+ */
+export const packExerciseSchema = z
+  .object({ key: stableKeySchema, type: typeIdSchema, payload: jsonObjectSchema })
+  .strict();
+export type PackExercise = z.infer<typeof packExerciseSchema>;
+
+/**
+ * One lesson inside a unit file. `items` are the keys of the new items it teaches, in order;
+ * `exercises` its authored exercises, in order.
+ */
 export const packLessonSchema = z
   .object({
     key: stableKeySchema,
@@ -44,8 +58,7 @@ export const packLessonSchema = z
     title: nonEmptyTextSchema,
     status: publishStatusSchema.default('draft'),
     items: z.array(stableKeySchema).default([]),
-    // STUB: hand-written exercises join the unit files with the exercise types and their tile
-    // segmentation (#43, #59, #109).
+    exercises: z.array(packExerciseSchema).default([]),
   })
   .strict();
 export type PackLesson = z.infer<typeof packLessonSchema>;

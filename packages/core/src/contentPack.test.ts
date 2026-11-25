@@ -53,11 +53,38 @@ describeSchema(
         lessons: [{ key: 'l', type: 'vocabulary', title: 'Drinks', items: ['ja:word:水:みず'] }],
       },
     ],
+    [
+      'a lesson with an authored exercise',
+      {
+        key: 'u',
+        section: 's',
+        title: 'U',
+        lessons: [
+          {
+            key: 'l',
+            type: 'vocabulary',
+            title: 'L',
+            exercises: [{ key: 'e', type: 'typed_answer', payload: { prompt: 'water' } }],
+          },
+        ],
+      },
+    ],
   ],
   [
     [
       'an unknown lesson type',
       { key: 'u', section: 's', title: 'U', lessons: [{ key: 'l', type: 'boss', title: 'L' }] },
+    ],
+    [
+      'an exercise without a key',
+      {
+        key: 'u',
+        section: 's',
+        title: 'U',
+        lessons: [
+          { key: 'l', type: 'kana', title: 'L', exercises: [{ type: 'choice', payload: {} }] },
+        ],
+      },
     ],
   ],
 );

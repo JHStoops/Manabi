@@ -123,7 +123,7 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 | `level_list_words` | course_id, level_code, written, reading | Words of the JLPT level lists up to the level ceiling, written by the level-list import; the vocabulary import filters on them with the supplementary words |
 | `blocked_words` | id, lang, word | Admin-editable blocklist per language; empty at start |
 | `sentence_items` | sentence_id, item_id | For "example sentences using this item" |
-| `exercises` | id, lesson_id (nullable), item_id (nullable), type, payload (JSONB), origin | Origin: authored, generated or pinned; item-level exercises feed reviews and drills |
+| `exercises` | id, lesson_id (nullable), item_id (nullable), type, payload (JSONB), origin, key, position, archived_at | Origin: authored, generated or pinned; item-level exercises feed reviews and drills; authored exercises from a pack have a key unique within their lesson and a position, and are archived instead of deleted when dropped from the pack |
 | `audio_assets` | id, owner_type, owner_id, voice, path, origin, text_hash | Generated on first request or uploaded; hash of the reading sent detects stale audio; voice is null only for uploaded clips |
 | `stroke_data` | item_id, strokes (JSONB) | Hanzi Writer character data converted from KanjiVG: an outline and a median per stroke |
 

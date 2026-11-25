@@ -28,6 +28,7 @@ const CONTENT_TABLES: Record<string, string> = {
   lesson_items: 'lesson_id, item_id',
   sentences: 'id',
   sentence_items: 'sentence_id, item_id',
+  exercises: 'id',
   blocked_words: 'id',
   supplementary_words: 'id',
 };
@@ -122,6 +123,7 @@ function otherCourse(pack: ContentPack, keep: 'unit' | 'lesson'): ContentPack {
         ...l,
         key: keep === 'lesson' ? l.key : rekey(l.key),
         items: [],
+        exercises: [],
       })),
     })),
     items: [],
@@ -216,6 +218,88 @@ describeWithDb('content packs', () => {
     );
   });
 
+  describe('authored exercises (DR-12, FR-238)', () => {
+    const exercises = (pack: ContentPack) => pack.units[1]!.lessons[0]!.exercises;
+    const typeWater = () =>
+      queryOne<{ id: number; payload: { accept: { text: string; tiles: unknown[] }[] } }>(
+        pool(),
+        `SELECT id, payload FROM exercises WHERE key = 'type-water'`,
+      );
+
+    it('resolves item keys, segments answer text without tiles and exports both back', async () => {
+      const pack = await readPack(FIXTURE);
+      await importPack(pool(), pack);
+      const water = await queryOne<{ id: number }>(
+        pool(),
+        `SELECT id FROM items WHERE key = 'ja:word:水:みず'`,
+      );
+      const rows = await query(
+        pool(),
+        `SELECT key, position, origin, payload->'answer'->'tiles' AS tiles FROM exercises
+         ORDER BY position`,
+      );
+      expect(rows).toEqual([
+        {
+          key: 'build-water',
+          position: 0,
+          origin: 'authored',
+          tiles: [{ surface: '水', base: '水', reading: 'みず', itemId: water!.id }],
+        },
+        { key: 'type-water', position: 1, origin: 'authored', tiles: null },
+      ]);
+      const segmented = [{ surface: '水', base: '水', reading: 'みず' }];
+      expect((await typeWater())!.payload.accept).toEqual([{ text: '水', tiles: segmented }]);
+
+      const [built, typed] = exercises(pack);
+      const exported = exercises(await exportPack(pool(), 'ja-en'));
+      expect(exported).toEqual([
+        built,
+        { ...typed, payload: { ...typed!.payload, accept: [{ text: '水', tiles: segmented }] } },
+      ]);
+    });
+
+    it('keeps author-edited answer tiles on re-import and segments changed text', async () => {
+      const pack = await readPack(FIXTURE);
+      await importPack(pool(), pack);
+      const edited = [{ surface: '水', base: '水', reading: 'すい' }];
+      await query(
+        pool(),
+        `UPDATE exercises SET payload = jsonb_set(payload, '{accept,0,tiles}', $1)
+         WHERE key = 'type-water'`,
+        [JSON.stringify(edited)],
+      );
+      await importPack(pool(), pack);
+      expect((await typeWater())!.payload.accept[0]!.tiles).toEqual(edited);
+
+      exercises(pack)[1]!.payload.accept = [{ text: 'お水' }];
+      await importPack(pool(), pack);
+      expect((await typeWater())!.payload.accept[0]!.tiles).not.toEqual(edited);
+    });
+
+    it('archives an exercise dropped from the pack and restores it in place', async () => {
+      const pack = await readPack(FIXTURE);
+      await importPack(pool(), pack);
+      const before = await typeWater();
+      const dropped = exercises(pack).pop()!;
+      await importPack(pool(), pack);
+      const archived = () =>
+        query(pool(), 'SELECT key, archived_at IS NOT NULL AS archived FROM exercises ORDER BY id');
+      expect(await archived()).toEqual([
+        { key: 'build-water', archived: false },
+        { key: 'type-water', archived: true },
+      ]);
+      expect(exercises(await exportPack(pool(), 'ja-en'))).toHaveLength(1);
+
+      exercises(pack).push(dropped);
+      await importPack(pool(), pack);
+      expect((await typeWater())!.id).toBe(before!.id);
+      expect(await archived()).toEqual([
+        { key: 'build-water', archived: false },
+        { key: 'type-water', archived: false },
+      ]);
+    });
+  });
+
   it('replaces the supplementary words with the pack list (FR-234)', async () => {
     const pack = await readPack(FIXTURE);
     await importPack(pool(), pack);
@@ -286,6 +370,7 @@ describeWithDb('content packs', () => {
       title: 'う and え',
       status: 'published',
       items: [],
+      exercises: [],
     });
     await importPack(pool(), pack);
 
@@ -316,6 +401,7 @@ describeWithDb('content packs', () => {
     hiragana.title = 'Hiragana basics';
     hiragana.lessons.push(unit(pack, 'ja-en:n5:ordering').lessons[0]!);
     hiragana.lessons[2]!.items = [];
+    hiragana.lessons[2]!.exercises = [];
     pack.units = [hiragana];
     pack.course.sections = pack.course.sections.slice(0, 1);
     pack.items = pack.items.filter((i) => i.key !== 'ja:word:水:みず' && i.type !== 'grammar');
@@ -581,6 +667,57 @@ describeWithDb('content packs', () => {
       'an unknown item key in a tile',
       (p) => (p.sentences[1]!.tiles[0]!.item = 'ja:word:x'),
       'sentence "水です。" tile: no active item ja:word:x in the course',
+    ],
+    [
+      'an unknown item key in an exercise',
+      (p) =>
+        (p.units[1]!.lessons[0]!.exercises[0]!.payload.distractors = [
+          { surface: '火', base: '火', reading: 'ひ', item: 'ja:word:x' },
+        ]),
+      'lesson ja-en:n5:ordering:words exercise build-water: no active item ja:word:x in the course',
+    ],
+    [
+      'an exercise payload its type rejects',
+      (p) => (p.units[1]!.lessons[0]!.exercises[0]!.payload.acceptedOrders = [[1]]),
+      'lesson ja-en:n5:ordering:words exercise build-water: payload.acceptedOrders: Each accepted order lists distinct answer tile indexes',
+    ],
+    [
+      'word bank answer text without tiles',
+      (p) =>
+        delete (p.units[1]!.lessons[0]!.exercises[0]!.payload.answer as { tiles?: unknown }).tiles,
+      'lesson ja-en:n5:ordering:words exercise build-water: payload.answer.tiles: write the tiles: only accept-list answers are segmented at import, and acceptedOrders index the tiles',
+    ],
+    [
+      'reorder answer text without tiles',
+      (p) =>
+        (p.units[1]!.lessons[0]!.exercises[0] = {
+          key: 'order-water',
+          type: 'reorder',
+          payload: {
+            prompt: 'I drink water',
+            answer: { text: '水を飲む' },
+            acceptedOrders: [[0, 1, 2]],
+          },
+        }),
+      'lesson ja-en:n5:ordering:words exercise order-water: payload.answer.tiles: write the tiles: only accept-list answers are segmented at import, and acceptedOrders index the tiles',
+    ],
+    [
+      'an item named by id in an exercise',
+      (p) =>
+        (p.units[1]!.lessons[0]!.exercises[1]!.payload.accept = [
+          { text: '水', tiles: [{ surface: '水', base: '水', reading: 'みず', itemId: 1 }] },
+        ]),
+      'lesson ja-en:n5:ordering:words exercise type-water: name the item by key (item: <key>), not itemId',
+    ],
+    [
+      'an unknown exercise type',
+      (p) => (p.units[1]!.lessons[0]!.exercises[0]!.type = 'boss'),
+      'lesson ja-en:n5:ordering:words exercise build-water: Unknown exercise type "boss"',
+    ],
+    [
+      'a duplicate exercise key in a lesson',
+      (p) => p.units[1]!.lessons[0]!.exercises.push(p.units[1]!.lessons[0]!.exercises[0]!),
+      'duplicate exercise build-water in lesson ja-en:n5:ordering:words',
     ],
     [
       'item data the plugin rejects',

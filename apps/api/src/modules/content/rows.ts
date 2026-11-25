@@ -153,6 +153,10 @@ export interface ExerciseRow {
   type: string;
   payload: JsonObject;
   origin: ExerciseOrigin;
+  /** Authored exercises from a pack: key within the lesson, position in it (migration 0008). */
+  key: string | null;
+  position: number | null;
+  archived_at: Date | null;
   created_at: Date;
   updated_at: Date;
 }

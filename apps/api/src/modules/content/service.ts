@@ -1,18 +1,27 @@
 import type { Pool } from 'pg';
 import { ZodError } from 'zod';
-import { ContentPackError, parseItemData, UnknownItemTypeError } from '@manabi/core';
+import {
+  ContentPackError,
+  getExerciseType,
+  parseItemData,
+  UnknownExerciseTypeError,
+  UnknownItemTypeError,
+} from '@manabi/core';
 import type {
   ContentPack,
   LanguagePlugin,
+  PackExercise,
   PackItem,
   PackSentence,
   PackTile,
   Tile,
 } from '@manabi/core';
+import { segmentText } from '@manabi/importers';
 import type { Queryable } from '../../db/db';
 import { withTransaction } from '../../db/db';
 import { languagePlugins } from '../../plugins';
 import {
+  archiveAuthoredExercisesExcept,
   archiveAuthoredItemsExcept,
   archiveAuthoredSentencesExcept,
   archiveLessonsExcept,
@@ -23,6 +32,7 @@ import {
   findSentenceId,
   insertPackSentence,
   listActiveItemKeys,
+  listAuthoredExercisePayloads,
   listActiveLessons,
   listActiveSections,
   listPackSentences,
@@ -37,6 +47,7 @@ import {
   replaceSupplementaryWords,
   setImportedItemOverrides,
   updatePackSentence,
+  upsertAuthoredExercise,
   upsertAuthoredItem,
   upsertCourse,
   upsertLesson,
@@ -86,9 +97,119 @@ export function itemDataProblems(
   }
 }
 
+type Issues = ZodError['issues'];
+const isObject = (value: unknown): value is JsonObject =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** A deep copy of a pack payload with each `item: <key>` turned into `itemId: idOf(key)`. */
+function resolveItems(value: unknown, idOf: (key: string) => number): unknown {
+  if (Array.isArray(value)) return value.map((v) => resolveItems(v, idOf));
+  if (!isObject(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([k, v]) =>
+      k === 'item' && typeof v === 'string' ? ['itemId', idOf(v)] : [k, resolveItems(v, idOf)],
+    ),
+  );
+}
+
+/** The reverse of resolveItems, for export: each `itemId: <id>` becomes `item: keyOf(id)`. */
+function itemKeys(value: unknown, keyOf: (id: number) => string): unknown {
+  if (Array.isArray(value)) return value.map((v) => itemKeys(v, keyOf));
+  if (!isObject(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([k, v]) =>
+      k === 'itemId' && typeof v === 'number' ? ['item', keyOf(v)] : [k, itemKeys(v, keyOf)],
+    ),
+  );
+}
+
+/** Answer text (`text` with `tiles`) anywhere in a stored payload: its tiles by text. */
+function storedTiles(value: unknown, out = new Map<string, Tile[]>()): Map<string, Tile[]> {
+  if (Array.isArray(value)) value.forEach((v) => storedTiles(v, out));
+  if (!isObject(value)) return out;
+  if (typeof value.text === 'string' && Array.isArray(value.tiles))
+    out.set(value.text, value.tiles as Tile[]);
+  Object.values(value).forEach((v) => storedTiles(v, out));
+  return out;
+}
+
+/**
+ * A pack exercise's payload in stored form, with items resolved by `idOf`, and the entries of its
+ * `accept` list that leave out tiles, for the caller to fill (DR-12, FR-238). Only accept-list
+ * answers may: elsewhere (word_bank, reorder) `acceptedOrders` index the tiles the author wrote.
+ */
+function storedPayload(
+  e: PackExercise,
+  idOf: (key: string) => number,
+): { payload: JsonObject; untiled: { text: string; tiles?: Tile[] }[] } {
+  const payload = resolveItems(e.payload, idOf) as JsonObject;
+  const accept: unknown[] = Array.isArray(payload.accept) ? payload.accept : [];
+  const untiled = accept.filter(
+    (a): a is { text: string } =>
+      isObject(a) && typeof a.text === 'string' && a.tiles === undefined,
+  );
+  return { payload, untiled };
+}
+
+/** Every object inside `value`, itself included, that `match` accepts. */
+export function objectsIn(value: unknown, match: (o: JsonObject) => boolean): JsonObject[] {
+  if (Array.isArray(value)) return value.flatMap((v) => objectsIn(v, match));
+  if (!isObject(value)) return [];
+  return [
+    ...(match(value) ? [value] : []),
+    ...Object.values(value).flatMap((v) => objectsIn(v, match)),
+  ];
+}
+
+/** Payload schema issues as problems, at the pack object (and field) each issue path ends at. */
+function payloadProblems(label: string, e: PackExercise, issues: Issues): PackProblem[] {
+  return issues.map((issue) => {
+    // Stored payloads name items by `itemId`; the pack by `item`.
+    const path = issue.path.map((k) => (k === 'itemId' ? 'item' : (k as string | number)));
+    let at: object = e.payload;
+    let field: string | number | undefined;
+    for (const k of path) {
+      field = k;
+      const child: unknown = (at as JsonObject)[k];
+      if (typeof child !== 'object' || child === null) break;
+      [at, field] = [child, undefined];
+    }
+    const missingTiles = field === 'tiles' && (at as JsonObject).tiles === undefined;
+    const message = missingTiles
+      ? 'write the tiles: only accept-list answers are segmented at import, and acceptedOrders index the tiles'
+      : issue.message;
+    return { message: `${label}: payload.${path.join('.')}: ${message}`, at, field };
+  });
+}
+
+/** An authored exercise's type and payload problems. Accept-list answers import segments pass. */
+function exerciseProblems(lessonKey: string, e: PackExercise): PackProblem[] {
+  const label = `lesson ${lessonKey} exercise ${e.key}`;
+  // Ids differ between databases, so a pack names items only by key.
+  const ids = objectsIn(e.payload, (o) => 'itemId' in o).map((at) => ({
+    message: `${label}: name the item by key (item: <key>), not itemId`,
+    at,
+    field: 'itemId',
+  }));
+  if (ids.length > 0) return ids;
+  try {
+    // Item keys are checked at import and by the lint's database checks.
+    const { payload, untiled } = storedPayload(e, () => 1);
+    for (const answer of untiled)
+      answer.tiles = [{ surface: answer.text, base: answer.text, reading: answer.text }];
+    const result = getExerciseType(e.type).payloadSchema.safeParse(payload);
+    return result.success ? [] : payloadProblems(label, e, result.error.issues);
+  } catch (err) {
+    if (err instanceof UnknownExerciseTypeError)
+      return [{ message: `${label}: ${err.message}`, at: e, field: 'type' }];
+    throw err;
+  }
+}
+
 /**
  * The problems a pack shows without the database: an unknown plugin, duplicate keys, unknown
- * sections and levels, and authored item data the plugin rejects. Shared by importPack and the
+ * sections and levels, authored item data the plugin rejects, and exercise payloads their type
+ * rejects. Shared by importPack and the
  * pack lint (FR-227, FR-228).
  */
 export function packProblems(pack: ContentPack): PackProblem[] {
@@ -108,6 +229,14 @@ export function packProblems(pack: ContentPack): PackProblem[] {
     ...duplicates(
       'lesson',
       pack.units.flatMap((u) => u.lessons.map((l): [string, object] => [l.key, l])),
+    ),
+    ...duplicates(
+      'exercise',
+      pack.units.flatMap((u) =>
+        u.lessons.flatMap((l) =>
+          l.exercises.map((e): [string, object] => [`${e.key} in lesson ${l.key}`, e]),
+        ),
+      ),
     ),
     ...duplicates(
       'item',
@@ -145,6 +274,9 @@ export function packProblems(pack: ContentPack): PackProblem[] {
     if (!item.data) continue;
     for (const message of itemDataProblems(plugin, item, item.data))
       problems.push({ message, at: item, field: 'data' });
+  }
+  for (const lesson of pack.units.flatMap((u) => u.lessons)) {
+    for (const e of lesson.exercises) problems.push(...exerciseProblems(lesson.key, e));
   }
   return problems;
 }
@@ -231,6 +363,39 @@ export async function importPack(
           fail(`lesson ${lesson.key} belongs to another course`);
         const ids = lesson.items.map((key) => idOf(key, `lesson ${lesson.key}`));
         await replaceLessonItems(db, lessonId, ids);
+
+        const before = new Map(
+          (await listAuthoredExercisePayloads(db, lessonId)).map((r) => [r.key, r.payload]),
+        );
+        for (const [position, e] of lesson.exercises.entries()) {
+          const label = `lesson ${lesson.key} exercise ${e.key}`;
+          const { payload, untiled } = storedPayload(e, (key) => idOf(key, label));
+          const kept = storedTiles(before.get(e.key));
+          for (const answer of untiled) {
+            // FR-238: tiles stored for the same text are kept, since an author may have edited
+            // them; new text is segmented.
+            answer.tiles =
+              kept.get(answer.text) ??
+              (await segmentText(plugin, answer.text)).map(({ counted: _, ...tile }) => tile);
+          }
+          const result = getExerciseType(e.type).payloadSchema.safeParse(payload);
+          if (!result.success)
+            throw new ContentPackError(
+              payloadProblems(label, e, result.error.issues).map((p) => p.message),
+            );
+          await upsertAuthoredExercise(db, {
+            lessonId,
+            key: e.key,
+            position,
+            type: e.type,
+            payload,
+          });
+        }
+        await archiveAuthoredExercisesExcept(
+          db,
+          lessonId,
+          lesson.exercises.map((e) => e.key),
+        );
       }
     }
     await archiveUnitsExcept(
@@ -302,6 +467,13 @@ export async function exportPack(db: Queryable, courseKey: string): Promise<Cont
           title: l.title,
           status: l.status,
           items: l.item_keys,
+          exercises: l.exercises.map((e) => ({
+            ...e,
+            payload: itemKeys(
+              e.payload,
+              (id) => keyOf.get(id) ?? fail(`exercise ${e.key}: item ${id} is archived`),
+            ) as JsonObject,
+          })),
         })),
     })),
     items: items.map((i) =>

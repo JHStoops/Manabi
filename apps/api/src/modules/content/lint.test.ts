@@ -50,6 +50,24 @@ describe('pack lint file checks', () => {
     ]);
   });
 
+  it('reports invalid exercise payloads with file, line and path', async () => {
+    const dir = await fixture(
+      ['units/02-ordering.yaml', 'answerLanguage: target', 'answerLanguage: ja'],
+      ['units/02-ordering.yaml', 'tiles: [{ surface: 水,', 'tiles: [{'],
+    );
+    const label = 'lesson ja-en:n5:ordering:words exercise';
+    expect(await lintPack(dir, null)).toEqual([
+      expect.stringMatching(
+        new RegExp(
+          `^units/02-ordering\\.yaml:16: ${label} build-water: payload\\.answer\\.tiles\\.0\\.surface: `,
+        ),
+      ),
+      expect.stringMatching(
+        new RegExp(`^units/02-ordering\\.yaml:23: ${label} type-water: payload\\.answerLanguage: `),
+      ),
+    ]);
+  });
+
   it('reports YAML syntax errors with file and line', async () => {
     const dir = await fixture(['units/02-ordering.yaml', 'title: Ordering', 'title: [']);
     expect(await lintPack(dir, null)).toEqual([

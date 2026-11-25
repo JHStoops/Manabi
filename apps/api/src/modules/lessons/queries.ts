@@ -123,13 +123,13 @@ export function listTaughtItems(db: Queryable, lessonId: number): Promise<ItemRo
   );
 }
 
-/** SDD section 6: the lesson's stored exercises (authored and pinned), pinned first. */
+/** SDD section 6: the lesson's active stored exercises (authored and pinned), pinned first. */
 export function listStoredExercises(db: Queryable, lessonId: number): Promise<ExerciseRow[]> {
   return query<ExerciseRow>(
     db,
     `SELECT * FROM exercises
-      WHERE lesson_id = $1 AND origin IN ('authored', 'pinned')
-      ORDER BY origin = 'pinned' DESC, id`,
+      WHERE lesson_id = $1 AND origin IN ('authored', 'pinned') AND archived_at IS NULL
+      ORDER BY origin = 'pinned' DESC, position, id`,
     [lessonId],
   );
 }

@@ -286,6 +286,49 @@ export async function replaceLessonItems(
   );
 }
 
+/** The payloads of a lesson's authored exercises by key, archived ones included. */
+export function listAuthoredExercisePayloads(
+  db: Queryable,
+  lessonId: number,
+): Promise<{ key: string; payload: JsonObject }[]> {
+  return query(
+    db,
+    `SELECT key, payload FROM exercises
+     WHERE lesson_id = $1 AND origin = 'authored' AND key IS NOT NULL`,
+    [lessonId],
+  );
+}
+
+/** An authored exercise from the pack, matched by lesson and key; un-archives it. */
+export async function upsertAuthoredExercise(
+  db: Queryable,
+  e: { lessonId: number; key: string; position: number; type: string; payload: JsonObject },
+): Promise<void> {
+  await query(
+    db,
+    `INSERT INTO exercises (lesson_id, key, position, type, payload, origin)
+     VALUES ($1, $2, $3, $4, $5, 'authored')
+     ON CONFLICT (lesson_id, key) DO UPDATE SET position = EXCLUDED.position,
+       type = EXCLUDED.type, payload = EXCLUDED.payload, archived_at = NULL, updated_at = now()`,
+    [e.lessonId, e.key, e.position, e.type, e.payload],
+  );
+}
+
+/** Archives the lesson's authored exercises whose keys are not in `keys` (never deletes). */
+export async function archiveAuthoredExercisesExcept(
+  db: Queryable,
+  lessonId: number,
+  keys: string[],
+): Promise<void> {
+  await query(
+    db,
+    `UPDATE exercises SET archived_at = now(), updated_at = now()
+     WHERE lesson_id = $1 AND origin = 'authored' AND archived_at IS NULL
+       AND (key IS NULL OR NOT (key = ANY ($2::text[])))`,
+    [lessonId, keys],
+  );
+}
+
 /** An item the pack authors. Null when the key belongs to an imported item or another course. */
 export async function upsertAuthoredItem(
   db: Queryable,
@@ -550,12 +593,22 @@ export function listActiveUnits(
 export function listActiveLessons(
   db: Queryable,
   courseId: number,
-): Promise<(LessonRow & { item_keys: string[] })[]> {
+): Promise<
+  (LessonRow & {
+    item_keys: string[];
+    exercises: { key: string; type: string; payload: JsonObject }[];
+  })[]
+> {
   return query(
     db,
     `SELECT l.*,
        array(SELECT i.key FROM lesson_items li JOIN items i ON i.id = li.item_id
-             WHERE li.lesson_id = l.id ORDER BY li.position)::text[] AS item_keys
+             WHERE li.lesson_id = l.id ORDER BY li.position)::text[] AS item_keys,
+       coalesce((SELECT jsonb_agg(jsonb_build_object('key', e.key, 'type', e.type,
+                                                     'payload', e.payload) ORDER BY e.position)
+                 FROM exercises e
+                 WHERE e.lesson_id = l.id AND e.origin = 'authored' AND e.archived_at IS NULL),
+                '[]') AS exercises
      FROM lessons l JOIN units u ON u.id = l.unit_id JOIN sections s ON s.id = u.section_id
      WHERE s.course_id = $1 AND l.archived_at IS NULL
      ORDER BY l.unit_id, l.position`,
