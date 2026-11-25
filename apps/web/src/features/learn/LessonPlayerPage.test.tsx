@@ -9,6 +9,7 @@ import '../../i18n';
 import { ApiContext } from '../../state/session';
 import { AppThemeProvider } from '../../theme';
 import { registerExerciseRenderer } from '../exercises/registry';
+import '../exercises/renderers';
 import LessonPlayerPage from './LessonPlayerPage';
 
 // FR-046, FR-047, NFR-03, IF-03: the lesson player with the dummy test_echo exercise type.
@@ -129,6 +130,35 @@ describe('LessonPlayerPage', () => {
     expect(screen.getByText('Meaning').nextSibling?.textContent).toBe('water');
   });
 
+  it('shows the example sentence and its translation on a card that has one, and none otherwise (FR-041)', async () => {
+    const water = item(3, 'word', {
+      written: '水',
+      reading: 'みず',
+      senses: [{ partsOfSpeech: ['n'], meanings: ['water'] }],
+    });
+    const example = {
+      text: '水をください。',
+      translation: 'Water, please.',
+      tiles: [{ surface: '水', base: '水', reading: 'みず' }],
+    };
+    show(
+      jest.fn(() =>
+        Promise.resolve({
+          ...session,
+          lessonType: 'vocabulary',
+          sectionLevel: 'N5',
+          teachingCards: [{ item: water, example }, { item: water }],
+        }),
+      ),
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+    expect(screen.getByText('Example')).toBeTruthy();
+    expect(screen.getByText('水をください。').getAttribute('lang')).toBe('ja');
+    expect(screen.getByText('Water, please.')).toBeTruthy();
+    fireEvent.click(button('Next'));
+    expect(screen.queryByText('Example')).toBeNull();
+  });
+
   it('refuses a course whose language plugin this app does not ship', async () => {
     show(jest.fn(() => Promise.resolve({ ...session, plugin: 'xx' })));
     expect((await screen.findByRole('alert')).textContent).toMatch(/cannot play this course/);
@@ -240,5 +270,76 @@ describe('LessonPlayerPage', () => {
     show(jest.fn(() => Promise.reject(new TypeError('offline'))));
     expect((await screen.findByRole('alert')).textContent).toMatch(/Cannot reach the server/);
     expect(screen.getByRole('link', { name: 'Leave lesson' })).toBeTruthy();
+  });
+
+  describe('audio (FR-135)', () => {
+    const listening = { type: 'listen_choose', payload: {} };
+    const withListening = { ...session, exercises: [listening, ...session.exercises] };
+    const speakers = () => screen.queryAllByRole('button', { name: /^Play / });
+
+    afterEach(() => {
+      Object.assign(globalThis, { speechSynthesis: undefined });
+    });
+
+    it('shows no speaker buttons and skips listening exercises when the device has no voice', async () => {
+      show(jest.fn(() => Promise.resolve(withListening)));
+      fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+      expect(speakers()).toHaveLength(0);
+      fireEvent.click(button('Next'));
+      expect(await screen.findByLabelText('Type a0')).toBeTruthy(); // not the listening exercise
+    });
+
+    it('speaks the reading from the teaching card and the answer after feedback', async () => {
+      const speak = jest.fn();
+      Object.assign(globalThis, {
+        speechSynthesis: {
+          getVoices: () => [{ lang: 'ja-JP', name: 'Kyoko' }],
+          addEventListener() {},
+          removeEventListener() {},
+          speak,
+          cancel() {},
+        },
+        SpeechSynthesisUtterance: function (this: { text: string }, text: string) {
+          this.text = text;
+        },
+      });
+      const water = item(3, 'word', {
+        written: '水',
+        reading: 'みず',
+        senses: [{ partsOfSpeech: ['n'], meanings: ['water'] }],
+      });
+      const typed = {
+        type: 'typed_answer',
+        payload: {
+          prompt: 'Water',
+          answerLanguage: 'target',
+          accept: [{ text: 'みず', tiles: [{ surface: 'みず', base: '水', reading: 'みず' }] }],
+        },
+      };
+      show(
+        jest.fn(() =>
+          Promise.resolve({
+            ...session,
+            lessonType: 'vocabulary',
+            sectionLevel: 'N5',
+            teachingCards: [{ item: water }],
+            exercises: [typed],
+          }),
+        ),
+      );
+      fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+      expect(speakers()).toHaveLength(2); // normal and slow
+      fireEvent.click(speakers()[0]!);
+      expect(speak.mock.calls[0]![0]).toMatchObject({ text: 'みず', rate: 1 });
+      fireEvent.click(screen.getByRole('button', { name: 'Play word slowly' }));
+      expect(speak.mock.calls[1]![0]).toMatchObject({ rate: 0.75 });
+
+      fireEvent.click(button('Next'));
+      fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'みず' } });
+      fireEvent.click(button('Check'));
+      fireEvent.click(screen.getByRole('button', { name: 'Play answer' }));
+      expect(speak).toHaveBeenCalledTimes(3);
+      expect(speak.mock.calls[2]![0]).toMatchObject({ text: 'みず' });
+    });
   });
 });

@@ -1,3 +1,4 @@
+import { playableExercises } from '../audio/speech';
 import type { ExerciseResponse, GradeResult, LessonCompletion, LessonSession } from '@manabi/core';
 
 /**
@@ -33,6 +34,8 @@ export type PlayerAction =
   | { type: 'loaded'; session: LessonSession }
   /** The primary action: start, next card, continue after feedback, retry a failed completion. */
   | { type: 'next' }
+  /** FR-135: whether the device can speak; without a voice, listening exercises are dropped. */
+  | { type: 'canSpeak'; canSpeak: boolean }
   | { type: 'answered'; answer: unknown }
   /** The grade of the current answer on its own, from gradeResponse. */
   | { type: 'checked'; grade: GradeResult }
@@ -65,6 +68,19 @@ export function lessonPlayerReducer(state: PlayerState, action: PlayerAction): P
         queue: action.session.exercises.map((_, i) => i),
         responses: action.session.exercises.map(() => undefined),
       };
+
+    case 'canSpeak': {
+      // shortcut: decided once before the first exercise, so a voice that loads later does not
+      // bring listening exercises back; upgrade when listening exercises exist (EX-07, EX-08).
+      if (!state.session || !['intro', 'teaching'].includes(state.phase)) return state;
+      const exercises = playableExercises(state.session.exercises, action.canSpeak);
+      return {
+        ...state,
+        session: { ...state.session, exercises },
+        queue: exercises.map((_, i) => i),
+        responses: exercises.map(() => undefined),
+      };
+    }
 
     case 'next':
       switch (state.phase) {

@@ -219,6 +219,25 @@ describeWithDb('lesson sessions API', () => {
     expect([...sentenceIds].sort()).toEqual([ok, unlevelled].sort());
   });
 
+  it('gives a new item one fitting example sentence on its teaching card, or none (FR-041)', async () => {
+    const { courseId, lesson, item } = await seed();
+    const { userId, session } = await signIn('aiko');
+    await sql(`UPDATE items SET data = '{"variants": 10}'`);
+    // The first sentence is too hard, the second has a word from a later lesson (FR-056, FR-048).
+    await sentence(courseId, [item.w3!], { vocab: 'N5', grammar: 'N5', challenging: true });
+    await sentence(courseId, [item.w3!, item.w4!], { vocab: 'N5', grammar: 'N5' });
+    const fits = await sentence(courseId, [item.w3!, item.w1!], { vocab: 'N5', grammar: 'N5' });
+    await sql(`UPDATE sentences SET text = 'mizu', translation = 'water' WHERE id = $1`, [fits]);
+
+    const first = (await start(lesson.l1!, session)).json<LessonSession>();
+    expect(first.teachingCards.map((c) => c.example)).toEqual([undefined, undefined]);
+
+    await complete(userId, lesson.l1!);
+    const second = (await start(lesson.l2!, session)).json<LessonSession>();
+    expect(second.teachingCards[0]!.example).toMatchObject({ text: 'mizu', translation: 'water' });
+    expect(second.teachingCards[0]!.example!.tiles).toHaveLength(2);
+  });
+
   it('resumes the same session for 24 hours from the last return, then builds a new one (FR-050)', async () => {
     const { lesson } = await seed();
     const { session } = await signIn('aiko');

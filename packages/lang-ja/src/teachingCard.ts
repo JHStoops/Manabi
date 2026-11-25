@@ -12,7 +12,13 @@ export function teachingCard(item: Item, sectionLevel: string): TeachingCardFiel
   const data = effective(item);
   if (item.type === 'kana') {
     const kana = kanaDataSchema.safeParse(data).data;
-    if (kana) return { term: kana.character, reading: romaji ? kana.romaji : null, meaning: null };
+    if (kana)
+      return {
+        term: kana.character,
+        reading: romaji ? kana.romaji : null,
+        meaning: null,
+        spoken: kana.character,
+      };
   }
   if (item.type === 'kanji') {
     const kanji = kanjiDataSchema.safeParse(data).data;
@@ -22,6 +28,9 @@ export function teachingCard(item: Item, sectionLevel: string): TeachingCardFiel
         term: kanji.character,
         reading: readings.join('、') || null,
         meaning: kanji.meanings.join(', ') || null,
+        // KANJIDIC marks okurigana and affixes with `.` and `-`; they are not spoken.
+        spoken:
+          kanji.kunReadings[0]?.replace(/[-.]/g, '') || kanji.onReadings[0] || kanji.character,
       };
     }
   }
@@ -36,10 +45,11 @@ export function teachingCard(item: Item, sectionLevel: string): TeachingCardFiel
         term: word.written,
         reading: readings.join(' · ') || null,
         meaning: word.senses.map((s) => s.meanings.join(', ')).join('; '),
+        spoken: word.reading,
       };
     }
   }
   // shortcut: other item types (grammar) and invalid data show only the item key; upgrade when
   // grammar lessons get their explanation-summary card (#59).
-  return { term: item.key, reading: null, meaning: null };
+  return { term: item.key, reading: null, meaning: null, spoken: item.key };
 }

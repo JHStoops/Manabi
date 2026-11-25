@@ -20,12 +20,27 @@ describe('teachingCard', () => {
   });
 
   it('shows a kana with its romaji in the kana section only (FR-141)', () => {
-    expect(card(kana, KANA_SECTION_LEVEL)).toEqual({ term: 'か', reading: 'ka', meaning: null });
-    expect(card(kana)).toEqual({ term: 'か', reading: null, meaning: null });
+    expect(card(kana, KANA_SECTION_LEVEL)).toEqual({
+      term: 'か',
+      reading: 'ka',
+      meaning: null,
+      spoken: 'か',
+    });
+    expect(card(kana)).toEqual({
+      term: 'か',
+      reading: null,
+      meaning: null,
+      spoken: 'か',
+    });
   });
 
   it('shows a word with its kana reading and every meaning, plus romaji in the kana section', () => {
-    expect(card(word)).toEqual({ term: '水', reading: 'みず', meaning: 'water, fluid; flood' });
+    expect(card(word)).toEqual({
+      term: '水',
+      reading: 'みず',
+      meaning: 'water, fluid; flood',
+      spoken: 'みず',
+    });
     expect(card(word, KANA_SECTION_LEVEL).reading).toBe('みず · mizu');
     const kanaWord = item('word', { ...word.data, written: 'いえ', reading: 'いえ' });
     expect(card(kanaWord).reading).toBeNull();
@@ -40,7 +55,18 @@ describe('teachingCard', () => {
       kunReadings: ['ひ'],
       strokeCount: 4,
     });
-    expect(card(kanji)).toEqual({ term: '日', reading: 'ニチ、ひ', meaning: 'day, sun' });
+    expect(card(kanji)).toEqual({
+      term: '日',
+      reading: 'ニチ、ひ',
+      meaning: 'day, sun',
+      spoken: 'ひ',
+    });
+  });
+
+  it('speaks a kanji without the KANJIDIC okurigana and affix markers', () => {
+    const data = { character: '食', meanings: ['eat'], onReadings: ['ショク'], strokeCount: 9 };
+    expect(card(item('kanji', { ...data, kunReadings: ['た.べる'] })).spoken).toBe('たべる');
+    expect(card(item('kanji', { ...data, kunReadings: ['-ぐい'] })).spoken).toBe('ぐい');
   });
 
   it("applies the author's overrides, and falls back to the key for other items", () => {
@@ -49,6 +75,7 @@ describe('teachingCard', () => {
       term: 'ja:grammar:x',
       reading: null,
       meaning: null,
+      spoken: 'ja:grammar:x',
     });
   });
 });

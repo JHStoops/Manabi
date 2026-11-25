@@ -1,3 +1,4 @@
+import type { Dispatch } from 'react';
 import { Suspense, useCallback, useEffect, useReducer, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import styled from '@emotion/styled';
@@ -8,14 +9,23 @@ import {
   createLanguagePluginRegistry,
   gradeResponse,
 } from '@manabi/core';
-import type { ExerciseResponse, Item, LanguagePlugin } from '@manabi/core';
+import type {
+  AnswerText,
+  ExerciseResponse,
+  LanguagePlugin,
+  TeachingCard as TeachingCardData,
+  Tile,
+} from '@manabi/core';
 import { japanese } from '@manabi/lang-ja';
+import { SpeakerButton } from '../audio/SpeakerButton';
+import { SpeechProvider, useSpeech } from '../audio/speech';
 import { useApi } from '../../state/session';
 import { tapTarget } from '../../theme';
 import { apiErrorMessage } from '../auth/ui';
 import { getExerciseRenderer } from '../exercises/registry';
 import { LessonResults } from './LessonResults';
 import { initialPlayerState, lessonPlayerReducer } from './lessonPlayer';
+import type { PlayerAction } from './lessonPlayer';
 
 /** The language plugins the web app ships; a session names its course's plugin (FR-242). */
 const plugins = createLanguagePluginRegistry([japanese]);
@@ -121,6 +131,12 @@ const Card = styled.div`
   }
 `;
 
+const Speakers = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing(2)};
+  margin-top: ${({ theme }) => theme.spacing(3)};
+`;
+
 const Term = styled.p`
   margin: 0 0 ${({ theme }) => theme.spacing(4)};
   font-size: 4rem;
@@ -128,10 +144,17 @@ const Term = styled.p`
 `;
 
 /** Product Spec section 4: one new item, as the course's plugin shows it (FR-141). */
-function TeachingCard(props: { item: Item; plugin: LanguagePlugin; sectionLevel: string }) {
+function TeachingCard(props: {
+  card: TeachingCardData;
+  plugin: LanguagePlugin;
+  sectionLevel: string;
+}) {
   const { t } = useTranslation();
-  const { term, reading, meaning } = props.plugin.teachingCard(props.item, props.sectionLevel);
-  // shortcut: no audio or example sentence yet; the speaker button (#188) and example (#194) go here.
+  const { term, reading, meaning, spoken } = props.plugin.teachingCard(
+    props.card.item,
+    props.sectionLevel,
+  );
+  const { example } = props.card;
   return (
     <Card>
       {/* The session has no targetLang; the plugin code is the language code (ja). */}
@@ -149,9 +172,47 @@ function TeachingCard(props: { item: Item; plugin: LanguagePlugin; sectionLevel:
             <dd>{meaning}</dd>
           </div>
         )}
+        {example && (
+          <div>
+            <dt>{t('player.example')}</dt>
+            <dd lang={props.plugin.code}>{example.text}</dd>
+            <dd>{example.translation}</dd>
+          </div>
+        )}
       </dl>
+      <Speakers>
+        <SpeakerButton what="word" reading={spoken} />
+        <SpeakerButton what="word" reading={spoken} slow />
+      </Speakers>
+      {example && (
+        <Speakers>
+          <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} />
+          <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} slow />
+        </Speakers>
+      )}
     </Card>
   );
+}
+
+/** FR-135: tells the player whether the device can speak, so it drops listening exercises. */
+function SkipListening({ dispatch }: { dispatch: Dispatch<PlayerAction> }) {
+  const { canSpeak } = useSpeech();
+  useEffect(() => dispatch({ type: 'canSpeak', canSpeak }), [dispatch, canSpeak]);
+  return null;
+}
+
+/**
+ * DR-12: the tiles of an exercise's answer text, when its payload has any (typed, word bank, fill
+ * blank) and it is in the course language. shortcut: a fill-blank speaks only the blank word, as
+ * `before` and `after` have no stored readings; upgrade when they gain tiles.
+ */
+function answerTiles(payload: unknown): Tile[] {
+  const { answer, accept, answerLanguage } = payload as {
+    answer?: AnswerText;
+    accept?: AnswerText[];
+    answerLanguage?: string;
+  };
+  return answerLanguage === 'base' ? [] : ((answer ?? accept?.[0])?.tiles ?? []);
 }
 
 /** FR-046, FR-047, FR-168, Product Spec section 4: the full-screen lesson player. */
@@ -289,7 +350,7 @@ export default function LessonPlayerPage() {
       <>
         <h1>{t('player.newItem', { n: state.card + 1, total: cards.length })}</h1>
         <TeachingCard
-          item={cards[state.card]!.item}
+          card={cards[state.card]!}
           plugin={plugin}
           sectionLevel={session.sectionLevel}
         />
@@ -323,45 +384,60 @@ export default function LessonPlayerPage() {
     (phase === 'completing' && !!error);
   const actionDisabled = phase === 'answering' && state.answer === undefined;
 
+  // FR-135: hear the answer after feedback; choice exercises have no tiles, so no button yet.
+  const answerReading =
+    phase === 'feedback' && exercise && plugin
+      ? plugin.readingOf(answerTiles(exercise.payload))
+      : '';
+
   return (
-    <Screen onKeyDown={onKeyDown}>
-      <Top>
-        <Close to="/learn" aria-label={t('player.close')}>
-          <span aria-hidden="true">{icons.close}</span>
-        </Close>
-        {session && (
-          <progress
-            aria-label={t('player.progress')}
-            value={total - state.queue.length}
-            max={total}
-          />
-        )}
-      </Top>
-      <Body
-        ref={bodyRef}
-        tabIndex={-1}
-        aria-label={
-          phase === 'answering' || phase === 'feedback' ? t('player.exercise') : undefined
-        }
-      >
-        {content}
-      </Body>
-      {/* IF-03 / SDD section 9: one live region for feedback; NFR-31: icon and text with color. */}
-      <Bar tone={tone} role="status" aria-live="polite">
-        {tone && <span aria-hidden="true">{icons[tone]}</span>}
-        {message}
-      </Bar>
-      {showAction && (
-        <Action
-          ref={actionRef}
-          type="button"
-          aria-disabled={actionDisabled}
-          onClick={() => !actionDisabled && act()}
+    <SpeechProvider locale={plugin?.ttsVoice.locale ?? ''}>
+      <Screen onKeyDown={onKeyDown}>
+        {session && <SkipListening dispatch={dispatch} />}
+        <Top>
+          <Close to="/learn" aria-label={t('player.close')}>
+            <span aria-hidden="true">{icons.close}</span>
+          </Close>
+          {session && (
+            <progress
+              aria-label={t('player.progress')}
+              value={total - state.queue.length}
+              max={total}
+            />
+          )}
+        </Top>
+        <Body
+          ref={bodyRef}
+          tabIndex={-1}
+          aria-label={
+            phase === 'answering' || phase === 'feedback' ? t('player.exercise') : undefined
+          }
         >
-          {actionLabel}
-        </Action>
-      )}
-      {phase === 'results' && <DoneLink to="/learn">{t('player.done')}</DoneLink>}
-    </Screen>
+          {content}
+        </Body>
+        {/* IF-03 / SDD section 9: one live region for feedback; NFR-31: icon and text with color. */}
+        <Bar tone={tone} role="status" aria-live="polite">
+          {tone && <span aria-hidden="true">{icons[tone]}</span>}
+          {message}
+        </Bar>
+        {answerReading && (
+          <Speakers>
+            <SpeakerButton what="answer" reading={answerReading} />
+            <SpeakerButton what="answer" reading={answerReading} slow />
+          </Speakers>
+        )}
+        {showAction && (
+          <Action
+            ref={actionRef}
+            type="button"
+            aria-disabled={actionDisabled}
+            onClick={() => !actionDisabled && act()}
+          >
+            {actionLabel}
+          </Action>
+        )}
+        {phase === 'results' && <DoneLink to="/learn">{t('player.done')}</DoneLink>}
+      </Screen>
+    </SpeechProvider>
   );
 }

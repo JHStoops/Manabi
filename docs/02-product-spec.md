@@ -80,7 +80,7 @@ Leaving mid-lesson saves progress for 24 hours. A "my answer should be accepted"
 **Answer checking rules** (*language-specific*)
 
 - English answers ignore case, punctuation, extra spaces and leading "to" or articles; one-letter typos are accepted with a "watch your spelling" note.
-- Japanese answers treat hiragana and katakana input as written, convert typed romaji to kana, and accept the kanji or kana spelling of the same word unless the exercise is testing the kanji.
+- Japanese answers treat hiragana and katakana input as written, convert typed romaji to kana, and accept the kanji or kana spelling of the same word unless the exercise is testing the kanji. The particles は, を and へ may also be typed as they are said (wa/わ, o/お, e/え).
 - Every typed exercise carries an accept list that authors can extend from learner reports.
 - Distractors in choice exercises come from items of the same type and level, preferring look-alike kana and kanji.
 
