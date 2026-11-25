@@ -7,6 +7,7 @@ import {
   MATCH_PAIRS_TYPE,
   READING_IN_CONTEXT_TYPE,
   REORDER_TYPE,
+  STROKE_TRACE_TYPE,
   TYPED_ANSWER_TYPE,
   WORD_BANK_TYPE,
 } from '../index';
@@ -305,5 +306,20 @@ describe('EX-10 conjugate grader', () => {
     expect(() => conjugate({ ...payload, accept: [] }, '食べて')).toThrow();
     expect(() => conjugate({ ...payload, word: '' }, '食べて')).toThrow();
     expect(() => conjugate(payload, 0)).toThrow();
+  });
+});
+
+describe('EX-11 stroke trace grader', () => {
+  const payload = { itemKey: 'ja:kanji:水', character: '水' };
+
+  it('grades a finished trace correct, whatever the discarded strokes', () => {
+    expect(grade(STROKE_TRACE_TYPE, payload, { mistakes: 0 })).toEqual({ result: 'correct' });
+    expect(grade(STROKE_TRACE_TYPE, payload, { mistakes: 3 })).toEqual({ result: 'correct' });
+  });
+
+  it('rejects a malformed payload or answer', () => {
+    expect(() => grade(STROKE_TRACE_TYPE, { ...payload, itemKey: '' }, { mistakes: 0 })).toThrow();
+    expect(() => grade(STROKE_TRACE_TYPE, payload, { mistakes: -1 })).toThrow();
+    expect(() => grade(STROKE_TRACE_TYPE, payload, 'done')).toThrow();
   });
 });
