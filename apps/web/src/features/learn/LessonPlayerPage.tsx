@@ -19,10 +19,11 @@ import type {
 import { japanese } from '@manabi/lang-ja';
 import { SpeakerButton } from '../audio/SpeakerButton';
 import { SpeechProvider, useSpeech } from '../audio/speech';
-import { useApi } from '../../state/session';
+import { useApi, useSession } from '../../state/session';
 import { tapTarget } from '../../theme';
 import { apiErrorMessage } from '../auth/ui';
 import { getExerciseRenderer } from '../exercises/registry';
+import { WordBankAlternative } from '../exercises/WordBankAlternative';
 import { LessonResults } from './LessonResults';
 import { initialPlayerState, lessonPlayerReducer } from './lessonPlayer';
 import type { PlayerAction } from './lessonPlayer';
@@ -219,6 +220,7 @@ function answerTiles(payload: unknown): Tile[] {
 export default function LessonPlayerPage() {
   const { t } = useTranslation();
   const api = useApi();
+  const { user } = useSession();
   const { lessonId = '' } = useParams();
   const [state, dispatch] = useReducer(lessonPlayerReducer, initialPlayerState);
   const { phase, session, error } = state;
@@ -361,7 +363,16 @@ export default function LessonPlayerPage() {
     content = (
       <Suspense fallback={<p>{t('app.loading')}</p>}>
         {phase === 'answering' && !!error && <p role="alert">{t('player.gradeFailed')}</p>}
-        <Renderer key={state.step} payload={exercise.payload} plugin={plugin} onAnswer={onAnswer} />
+        <WordBankAlternative
+          key={state.step}
+          type={exercise.type}
+          payload={exercise.payload}
+          plugin={plugin}
+          preferred={user?.settings.preferWordBank ?? false}
+          onAnswer={onAnswer}
+        >
+          <Renderer payload={exercise.payload} plugin={plugin} onAnswer={onAnswer} />
+        </WordBankAlternative>
       </Suspense>
     );
     actionLabel = phase === 'feedback' ? t('player.continue') : t('player.check');
