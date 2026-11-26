@@ -52,6 +52,18 @@ export const en = {
     save: 'Save settings',
     saved: 'Settings saved.',
   },
+  // FR-180, FR-181: the weekly leaderboard and top-three badges.
+  leaderboard: {
+    title: 'This week',
+    empty: 'Nobody has earned XP this week yet.',
+    row: '{{rank}}. {{name}}: {{xp}} XP',
+    you: 'you',
+    optedOut:
+      'You are not on the board. Turn on "Appear on the leaderboard" in your profile to join.',
+    badgesTitle: 'Weekly badges',
+    badge: 'Week of {{date}}: place {{rank}} ({{xp}} XP)',
+    noBadges: 'No badges yet. Finish in the top three of a week to earn one.',
+  },
   // FR-160, FR-162: the lesson results screen.
   results: {
     xpEarned: '+{{count}} XP',

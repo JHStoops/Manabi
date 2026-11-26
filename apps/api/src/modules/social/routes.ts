@@ -5,10 +5,12 @@ import {
   emptyBodySchema,
   emptyQuerySchema,
   friendListSchema,
+  leaderboardSchema,
   nudgeListSchema,
   publicProfileSchema,
   sendNudgeRequestSchema,
   userIdParamsSchema,
+  weeklyBadgesSchema,
 } from '@manabi/core';
 import { requireAuth, scopedUserId } from '../auth/guard';
 import * as social from './service';
@@ -145,5 +147,36 @@ export const socialRoutes: FastifyPluginAsyncZod = async (app) => {
       await social.markNudgesSeen(app.db, scopedUserId(request));
       return reply.status(204).send(null);
     },
+  );
+
+  // FR-180
+  app.get(
+    '/leaderboard',
+    {
+      schema: {
+        summary: "This week's XP ranking of opted-in learners, across all courses",
+        tags: ['social'],
+        querystring: emptyQuerySchema,
+        response: { 200: leaderboardSchema, 401: apiErrorSchema },
+      },
+    },
+    async (request) => {
+      requireAuth(request);
+      return social.getLeaderboard(app.db);
+    },
+  );
+
+  // FR-181
+  app.get(
+    '/me/badges',
+    {
+      schema: {
+        summary: "The caller's top-three finishes in past weeks",
+        tags: ['social'],
+        querystring: emptyQuerySchema,
+        response: { 200: weeklyBadgesSchema, 401: apiErrorSchema },
+      },
+    },
+    async (request) => social.getBadges(app.db, scopedUserId(request)),
   );
 };

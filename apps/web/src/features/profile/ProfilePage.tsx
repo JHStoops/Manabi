@@ -20,6 +20,7 @@ import { useApi, useSession, useSessionDispatch } from '../../state/session';
 import { tapTarget } from '../../theme';
 import { apiErrorMessage, Button, Field } from '../auth/ui';
 import SessionsList from '../auth/SessionsList';
+import Badges from '../social/Badges';
 import SignOutButton from '../auth/SignOutButton';
 
 // The active course changes only by enrolling, so PATCH /me refuses it.
@@ -330,6 +331,7 @@ export default function ProfilePage() {
     <>
       <h1>{t('area.profile')}</h1>
       {user && <SettingsForm user={user} />}
+      <Badges />
       <SignOutButton />
       <SessionsList />
     </>
