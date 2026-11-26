@@ -38,6 +38,7 @@ import { languagePlugins } from '../../plugins';
 import type { ScopedUserId } from '../auth/service';
 import type { ExerciseRow, ItemRow } from '../content/rows';
 import { awardLessonXp, getPath, recordTestOut } from '../courses/service';
+import { createReviewEntries } from '../reviews/service';
 import * as q from './queries';
 
 // Lesson and unit test-out sessions: build, save, resume and complete (FR-024, FR-041, FR-048,
@@ -377,6 +378,7 @@ export async function completeSession(
   sessionId: number,
   body: LessonCompletionRequest,
   idempotencyKey: string | undefined,
+  srsIntervalHours: readonly number[],
 ): Promise<LessonCompletion> {
   return completeOnce(
     db,
@@ -396,8 +398,15 @@ export async function completeSession(
       await q.upsertLessonProgress(client, userId, lesson.id, accuracy);
       const xp = await awardLessonXp(client, userId, lesson.id, accuracy);
       await q.insertUnitCompletionIfDone(client, userId, lesson.id);
-      // Review entries for the new items (FR-110) and achievements are
-      // not built yet; each joins this transaction here when its issue lands.
+      await createReviewEntries(
+        client,
+        userId,
+        lesson.type,
+        await q.listLessonItems(client, lesson.id),
+        languagePlugins.get(lesson.plugin),
+        srsIntervalHours,
+      );
+      // Achievements are not built yet; they join this transaction here when their issue lands.
       await q.deleteSession(client, session.id);
 
       return {
@@ -462,6 +471,7 @@ export async function completeTestOut(
   sessionId: number,
   body: TestOutCompletionRequest,
   idempotencyKey: string | undefined,
+  srsIntervalHours: readonly number[],
 ): Promise<TestOutCompletion> {
   return completeOnce(
     db,
@@ -485,8 +495,19 @@ export async function completeTestOut(
         unitId: unit.id,
         passed,
       });
-      // shortcut: a pass creates no review entries for the unit's items; add them with the
-      // review scheduler (FR-110, #48).
+      // FR-110: a pass puts the unit's items into reviews, as completing its lessons would.
+      if (passed) {
+        for (const lesson of await q.listUnitLessons(client, unit.id)) {
+          await createReviewEntries(
+            client,
+            userId,
+            lesson.type,
+            await q.listLessonItems(client, lesson.id),
+            languagePlugins.get(unit.plugin),
+            srsIntervalHours,
+          );
+        }
+      }
       await q.deleteSession(client, session.id);
 
       return {

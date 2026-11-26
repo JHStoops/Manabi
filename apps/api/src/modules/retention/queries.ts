@@ -52,3 +52,12 @@ export function deleteExpiredLessonSessions(db: Queryable, now: Date | null): Pr
     now,
   );
 }
+
+/** Unfinished review sessions past their 24 hours (FR-114); a finished one is deleted at once. */
+export function deleteExpiredReviewSessions(db: Queryable, now: Date | null): Promise<number> {
+  return deleteCount(
+    db,
+    'DELETE FROM review_sessions WHERE expires_at <= COALESCE($1::timestamptz, now())',
+    now,
+  );
+}

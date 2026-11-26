@@ -1,6 +1,6 @@
 import { UnknownLanguagePluginError, createLanguagePluginRegistry } from '@manabi/core';
 import { checkAnswer, normalizeAnswer } from './answer';
-import japanese, { NotImplementedError } from './index';
+import japanese from './index';
 
 describe('japanese language plugin', () => {
   it('identifies itself as Japanese with its writing systems', () => {
@@ -50,14 +50,6 @@ describe('japanese language plugin', () => {
       'typed_answer',
       'word_bank',
     ]);
-  });
-
-  // Each stubbed member must throw instead of returning a fake result.
-  it.each<[string, number, () => unknown]>([
-    ['reviewFacets', 48, () => japanese.reviewFacets('word')],
-  ])('throws from stubbed %s', (member, issue, call) => {
-    expect(call).toThrow(NotImplementedError);
-    expect(call).toThrow(`lang-ja: ${member} not implemented (#${issue})`);
   });
 });
 

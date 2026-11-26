@@ -75,6 +75,7 @@ export const lessonsRoutes: FastifyPluginAsyncZod = async (app) => {
         request.params.id,
         request.body,
         request.headers['idempotency-key'],
+        app.config.srsIntervalHours,
       ),
   );
   // FR-024, FR-050
@@ -134,6 +135,7 @@ export const lessonsRoutes: FastifyPluginAsyncZod = async (app) => {
         request.params.id,
         request.body,
         request.headers['idempotency-key'],
+        app.config.srsIntervalHours,
       ),
   );
 };

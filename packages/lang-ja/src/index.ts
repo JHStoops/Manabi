@@ -5,6 +5,7 @@ import { convertInput } from './convertInput';
 import { detectGrammar } from './grammar';
 import { generators } from './generators';
 import { itemSchemas } from './itemSchemas';
+import { reviewFacets } from './reviewFacets';
 import { segment } from './segment';
 import { teachingCard } from './teachingCard';
 import { readingOf, tokenize } from './tokenize';
@@ -15,24 +16,9 @@ export { convertInput } from './convertInput';
 export { detectGrammar } from './grammar';
 export * from './itemSchemas';
 export { courseKana } from './kana';
+export { reviewFacets } from './reviewFacets';
 export { segment } from './segment';
 export { readingOf, splitByScript, tokenize } from './tokenize';
-
-/** Thrown by plugin members whose behavior lands in a later issue. */
-export class NotImplementedError extends Error {
-  constructor(
-    readonly member: string,
-    readonly issue: number,
-  ) {
-    super(`lang-ja: ${member} not implemented (#${issue})`);
-    this.name = 'NotImplementedError';
-  }
-}
-
-// STUB: each member using this throws until its issue implements it; none returns a fake result.
-function notImplemented(member: string, issue: number): never {
-  throw new NotImplementedError(member, issue);
-}
 
 /** The Japanese language plugin (SDD section 4, FR-240). */
 export const japanese: LanguagePlugin = {
@@ -59,7 +45,7 @@ export const japanese: LanguagePlugin = {
   teachingCard,
   // Kana and vocabulary generators (#30), EX-09 (#50) and EX-10 (#219); the other kanji ones join with #53.
   generators,
-  reviewFacets: () => notImplemented('reviewFacets', 48),
+  reviewFacets,
   // FR-136, TTS spike: Kokoro misreads kanji, so it is always sent the kana reading.
   ttsVoice: {
     provider: 'kokoro',

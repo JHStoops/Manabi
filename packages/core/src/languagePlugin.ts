@@ -197,8 +197,11 @@ export interface LanguagePlugin {
   teachingCard(item: Item, sectionLevel: string): TeachingCardFields;
   /** Exercise generators keyed by exercise type. */
   generators: Record<string, ExerciseGenerator>;
-  /** The review facets scheduled independently for an item type. */
-  reviewFacets(itemType: string): ReviewFacet[];
+  /**
+   * FR-110, SDD section 6: the review facets of an item type, each with the exercise types (in
+   * order of preference) that review it. An item type with no facets never enters reviews.
+   */
+  reviewFacets(itemType: string): Record<ReviewFacet, readonly string[]>;
   /** Text-to-speech provider, voice and which text to send (FR-136). */
   ttsVoice: TtsVoice;
   /** FR-136: the reading sent to TTS for these tiles (Japanese: readings joined, no spaces). */

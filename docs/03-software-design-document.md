@@ -71,7 +71,7 @@ Adding a language means writing one plugin package and one content pack; core, A
 | `annotate(tiles, learnedItems, mode)` | Produces reading annotations from a sentence's stored tiles in the learner's furigana mode (always, unlearned only, never); `learnedItems` are the learner's items at stage 4 or above |
 | `teachingCard(item, sectionLevel)` | What an item's teaching card shows: the item, its reading and its meaning, each null when there is none (Japanese: romaji only in the kana section) |
 | `generators` | Functions that build exercises of each type from an item and its course context |
-| `reviewFacets(itemType)` | Which facets an item is reviewed on (meaning, reading, listening) |
+| `reviewFacets(itemType)` | Which facets an item is reviewed on (meaning, reading, listening), each with the exercise types that review it |
 | `ttsVoice` | Provider, voice id, any provider language option, the locale for the device-voice fallback, and which text to send (reading or written form) (Japanese: Kokoro, `jf_alpha`, `lang_code` `j`, `ja-JP`, always the kana reading) |
 | `readingOf(tiles)` | The reading sent to the TTS engine for a sentence or answer, built from its tiles (Japanese: the tile readings joined) |
 
@@ -144,6 +144,7 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 | `lesson_progress` | user_id, lesson_id, completed_at, best_accuracy, times_completed | Drives path unlocking |
 | `unit_completions` | user_id, unit_id, completed_at, tested_out | Insert-only; written when a unit's last visible lesson is completed or its test-out is passed (tested_out true, which also opens every lesson of the unit). Unlocks the next unit for good, so lessons added to the unit later never re-lock it (FR-232) |
 | `lesson_sessions` | id, user_id, lesson_id, unit_id, state (JSONB), expires_at | Resume within 24 hours; a unit test-out or challenge session has unit_id set and no lesson_id |
+| `review_sessions` | id, user_id (unique), state (JSONB), expires_at | One open review session per learner: its exercises and answers so far; resumable within 24 hours |
 | `item_progress` | user_id, item_id, facet, stage, due_at, last_reviewed_at, correct_count, wrong_count | One row per review facet; index on (user_id, due_at) |
 | `review_log` | id, user_id, item_id, facet, exercise_type, correct, stage_before, stage_after, answered_at | Append-only; feeds stats and future scheduler tuning |
 | `xp_events` | id, user_id, course_id, base_amount, multiplier, amount, reason, ref_id, earned_at, local_date | Append-only ledger; source of truth for XP |

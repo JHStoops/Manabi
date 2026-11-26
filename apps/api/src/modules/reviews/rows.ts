@@ -40,3 +40,13 @@ export interface UserNoteRow {
   created_at: Date;
   updated_at: Date;
 }
+
+/** FR-114: resumable until expires_at. `state` is validated by Zod in @manabi/core. */
+export interface ReviewSessionRow {
+  id: number;
+  user_id: number;
+  state: { [key: string]: unknown };
+  created_at: Date;
+  updated_at: Date;
+  expires_at: Date;
+}
