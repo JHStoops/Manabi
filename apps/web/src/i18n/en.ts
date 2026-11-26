@@ -54,6 +54,10 @@ export const en = {
   },
   library: {
     kanji: 'Kanji',
+    stage: 'Stage {{stage}}',
+    notStarted: 'Not started',
+    example: 'Example',
+    partOfSpeech: '({{pos}})',
   },
   // FR-180, FR-181: the weekly leaderboard and top-three badges.
   leaderboard: {
