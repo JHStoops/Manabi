@@ -18,6 +18,7 @@
     "@manabi/api-client": "*",
     "@manabi/core": "*",
     "@manabi/lang-ja": "*",
+    "hanzi-writer": "3.7.3",
     "i18next": "^27.1.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

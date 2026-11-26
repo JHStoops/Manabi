@@ -133,3 +133,75 @@ export async function markNudgesSeen(db: Queryable, userId: number) {
     userId,
   ]);
 }
+
+// Weekly leaderboard (FR-180, FR-181).
+
+export interface BoardRow {
+  rank: number;
+  user_id: number;
+  display_name: string;
+  xp: number;
+}
+
+/** FR-180: the Monday (date, in `timeZone`) of the week containing `at`, plus `days`. */
+export async function weekStartOf(
+  db: Queryable,
+  at: Date,
+  timeZone: string,
+  days = 0,
+): Promise<string> {
+  const [row] = await query<{ week_start: string }>(
+    db,
+    `SELECT (date_trunc('week', $1::timestamptz AT TIME ZONE $2)::date + $3::int)::text AS week_start`,
+    [at, timeZone, days],
+  );
+  return row!.week_start;
+}
+
+// Opted-in, enabled learners ranked by XP over the week that starts on $1 (a Monday) in zone $2.
+// Ties share a rank. Opting in is the default, so a missing setting counts as in.
+const WEEK_BOARD = `
+  SELECT rank() OVER (ORDER BY sum(x.amount) DESC)::int AS rank,
+         u.id AS user_id, u.display_name, sum(x.amount)::int AS xp
+    FROM xp_events x
+    JOIN users u ON u.id = x.user_id
+   WHERE x.earned_at >= ($1::date::timestamp AT TIME ZONE $2)
+     AND x.earned_at <  (($1::date + 7)::timestamp AT TIME ZONE $2)
+     AND u.disabled_at IS NULL
+     AND COALESCE((u.settings->>'appearOnLeaderboard')::boolean, true)
+   GROUP BY u.id
+  HAVING sum(x.amount) > 0`;
+
+export function weekBoard(db: Queryable, weekStart: string, timeZone: string) {
+  return query<BoardRow>(
+    db,
+    `SELECT * FROM (${WEEK_BOARD}) b ORDER BY rank, display_name, user_id`,
+    [weekStart, timeZone],
+  );
+}
+
+/**
+ * FR-181: stores the final ranks of a week, once. A week that already has results is left alone,
+ * so a retried or repeated job changes nothing. Returns how many rows were written.
+ */
+export async function insertWeeklyResults(db: Queryable, weekStart: string, timeZone: string) {
+  const rows = await query(
+    db,
+    `INSERT INTO weekly_results (week_start, user_id, xp, rank)
+     SELECT $1::date, user_id, xp, rank FROM (${WEEK_BOARD}) b
+      WHERE NOT EXISTS (SELECT 1 FROM weekly_results WHERE week_start = $1::date)
+     RETURNING user_id`,
+    [weekStart, timeZone],
+  );
+  return rows.length;
+}
+
+/** FR-181: a learner's top-three finishes, newest first. */
+export function listBadges(db: Queryable, userId: number) {
+  return query<{ week_start: string; rank: number; xp: number }>(
+    db,
+    `SELECT week_start::text, rank, xp FROM weekly_results
+      WHERE user_id = $1 AND rank <= 3 ORDER BY week_start DESC`,
+    [userId],
+  );
+}
