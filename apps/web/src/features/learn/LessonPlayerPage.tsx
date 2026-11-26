@@ -1,5 +1,5 @@
 import type { Dispatch } from 'react';
-import { Suspense, useCallback, useEffect, useReducer, useRef } from 'react';
+import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import styled from '@emotion/styled';
 import { Link, useParams } from 'react-router-dom';
@@ -9,6 +9,8 @@ import type {
   AnswerText,
   ExerciseResponse,
   LanguagePlugin,
+  ReviewExercise,
+  ReviewSession,
   TeachingCard as TeachingCardData,
   Tile,
 } from '@manabi/core';
@@ -123,6 +125,21 @@ const Card = styled.div`
     margin: 0 0 ${({ theme }) => theme.spacing(2)};
     font-size: ${({ theme }) => theme.fontSizes.title};
   }
+  caption {
+    color: ${({ theme }) => theme.colors.textMuted};
+    font-size: ${({ theme }) => theme.fontSizes.small};
+    text-align: start;
+  }
+  table {
+    margin-bottom: ${({ theme }) => theme.spacing(2)};
+    border-collapse: collapse;
+  }
+  th,
+  td {
+    padding: ${({ theme }) => theme.spacing(1)} ${({ theme }) => theme.spacing(3)}
+      ${({ theme }) => theme.spacing(1)} 0;
+    text-align: start;
+  }
 `;
 
 const Speakers = styled.div`
@@ -137,27 +154,27 @@ const Term = styled.p`
   text-align: center;
 `;
 
-/** Product Spec section 4: one new item, as the course's plugin shows it (FR-141). */
+/** Product Spec sections 4 and 6: one new item, as the course's plugin shows it (FR-141). */
 function TeachingCard(props: {
   card: TeachingCardData;
   plugin: LanguagePlugin;
   sectionLevel: string;
 }) {
   const { t } = useTranslation();
-  const { term, reading, meaning, spoken } = props.plugin.teachingCard(
+  const { term, reading, meaning, spoken, formation } = props.plugin.teachingCard(
     props.card.item,
     props.sectionLevel,
   );
-  const { example } = props.card;
+  const lang = props.plugin.code;
   return (
     <Card>
       {/* The session has no targetLang; the plugin code is the language code (ja). */}
-      <Term lang={props.plugin.code}>{term}</Term>
+      <Term lang={lang}>{term}</Term>
       <dl>
         {reading && (
           <div>
             <dt>{t('player.reading')}</dt>
-            <dd lang={props.plugin.code}>{reading}</dd>
+            <dd lang={lang}>{reading}</dd>
           </div>
         )}
         {meaning && (
@@ -166,24 +183,49 @@ function TeachingCard(props: {
             <dd>{meaning}</dd>
           </div>
         )}
-        {example && (
-          <div>
-            <dt>{t('player.example')}</dt>
-            <dd lang={props.plugin.code}>{example.text}</dd>
-            <dd>{example.translation}</dd>
-          </div>
-        )}
       </dl>
-      <Speakers>
-        <SpeakerButton what="word" reading={spoken} />
-        <SpeakerButton what="word" reading={spoken} slow />
-      </Speakers>
-      {example && (
+      {formation && formation.length > 0 && (
+        <table>
+          <caption>{t('player.formation')}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{t('player.wordType')}</th>
+              <th scope="col">{t('player.form')}</th>
+              <th scope="col">{t('player.example')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {formation.map((row, i) => (
+              <tr key={i}>
+                <th scope="row">{row.wordType}</th>
+                <td lang={lang}>{row.form}</td>
+                <td lang={lang}>{row.example}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {spoken && (
         <Speakers>
-          <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} />
-          <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} slow />
+          <SpeakerButton what="word" reading={spoken} />
+          <SpeakerButton what="word" reading={spoken} slow />
         </Speakers>
       )}
+      {props.card.examples.map((example, i) => (
+        <div key={i}>
+          <dl>
+            <div>
+              <dt>{t('player.example')}</dt>
+              <dd lang={lang}>{example.text}</dd>
+              <dd>{example.translation}</dd>
+            </div>
+          </dl>
+          <Speakers>
+            <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} />
+            <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} slow />
+          </Speakers>
+        </div>
+      ))}
     </Card>
   );
 }
@@ -232,7 +274,21 @@ function previewAccuracy(
   return Math.round((100 * right) / session.exercises.length);
 }
 
-export default function LessonPlayerPage({ preview = false }: { preview?: boolean }) {
+/** A review mixes courses, so each of its exercises names its own plugin. */
+const pluginOf = (exercise: object) => (exercise as Partial<ReviewExercise>).plugin;
+const unknownPlugin = (session: PlayerSession) =>
+  ('plugin' in session ? [session.plugin] : session.exercises.map(pluginOf)).find(
+    (id) => !plugins.has(id!),
+  );
+
+export default function LessonPlayerPage({
+  preview = false,
+  review = false,
+}: {
+  preview?: boolean;
+  /** FR-114: plays a review session at /review/session; each answer is saved as it is given. */
+  review?: boolean;
+}) {
   const { t } = useTranslation();
   const api = useApi();
   const { user } = useSession();
@@ -246,30 +302,34 @@ export default function LessonPlayerPage({ preview = false }: { preview?: boolea
   useEffect(() => {
     let current = true;
     const params = { path: { id: unitId || lessonId } };
-    const load: Promise<PlayerSession> = preview
-      ? api.POST('/api/v1/authoring/lessons/{id}/preview', { params, body: {} })
-      : unitId
-        ? api.POST('/api/v1/units/{id}/test-out', { params, body: {} })
-        : api.POST('/api/v1/lessons/{id}/sessions', { params, body: {} });
+    const load: Promise<PlayerSession> = review
+      ? api.POST('/api/v1/reviews/sessions', { body: {} })
+      : preview
+        ? api.POST('/api/v1/authoring/lessons/{id}/preview', { params, body: {} })
+        : unitId
+          ? api.POST('/api/v1/units/{id}/test-out', { params, body: {} })
+          : api.POST('/api/v1/lessons/{id}/sessions', { params, body: {} });
     load.then(
-      (loaded) =>
-        current &&
+      (loaded) => {
+        if (!current) return;
+        const unknown = unknownPlugin(loaded);
         dispatch(
-          plugins.has(loaded.plugin)
+          unknown === undefined
             ? { type: 'loaded', session: loaded }
-            : { type: 'failed', error: new UnknownLanguagePluginError(loaded.plugin) },
-        ),
+            : { type: 'failed', error: new UnknownLanguagePluginError(unknown) },
+        );
+      },
       (err: unknown) => current && dispatch({ type: 'failed', error: err }),
     );
     return () => {
       current = false;
     };
-  }, [api, lessonId, unitId, preview]);
+  }, [api, lessonId, unitId, preview, review]);
 
   // FR-052: one key per session, so a retried or repeated completion is applied once.
   const { responses } = state;
   useEffect(() => {
-    if (phase !== 'completing' || error || !session) return;
+    if (phase !== 'completing' || error || !session || !('plugin' in session)) return;
     const body = { responses: responses.filter((r): r is ExerciseResponse => r !== undefined) };
     if (!('id' in session)) {
       const accuracy = previewAccuracy(session, body.responses, plugins.get(session.plugin));
@@ -298,9 +358,50 @@ export default function LessonPlayerPage({ preview = false }: { preview?: boolea
     };
   }, [api, phase, error, session, responses]);
 
-  const plugin = session && plugins.get(session.plugin);
   const exerciseIndex = state.queue[0];
   const exercise = exerciseIndex === undefined ? undefined : session?.exercises[exerciseIndex];
+  const pluginId =
+    (exercise && pluginOf(exercise)) || (session && 'plugin' in session ? session.plugin : '');
+  const plugin = pluginId ? plugins.get(pluginId) : undefined;
+
+  // FR-114, FR-117: a review answer is saved as soon as it is final; the server grades it again
+  // and says whether the exercise comes back at the end. The ref keeps StrictMode from posting twice.
+  const [tally, setTally] = useState({ first: 0, right: 0, xp: 0 });
+  const [savedAt, setSavedAt] = useState(-1); // the step whose answer the server has
+  const [saveTry, setSaveTry] = useState(0);
+  const savedStep = useRef<string | null>(null);
+  useEffect(() => {
+    if (!review || phase !== 'feedback' || !session || !exercise || exerciseIndex === undefined)
+      return;
+    const key = `${state.step}:${saveTry}`;
+    if (savedStep.current === key) return;
+    savedStep.current = key;
+    api
+      .POST('/api/v1/review-sessions/{id}/answers', {
+        params: { path: { id: String((session as ReviewSession).id) } },
+        body: { index: exerciseIndex, response: responses[exerciseIndex]! },
+      })
+      .then(
+        (result) => {
+          setSavedAt(state.step);
+          const retry = 'retry' in exercise && exercise.retry;
+          setTally((t) => ({
+            first: t.first + (retry ? 0 : 1),
+            right: t.right + (!retry && result.correct ? 1 : 0),
+            xp: t.xp + result.xpEarned,
+          }));
+          if (result.retryIndex !== null) {
+            dispatch({
+              type: 'retryQueued',
+              exercise: { ...(exercise as ReviewExercise), correct: null, retry: true },
+            });
+          }
+        },
+        (err: unknown) => {
+          dispatch({ type: 'failed', error: err });
+        },
+      );
+  }, [api, review, phase, state.step, saveTry]);
   const onAnswer = useCallback((answer: unknown) => dispatch({ type: 'answered', answer }), []);
 
   // Focus management: a new screen focuses its content, feedback focuses Continue.
@@ -310,6 +411,15 @@ export default function LessonPlayerPage({ preview = false }: { preview?: boolea
   }, [phase, state.step, state.card]);
 
   function act() {
+    if (review && phase === 'feedback' && (savedAt !== state.step || error)) {
+      // Continue waits for the save; after a failed save it tries again.
+      if (error) {
+        savedStep.current = null;
+        setSaveTry((n) => n + 1);
+        dispatch({ type: 'failed', error: null });
+      }
+      return;
+    }
     if (phase !== 'answering') return dispatch({ type: 'next' });
     if (state.answer === undefined || !exercise || !plugin) return;
     // NFR-03: graded here with the shared grader, no network round-trip.
@@ -374,6 +484,14 @@ export default function LessonPlayerPage({ preview = false }: { preview?: boolea
     );
   } else if (phase === 'loading') {
     content = <p>{t('app.loading')}</p>;
+  } else if (phase === 'intro' && review && session) {
+    content = (
+      <>
+        <h1>{t('area.review')}</h1>
+        <p>{t('review.intro', { count: state.queue.length })}</p>
+      </>
+    );
+    actionLabel = t('player.start');
   } else if (phase === 'intro' && session && 'unitId' in session) {
     // FR-024: a test-out names its unit, length and pass mark.
     content = (
@@ -430,6 +548,23 @@ export default function LessonPlayerPage({ preview = false }: { preview?: boolea
       </Suspense>
     );
     actionLabel = phase === 'feedback' ? t('player.continue') : t('player.check');
+  }
+  if (review && phase === 'feedback' && error) {
+    actionLabel = t('player.retry');
+  } else if (review && phase === 'completing') {
+    // FR-114: every answer is already saved; this only summarises the session.
+    content = (
+      <>
+        <Confetti />
+        <h1>{t('review.done')}</h1>
+        <p>
+          {t('player.accuracy', {
+            accuracy: Math.round((100 * tally.right) / Math.max(1, tally.first)),
+          })}
+        </p>
+        <p>{t('results.xpEarned', { count: tally.xp })}</p>
+      </>
+    );
   } else if (phase === 'completing') {
     content = error ? <p role="alert">{apiErrorMessage(t, error)}</p> : <p>{t('player.saving')}</p>;
     actionLabel = t('player.retry');
@@ -456,11 +591,13 @@ export default function LessonPlayerPage({ preview = false }: { preview?: boolea
   }
 
   const total = session?.exercises.length ?? 0;
-  const exit = preview ? `/authoring/lessons/${lessonId}` : '/learn';
+  const exit = review ? '/review' : preview ? `/authoring/lessons/${lessonId}` : '/learn';
   const showAction =
     ['intro', 'teaching', 'answering', 'feedback'].includes(phase) ||
-    (phase === 'completing' && !!error);
-  const actionDisabled = phase === 'answering' && state.answer === undefined;
+    (phase === 'completing' && !review && !!error);
+  const actionDisabled =
+    (phase === 'answering' && state.answer === undefined) ||
+    (review && phase === 'feedback' && savedAt !== state.step && !error);
 
   // FR-135: hear the answer after feedback; choice exercises have no tiles, so no button yet.
   const answerReading =
@@ -471,7 +608,8 @@ export default function LessonPlayerPage({ preview = false }: { preview?: boolea
   return (
     <SpeechProvider locale={plugin?.ttsVoice.locale ?? ''}>
       <Screen onKeyDown={onKeyDown}>
-        {session && <SkipListening dispatch={dispatch} />}
+        {/* shortcut: a review plays every served exercise, as the server saves answers by index; upgrade with listening facets (EX-07, EX-08). */}
+        {session && !review && <SkipListening dispatch={dispatch} />}
         <Top>
           <Close to={exit} aria-label={t('player.close')}>
             <span aria-hidden="true">{icons.close}</span>
@@ -514,7 +652,9 @@ export default function LessonPlayerPage({ preview = false }: { preview?: boolea
             {actionLabel}
           </Action>
         )}
-        {phase === 'results' && <DoneLink to={exit}>{t('player.done')}</DoneLink>}
+        {(phase === 'results' || (review && phase === 'completing')) && (
+          <DoneLink to={exit}>{t('player.done')}</DoneLink>
+        )}
       </Screen>
     </SpeechProvider>
   );

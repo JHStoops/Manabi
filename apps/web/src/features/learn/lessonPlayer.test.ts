@@ -13,7 +13,7 @@ const session = (cards: number, exercises: number): LessonSession => ({
   lessonType: 'vocabulary',
   sectionLevel: 'N5',
   plugin: 'ja',
-  teachingCards: Array.from({ length: cards }, () => ({ item })),
+  teachingCards: Array.from({ length: cards }, () => ({ item, examples: [] })),
   exercises: Array.from({ length: exercises }, (_, i) => ({ type: 'test_echo', payload: { i } })),
 });
 

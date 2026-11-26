@@ -56,7 +56,7 @@ describeWithDb('lesson completion API', () => {
   }
 
   /**
-   * Course 'test' with unit u1 (grammar lessons a, b) and unit u2 (lesson c). Each lesson has 10
+   * Course 'test' with unit u1 (unit review lessons a, b) and unit u2 (lesson c). Each lesson has 10
    * stored test exercises whose answer is 'Water'.
    */
   async function seed() {
@@ -76,8 +76,9 @@ describeWithDb('lesson completion API', () => {
     );
     const lessons = await sql<{ id: number; key: string }>(
       `INSERT INTO lessons (unit_id, key, position, type, title, status)
-       VALUES ($1, 'a', 0, 'grammar', 'a', 'published'), ($1, 'b', 1, 'grammar', 'b', 'published'),
-              ($2, 'c', 0, 'grammar', 'c', 'published')
+       VALUES ($1, 'a', 0, 'unit_review', 'a', 'published'),
+              ($1, 'b', 1, 'unit_review', 'b', 'published'),
+              ($2, 'c', 0, 'unit_review', 'c', 'published')
        RETURNING id, key`,
       [units[0]!.id, units[1]!.id],
     );

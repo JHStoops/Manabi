@@ -3456,38 +3456,43 @@
                             ],
                             "additionalProperties": false
                           },
-                          "example": {
-                            "type": "object",
-                            "properties": {
-                              "text": { "type": "string", "minLength": 1 },
-                              "translation": { "type": "string", "minLength": 1 },
-                              "tiles": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "surface": { "type": "string", "minLength": 1 },
-                                    "base": { "type": "string", "minLength": 1 },
-                                    "reading": { "type": "string", "minLength": 1 },
-                                    "itemId": {
-                                      "nullable": true,
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "exclusiveMinimum": true,
-                                      "maximum": 9007199254740991
+                          "examples": {
+                            "default": [],
+                            "maxItems": 2,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "text": { "type": "string", "minLength": 1 },
+                                "translation": { "type": "string", "minLength": 1 },
+                                "tiles": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "surface": { "type": "string", "minLength": 1 },
+                                      "base": { "type": "string", "minLength": 1 },
+                                      "reading": { "type": "string", "minLength": 1 },
+                                      "itemId": {
+                                        "nullable": true,
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "exclusiveMinimum": true,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "pattern": { "type": "boolean", "enum": [true] }
                                     },
-                                    "pattern": { "type": "boolean", "enum": [true] }
-                                  },
-                                  "required": ["surface", "base", "reading"],
-                                  "additionalProperties": false
+                                    "required": ["surface", "base", "reading"],
+                                    "additionalProperties": false
+                                  }
                                 }
-                              }
-                            },
-                            "required": ["text", "translation", "tiles"],
-                            "additionalProperties": false
+                              },
+                              "required": ["text", "translation", "tiles"],
+                              "additionalProperties": false
+                            }
                           }
                         },
-                        "required": ["item"],
+                        "required": ["item", "examples"],
                         "additionalProperties": false
                       }
                     },
@@ -17208,38 +17213,43 @@
                             ],
                             "additionalProperties": false
                           },
-                          "example": {
-                            "type": "object",
-                            "properties": {
-                              "text": { "type": "string", "minLength": 1 },
-                              "translation": { "type": "string", "minLength": 1 },
-                              "tiles": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "surface": { "type": "string", "minLength": 1 },
-                                    "base": { "type": "string", "minLength": 1 },
-                                    "reading": { "type": "string", "minLength": 1 },
-                                    "itemId": {
-                                      "nullable": true,
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "exclusiveMinimum": true,
-                                      "maximum": 9007199254740991
+                          "examples": {
+                            "default": [],
+                            "maxItems": 2,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "text": { "type": "string", "minLength": 1 },
+                                "translation": { "type": "string", "minLength": 1 },
+                                "tiles": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "surface": { "type": "string", "minLength": 1 },
+                                      "base": { "type": "string", "minLength": 1 },
+                                      "reading": { "type": "string", "minLength": 1 },
+                                      "itemId": {
+                                        "nullable": true,
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "exclusiveMinimum": true,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "pattern": { "type": "boolean", "enum": [true] }
                                     },
-                                    "pattern": { "type": "boolean", "enum": [true] }
-                                  },
-                                  "required": ["surface", "base", "reading"],
-                                  "additionalProperties": false
+                                    "required": ["surface", "base", "reading"],
+                                    "additionalProperties": false
+                                  }
                                 }
-                              }
-                            },
-                            "required": ["text", "translation", "tiles"],
-                            "additionalProperties": false
+                              },
+                              "required": ["text", "translation", "tiles"],
+                              "additionalProperties": false
+                            }
                           }
                         },
-                        "required": ["item"],
+                        "required": ["item", "examples"],
                         "additionalProperties": false
                       }
                     },

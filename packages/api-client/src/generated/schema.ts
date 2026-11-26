@@ -2446,7 +2446,8 @@ export interface paths {
                   /** Format: date-time */
                   archivedAt: string | null;
                 };
-                example?: {
+                /** @default [] */
+                examples: {
                   text: string;
                   translation: string;
                   tiles: {
@@ -2457,7 +2458,7 @@ export interface paths {
                     /** @enum {boolean} */
                     pattern?: true;
                   }[];
-                };
+                }[];
               }[];
               exercises: {
                 type: string;
@@ -11405,7 +11406,8 @@ export interface paths {
                   /** Format: date-time */
                   archivedAt: string | null;
                 };
-                example?: {
+                /** @default [] */
+                examples: {
                   text: string;
                   translation: string;
                   tiles: {
@@ -11416,7 +11418,7 @@ export interface paths {
                     /** @enum {boolean} */
                     pattern?: true;
                   }[];
-                };
+                }[];
               }[];
               exercises: {
                 type: string;

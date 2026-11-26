@@ -12,6 +12,10 @@ const LearnPage = lazy(() => import('./features/learn/LearnPage'));
 const LessonPlayerPage = lazy(() => import('./features/learn/LessonPlayerPage'));
 const ReviewPage = lazy(() => import('./features/review/ReviewPage'));
 const LibraryPage = lazy(() => import('./features/library/LibraryPage'));
+const KanjiDetailPage = lazy(() => import('./features/library/KanjiDetailPage'));
+const GrammarReferencePage = lazy(() => import('./features/library/GrammarReferencePage'));
+const GrammarPointPage = lazy(() => import('./features/library/GrammarPointPage'));
+const WordPage = lazy(() => import('./features/library/WordPage'));
 const SocialPage = lazy(() => import('./features/social/SocialPage'));
 const ProfilePage = lazy(() => import('./features/profile/ProfilePage'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
@@ -137,6 +141,8 @@ export function App() {
           {/* Full screen, outside the tab layout (Product Spec section 2). */}
           <Route path="/lesson/:lessonId" element={<LessonPlayerPage />} />
           <Route path="/unit/:unitId/test-out" element={<LessonPlayerPage />} />
+          {/* FR-114: the review session runs in the same player, full screen. */}
+          <Route path="/review/session" element={<LessonPlayerPage review />} />
           {/* FR-224: the lesson preview runs the real player, full screen. */}
           <Route element={<RequireAdmin />}>
             <Route
@@ -149,6 +155,10 @@ export function App() {
             <Route path="/learn" element={<LearnPage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/library" element={<LibraryPage />} />
+            <Route path="/library/kanji/:key" element={<KanjiDetailPage />} />
+            <Route path="/library/grammar" element={<GrammarReferencePage />} />
+            <Route path="/library/grammar/:key" element={<GrammarPointPage />} />
+            <Route path="/library/words/:key" element={<WordPage />} />
             <Route path="/social" element={<SocialPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route element={<RequireAdmin />}>
