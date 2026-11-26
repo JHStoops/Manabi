@@ -14,6 +14,7 @@ const ReviewPage = lazy(() => import('./features/review/ReviewPage'));
 const LibraryPage = lazy(() => import('./features/library/LibraryPage'));
 const GrammarReferencePage = lazy(() => import('./features/library/GrammarReferencePage'));
 const GrammarPointPage = lazy(() => import('./features/library/GrammarPointPage'));
+const WordPage = lazy(() => import('./features/library/WordPage'));
 const SocialPage = lazy(() => import('./features/social/SocialPage'));
 const ProfilePage = lazy(() => import('./features/profile/ProfilePage'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
@@ -153,6 +154,7 @@ export function App() {
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/library/grammar" element={<GrammarReferencePage />} />
             <Route path="/library/grammar/:key" element={<GrammarPointPage />} />
+            <Route path="/library/words/:key" element={<WordPage />} />
             <Route path="/social" element={<SocialPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route element={<RequireAdmin />}>

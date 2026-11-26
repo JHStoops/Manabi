@@ -55,6 +55,11 @@ export const en = {
   library: {
     kanji: 'Kanji',
     grammar: 'Grammar',
+    stage: 'Stage {{stage}}',
+    notStarted: 'Not started',
+    example: 'Example',
+    notAWord: 'This item is not a word.',
+    partOfSpeech: '({{pos}})',
   },
   // FR-090, FR-092: the grammar reference and point pages.
   grammar: {
