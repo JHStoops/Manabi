@@ -1,9 +1,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import {
   CHOICE_TYPE,
+  CONJUGATE_TYPE,
   FILL_BLANK_TYPE,
   gradeResponse,
   MATCH_PAIRS_TYPE,
+  READING_IN_CONTEXT_TYPE,
   REORDER_TYPE,
   TYPED_ANSWER_TYPE,
   WORD_BANK_TYPE,
@@ -14,7 +16,7 @@ import '../../i18n';
 import { ExerciseRendererHarness } from './ExerciseRendererHarness';
 import './renderers';
 
-// FR-042 (EX-01 to EX-06) and IF-03: the registered renderers report answers the shared grader
+// FR-042 (EX-01 to EX-06), FR-043 (EX-09, EX-10) and IF-03: the registered renderers report answers the shared grader
 // accepts, by tap and by keyboard, with tap targets of at least 44 px.
 
 beforeEach(() => {
@@ -366,5 +368,63 @@ describe('EX-06 reorder renderer', () => {
     expect(dragged.getAttribute('data-dragging')).toBe('true');
     fireEvent.lostPointerCapture(dragged, { pointerId: 1 });
     expect(dragged.getAttribute('data-dragging')).toBe('false');
+  });
+});
+
+const readingInContext: Exercise = {
+  type: READING_IN_CONTEXT_TYPE,
+  payload: {
+    prompt: 'How is 学 read in 学校?',
+    word: { text: '学校' },
+    kanji: { text: '学' },
+    options: [{ text: 'がく' }, { text: 'がっ' }, { text: 'まな' }],
+    correct: 1,
+  },
+};
+
+describe('EX-09 reading in context renderer', () => {
+  it('marks the kanji in the word and picks a reading by click or key', async () => {
+    const { onAnswer, grade } = renderExercise(readingInContext);
+    const gakk = await screen.findByRole('button', { name: 'がっ' });
+    const word = screen.getByText('学').closest('p')!;
+    expect(word.textContent).toBe('学校');
+    expect(word.getAttribute('lang')).toBe('ja');
+    expect(screen.getByText('学').tagName).toBe('MARK');
+    fireEvent.click(screen.getByRole('button', { name: 'がく' }));
+    expect(onAnswer).toHaveBeenLastCalledWith(0);
+    expect(grade()).toBe('wrong');
+    fireEvent.keyDown(window, { key: '4' });
+    expect(onAnswer).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(window, { key: '2' });
+    expect(gakk.getAttribute('aria-pressed')).toBe('true');
+    expect(grade()).toBe('correct');
+    expect(getComputedStyle(gakk).minHeight).toBe('44px');
+  });
+});
+
+const conjugate: Exercise = {
+  type: CONJUGATE_TYPE,
+  payload: {
+    prompt: 'Te-form',
+    word: '食べる',
+    accept: [{ text: '食べて', tiles: [{ surface: '食べて', base: '食べる', reading: 'たべて' }] }],
+  },
+};
+
+describe('EX-10 conjugate renderer', () => {
+  it('types the form with romaji-to-kana input, kana or kanji accepted', async () => {
+    const { onAnswer, grade, result } = renderExercise(conjugate);
+    const input = (await screen.findByRole('textbox', {
+      name: 'Te-form 食べる',
+    })) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'tabete' } });
+    expect(input.value).toBe('たべて');
+    expect(onAnswer).toHaveBeenLastCalledWith('たべて');
+    expect(grade()).toBe('correct');
+    fireEvent.change(input, { target: { value: '食べて' } });
+    expect(grade()).toBe('correct');
+    fireEvent.change(input, { target: { value: 'tabeta' } });
+    expect(result()).toEqual({ result: 'wrong', feedback: '食べて' });
+    expect(getComputedStyle(input).minHeight).toBe('44px');
   });
 });

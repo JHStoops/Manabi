@@ -41,10 +41,11 @@ describe('japanese language plugin', () => {
     expect(japanese.checkAnswer).toBe(checkAnswer);
   });
 
-  it('generates choice, match pairs, word bank and typed answer exercises (FR-049)', () => {
+  it('generates choice, match pairs, reading in context, word bank and typed answer exercises (FR-049)', () => {
     expect(Object.keys(japanese.generators).sort()).toEqual([
       'choice',
       'match_pairs',
+      'reading_in_context',
       'typed_answer',
       'word_bank',
     ]);

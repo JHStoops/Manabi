@@ -5,6 +5,7 @@ import styled from '@emotion/styled';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
+  TEST_OUT_PASS_ACCURACY,
   UnknownLanguagePluginError,
   createLanguagePluginRegistry,
   gradeResponse,
@@ -19,13 +20,14 @@ import type {
 import { japanese } from '@manabi/lang-ja';
 import { SpeakerButton } from '../audio/SpeakerButton';
 import { SpeechProvider, useSpeech } from '../audio/speech';
-import { useApi } from '../../state/session';
-import { tapTarget } from '../../theme';
+import { useApi, useSession } from '../../state/session';
+import { Confetti, tapTarget, useSound } from '../../theme';
 import { apiErrorMessage } from '../auth/ui';
 import { getExerciseRenderer } from '../exercises/registry';
+import { WordBankAlternative } from '../exercises/WordBankAlternative';
 import { LessonResults } from './LessonResults';
 import { initialPlayerState, lessonPlayerReducer } from './lessonPlayer';
-import type { PlayerAction } from './lessonPlayer';
+import type { PlayerAction, PlayerCompletion, PlayerSession } from './lessonPlayer';
 
 /** The language plugins the web app ships; a session names its course's plugin (FR-242). */
 const plugins = createLanguagePluginRegistry([japanese]);
@@ -215,11 +217,15 @@ function answerTiles(payload: unknown): Tile[] {
   return answerLanguage === 'base' ? [] : ((answer ?? accept?.[0])?.tiles ?? []);
 }
 
-/** FR-046, FR-047, FR-168, Product Spec section 4: the full-screen lesson player. */
+/**
+ * FR-046, FR-047, FR-168, Product Spec section 4: the full-screen lesson player. At
+ * `/unit/:unitId/test-out` it plays the unit's test-out instead (FR-024).
+ */
 export default function LessonPlayerPage() {
   const { t } = useTranslation();
   const api = useApi();
-  const { lessonId = '' } = useParams();
+  const { user } = useSession();
+  const { lessonId = '', unitId = '' } = useParams();
   const [state, dispatch] = useReducer(lessonPlayerReducer, initialPlayerState);
   const { phase, session, error } = state;
   const bodyRef = useRef<HTMLElement>(null);
@@ -228,38 +234,47 @@ export default function LessonPlayerPage() {
   // FR-050: starting again within 24 hours resumes the same server session; leaving keeps it.
   useEffect(() => {
     let current = true;
-    api
-      .POST('/api/v1/lessons/{id}/sessions', { params: { path: { id: lessonId } }, body: {} })
-      .then(
-        (loaded) =>
-          current &&
-          dispatch(
-            plugins.has(loaded.plugin)
-              ? { type: 'loaded', session: loaded }
-              : { type: 'failed', error: new UnknownLanguagePluginError(loaded.plugin) },
-          ),
-        (err: unknown) => current && dispatch({ type: 'failed', error: err }),
-      );
+    const load: Promise<PlayerSession> = unitId
+      ? api.POST('/api/v1/units/{id}/test-out', { params: { path: { id: unitId } }, body: {} })
+      : api.POST('/api/v1/lessons/{id}/sessions', { params: { path: { id: lessonId } }, body: {} });
+    load.then(
+      (loaded) =>
+        current &&
+        dispatch(
+          plugins.has(loaded.plugin)
+            ? { type: 'loaded', session: loaded }
+            : { type: 'failed', error: new UnknownLanguagePluginError(loaded.plugin) },
+        ),
+      (err: unknown) => current && dispatch({ type: 'failed', error: err }),
+    );
     return () => {
       current = false;
     };
-  }, [api, lessonId]);
+  }, [api, lessonId, unitId]);
 
   // FR-052: one key per session, so a retried or repeated completion is applied once.
   const { responses } = state;
   useEffect(() => {
     if (phase !== 'completing' || error || !session) return;
     let current = true;
-    api
-      .POST('/api/v1/lesson-sessions/{id}/complete', {
-        params: { path: { id: String(session.id) } },
-        body: { responses: responses.filter((r): r is ExerciseResponse => r !== undefined) },
-        idempotencyKey: `lesson-session-${session.id}`,
-      })
-      .then(
-        (completion) => current && dispatch({ type: 'completed', completion }),
-        (err: unknown) => current && dispatch({ type: 'failed', error: err }),
-      );
+    const params = { path: { id: String(session.id) } };
+    const body = { responses: responses.filter((r): r is ExerciseResponse => r !== undefined) };
+    const done: Promise<PlayerCompletion> =
+      'unitId' in session
+        ? api.POST('/api/v1/test-out-sessions/{id}/complete', {
+            params,
+            body,
+            idempotencyKey: `test-out-session-${session.id}`,
+          })
+        : api.POST('/api/v1/lesson-sessions/{id}/complete', {
+            params,
+            body,
+            idempotencyKey: `lesson-session-${session.id}`,
+          });
+    done.then(
+      (completion) => current && dispatch({ type: 'completed', completion }),
+      (err: unknown) => current && dispatch({ type: 'failed', error: err }),
+    );
     return () => {
       current = false;
     };
@@ -317,6 +332,18 @@ export default function LessonPlayerPage() {
       grade.result === 'near-miss' ? `${t('player.correct')} ${grade.hint}` : t('player.correct');
   }
 
+  // FR-167: effects play on feedback and on the results screen, if sound is on.
+  const play = useSound();
+  const outcome =
+    phase === 'feedback' && grade ? (grade.result === 'wrong' ? 'wrong' : 'correct') : null;
+  const inResults = phase === 'results';
+  useEffect(() => {
+    if (outcome) play(outcome);
+  }, [outcome]);
+  useEffect(() => {
+    if (inResults) play('complete');
+  }, [inResults]);
+
   let content;
   let actionLabel = t('player.next');
   if (error && phase !== 'completing' && phase !== 'answering') {
@@ -329,7 +356,18 @@ export default function LessonPlayerPage() {
     );
   } else if (phase === 'loading') {
     content = <p>{t('app.loading')}</p>;
-  } else if (phase === 'intro' && session && plugin) {
+  } else if (phase === 'intro' && session && 'unitId' in session) {
+    // FR-024: a test-out names its unit, length and pass mark.
+    content = (
+      <>
+        <h1>{t('testOut.title', { unit: session.unitTitle })}</h1>
+        <p>
+          {t('testOut.intro', { count: session.exercises.length, pass: TEST_OUT_PASS_ACCURACY })}
+        </p>
+      </>
+    );
+    actionLabel = t('player.start');
+  } else if (phase === 'intro' && session && 'teachingCards' in session && plugin) {
     // Product Spec section 4: the lesson's title, type and the items it will teach.
     content = (
       <>
@@ -344,7 +382,7 @@ export default function LessonPlayerPage() {
       </>
     );
     actionLabel = t('player.start');
-  } else if (phase === 'teaching' && session && plugin) {
+  } else if (phase === 'teaching' && session && 'teachingCards' in session && plugin) {
     const cards = session.teachingCards;
     content = (
       <>
@@ -361,7 +399,16 @@ export default function LessonPlayerPage() {
     content = (
       <Suspense fallback={<p>{t('app.loading')}</p>}>
         {phase === 'answering' && !!error && <p role="alert">{t('player.gradeFailed')}</p>}
-        <Renderer key={state.step} payload={exercise.payload} plugin={plugin} onAnswer={onAnswer} />
+        <WordBankAlternative
+          key={state.step}
+          type={exercise.type}
+          payload={exercise.payload}
+          plugin={plugin}
+          preferred={user?.settings.preferWordBank ?? false}
+          onAnswer={onAnswer}
+        >
+          <Renderer payload={exercise.payload} plugin={plugin} onAnswer={onAnswer} />
+        </WordBankAlternative>
       </Suspense>
     );
     actionLabel = phase === 'feedback' ? t('player.continue') : t('player.check');
@@ -369,11 +416,19 @@ export default function LessonPlayerPage() {
     content = error ? <p role="alert">{apiErrorMessage(t, error)}</p> : <p>{t('player.saving')}</p>;
     actionLabel = t('player.retry');
   } else if (phase === 'results' && state.completion) {
+    const { completion } = state;
     content = (
       <>
-        <h1>{t('area.lesson')}</h1>
-        <p>{t('player.accuracy', { accuracy: state.completion.accuracy })}</p>
-        <LessonResults xpEarned={state.completion.xpEarned} totalXp={state.completion.totalXp} />
+        {(!('passed' in completion) || completion.passed) && <Confetti />}
+        <h1>
+          {'passed' in completion
+            ? t(completion.passed ? 'testOut.passed' : 'testOut.failed', {
+                pass: TEST_OUT_PASS_ACCURACY,
+              })
+            : t('area.lesson')}
+        </h1>
+        <p>{t('player.accuracy', { accuracy: completion.accuracy })}</p>
+        <LessonResults xpEarned={completion.xpEarned} totalXp={completion.totalXp} />
       </>
     );
   }

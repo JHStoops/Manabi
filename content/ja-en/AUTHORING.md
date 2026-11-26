@@ -23,7 +23,7 @@ differences:
 
 - Items are named by stable key, `item: <key>`, where the stored payload has `itemId`. A raw
   `itemId` is an error, since ids differ between databases.
-- Answers in an `accept` list (`typed_answer`, `fill_blank`) may leave out `tiles`: import
+- Answers in an `accept` list (`typed_answer`, `fill_blank`, `conjugate`) may leave out `tiles`: import
   segments the text. Once stored, those tiles are kept on re-import for as long as the text stays
   the same, so tiles edited after import are not overwritten. Every other answer text
   (`word_bank`, `reorder`) must have its tiles written, because `acceptedOrders` index them.

@@ -4,12 +4,21 @@ import type {
   GeneratorContext,
   Item,
   MatchPairsPayload,
+  ReadingInContextPayload,
   Tile,
   TypedAnswerPayload,
   WordBankPayload,
 } from '@manabi/core';
-import { CHOICE_TYPE, MATCH_PAIRS_TYPE, TYPED_ANSWER_TYPE, WORD_BANK_TYPE } from '@manabi/core';
-import { kanaDataSchema, wordDataSchema } from './itemSchemas';
+import {
+  CHOICE_TYPE,
+  MATCH_PAIRS_TYPE,
+  READING_IN_CONTEXT_TYPE,
+  TYPED_ANSWER_TYPE,
+  WORD_BANK_TYPE,
+} from '@manabi/core';
+import { toHiragana } from './answer';
+import type { KanjiData } from './itemSchemas';
+import { kanaDataSchema, kanjiDataSchema, wordDataSchema } from './itemSchemas';
 import { kanaToRomaji } from './romaji';
 import { tokenize } from './tokenize';
 
@@ -208,10 +217,91 @@ const typedAnswer: ExerciseGenerator = (item, context) => {
   return [{ type: TYPED_ANSWER_TYPE, payload }];
 };
 
+const KANA_ONLY = /^[ぁ-ゟ゠-ヿ]*$/u;
+
+/** A kanji's readings in hiragana, without okurigana and prefix or suffix marks, distinct. */
+const readingsOf = (kanji: KanjiData) => [
+  ...new Set(
+    [...kanji.onReadings, ...kanji.kunReadings].map((r) =>
+      toHiragana(r.split('.')[0]!.replace(/-/g, '')),
+    ),
+  ),
+];
+
+/**
+ * The reading of `kanji` inside a word, or undefined when it cannot be told for sure: the kanji
+ * must appear once, and the kana around it fix the reading, or one of its readings (or the
+ * sokuon form, がく as がっ) is the only one that fits next to the other kanji.
+ */
+// shortcut: rendaku (かわ as がわ) and words with kanji on both sides are skipped; upgrade when
+// kanji lessons run short of reading exercises.
+export function readingInWord(kanji: KanjiData, written: string, reading: string) {
+  const at = written.indexOf(kanji.character);
+  if (at < 0 || at !== written.lastIndexOf(kanji.character)) return undefined;
+  const [before, after] = [written.slice(0, at), written.slice(at + kanji.character.length)];
+  const [kanaBefore, kanaAfter] = [KANA_ONLY.test(before), KANA_ONLY.test(after)];
+  const whole = toHiragana(reading);
+  if (kanaBefore && !whole.startsWith(toHiragana(before))) return undefined;
+  if (kanaAfter && !whole.endsWith(toHiragana(after))) return undefined;
+  if (kanaBefore && kanaAfter) {
+    const middle = whole.slice(before.length, whole.length - after.length);
+    return middle || undefined;
+  }
+  const candidates = readingsOf(kanji).flatMap((r) =>
+    /[くつちき]$/u.test(r) ? [r, `${r.slice(0, -1)}っ`] : [r],
+  );
+  const fits = kanaBefore
+    ? candidates.filter((r) => whole.startsWith(toHiragana(before) + r))
+    : kanaAfter
+      ? candidates.filter((r) => whole.endsWith(r + toHiragana(after)))
+      : [];
+  return fits.length === 1 ? fits[0] : undefined;
+}
+
+/**
+ * EX-09: how a kanji is read in a taught word that uses it, among up to 3 wrong readings: the
+ * kanji's own other readings first, then readings of other taught kanji of its level.
+ */
+const readingInContext: ExerciseGenerator = (item, { taughtItems }) => {
+  const kanji = item.type === 'kanji' ? kanjiDataSchema.safeParse(effective(item)).data : undefined;
+  if (!kanji) return [];
+  const uses = shuffled(taughtItems).flatMap((other) => {
+    const word =
+      other.type === 'word' ? wordDataSchema.safeParse(effective(other)).data : undefined;
+    const reading = word && readingInWord(kanji, word.written, word.reading);
+    return word && reading ? [{ item: other, written: word.written, reading }] : [];
+  });
+  const use = uses[0];
+  if (!use) return [];
+  const others = shuffled(
+    taughtItems.flatMap((other) => {
+      const data =
+        other.id !== item.id && other.type === 'kanji' && other.levelCode === item.levelCode
+          ? kanjiDataSchema.safeParse(effective(other)).data
+          : undefined;
+      return data ? readingsOf(data) : [];
+    }),
+  );
+  const wrong = [...new Set([...shuffled(readingsOf(kanji)), ...others])]
+    .filter((r) => r !== use.reading)
+    .slice(0, 3);
+  if (wrong.length === 0) return [];
+  const options = shuffled([use.reading, ...wrong]);
+  const payload: ReadingInContextPayload = {
+    prompt: `How is ${kanji.character} read in ${use.written}?`,
+    word: { text: use.written, itemId: use.item.id },
+    kanji: { text: kanji.character, itemId: item.id },
+    options: options.map((text) => ({ text })),
+    correct: options.indexOf(use.reading),
+  };
+  return [{ type: READING_IN_CONTEXT_TYPE, payload }];
+};
+
 /** Exercise generators keyed by exercise type id. */
 export const generators: Record<string, ExerciseGenerator> = {
   [CHOICE_TYPE]: choice,
   [MATCH_PAIRS_TYPE]: matchPairs,
   [WORD_BANK_TYPE]: wordBank,
   [TYPED_ANSWER_TYPE]: typedAnswer,
+  [READING_IN_CONTEXT_TYPE]: readingInContext,
 };

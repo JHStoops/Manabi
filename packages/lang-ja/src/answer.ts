@@ -20,7 +20,7 @@ const PARTICLE_SOUNDS: Record<string, string> = { は: 'わ', を: 'お', へ: '
 const isJapanese = (text: string) => JAPANESE.test(text);
 
 /** Hiragana for katakana; everything else unchanged. */
-const toHiragana = (text: string) =>
+export const toHiragana = (text: string) =>
   text.replace(/[ァ-ヶ]/g, (k) => String.fromCodePoint(k.codePointAt(0)! - 0x60));
 
 /**

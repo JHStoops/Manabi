@@ -117,7 +117,63 @@ export const en = {
     internal_error: 'Something went wrong on the server. Try again later.',
     service_unavailable: 'The server is busy. Try again in a moment.',
   },
+  // FR-182, FR-183: friends and nudges (#70).
+  social: {
+    friends: {
+      title: 'Friends',
+      empty: 'You are not following anyone yet.',
+      name: 'Name',
+      streak: 'Streak',
+      level: 'Level',
+      weeklyXp: 'XP this week',
+      section: 'Section',
+      unfollow: 'Unfollow',
+      nudge: { nice_work: 'Nice work', keep_going: 'Keep going' },
+      nudgeSent: 'Nudge sent',
+      forFriend: '{{action}}: {{name}}',
+    },
+    nudges: {
+      title: 'Nudges',
+      empty: 'No nudges yet.',
+      new: '(new)',
+      kinds: {
+        nice_work: '{{name}} says nice work!',
+        keep_going: '{{name}} says keep going!',
+      },
+    },
+  },
   // Admin console and password reset (#23).
+  // FR-220, FR-225: the course tree editor.
+  authoring: {
+    course: 'Course',
+    sections: 'Sections',
+    unitsOf: 'Units of {{title}}',
+    lessonsOf: 'Lessons of {{title}}',
+    unit: 'Unit',
+    dragHint: 'Drag a row, or use the arrow buttons, to change its order.',
+    status: { draft: 'Draft', published: 'Published' },
+    publish: 'Publish',
+    unpublish: 'Unpublish',
+    up: '↑',
+    down: '↓',
+    moveUp: 'Move {{title}} up',
+    moveDown: 'Move {{title}} down',
+    rename: 'Rename {{title}}',
+    renameShort: 'Rename',
+    delete: 'Delete {{title}}',
+    deleteShort: 'Delete',
+    confirmDelete:
+      'Delete {{title}}? Content that learners have progress in is archived instead of deleted.',
+    save: 'Save',
+    cancel: 'Cancel',
+    slug: 'Key',
+    title: 'Title',
+    type: 'Type',
+    level: 'Level',
+    addSection: 'Add section',
+    addUnitTo: 'Add unit to {{title}}',
+    addLessonTo: 'Add lesson to {{title}}',
+  },
   admin: {
     roles: { admin: 'Admin', learner: 'Learner' },
     users: {
@@ -214,6 +270,14 @@ export const en = {
       unit_review: 'Unit review',
     },
     state: { locked: 'locked', available: 'available', completed: 'completed' },
+    testOut: 'Test out of {{title}}',
+  },
+  // FR-024: the unit test-out, played by the lesson player.
+  testOut: {
+    title: 'Test out of {{unit}}',
+    intro: 'Answer {{count}} exercises. Get {{pass}}% right to complete the unit and skip ahead.',
+    passed: 'Unit complete!',
+    failed: 'Not this time: you need {{pass}}% to pass. Keep going with the lessons.',
   },
   // FR-046, FR-047, Product Spec section 4: the lesson player.
   player: {
@@ -248,6 +312,8 @@ export const en = {
     wordBank: {
       answer: 'Your answer',
       bank: 'Word bank',
+      useInstead: 'Use word bank instead',
+      typeInstead: 'Type instead',
       hint: 'Tap a word to add it or take it back. Move a word in your answer with the arrow keys.',
     },
     reorder: {

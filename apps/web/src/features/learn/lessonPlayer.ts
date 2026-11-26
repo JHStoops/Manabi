@@ -1,5 +1,19 @@
 import { playableExercises } from '../audio/speech';
-import type { ExerciseResponse, GradeResult, LessonCompletion, LessonSession } from '@manabi/core';
+import type {
+  ExerciseResponse,
+  GradeResult,
+  LessonCompletion,
+  LessonSession,
+  TestOutCompletion,
+  TestOutSession,
+} from '@manabi/core';
+
+/** FR-024: the player also plays a unit test-out, which has no teaching cards. */
+export type PlayerSession = LessonSession | TestOutSession;
+export type PlayerCompletion = LessonCompletion | TestOutCompletion;
+
+const teachingCards = (session: PlayerSession | null) =>
+  session && 'teachingCards' in session ? session.teachingCards : [];
 
 /**
  * The lesson player state machine (SDD section 9, Product Spec section 4): intro, teaching
@@ -11,7 +25,7 @@ export type PlayerPhase =
 
 export interface PlayerState {
   phase: PlayerPhase;
-  session: LessonSession | null;
+  session: PlayerSession | null;
   /** The teaching card shown. */
   card: number;
   /** Exercise indexes still to play; the head is the current one. FR-047: misses go to the end. */
@@ -26,12 +40,12 @@ export interface PlayerState {
   grade: GradeResult | null;
   /** FR-053: each exercise's first-pass response in session order; the retry round adds none. */
   responses: (ExerciseResponse | undefined)[];
-  completion: LessonCompletion | null;
+  completion: PlayerCompletion | null;
   error: unknown;
 }
 
 export type PlayerAction =
-  | { type: 'loaded'; session: LessonSession }
+  | { type: 'loaded'; session: PlayerSession }
   /** The primary action: start, next card, continue after feedback, retry a failed completion. */
   | { type: 'next' }
   /** FR-135: whether the device can speak; without a voice, listening exercises are dropped. */
@@ -39,7 +53,7 @@ export type PlayerAction =
   | { type: 'answered'; answer: unknown }
   /** The grade of the current answer on its own, from gradeResponse. */
   | { type: 'checked'; grade: GradeResult }
-  | { type: 'completed'; completion: LessonCompletion }
+  | { type: 'completed'; completion: PlayerCompletion }
   | { type: 'failed'; error: unknown };
 
 export const initialPlayerState: PlayerState = {
@@ -85,11 +99,11 @@ export function lessonPlayerReducer(state: PlayerState, action: PlayerAction): P
     case 'next':
       switch (state.phase) {
         case 'intro':
-          return state.session?.teachingCards.length
+          return teachingCards(state.session).length
             ? { ...state, phase: 'teaching', card: 0 }
             : { ...state, phase: 'answering' };
         case 'teaching':
-          return state.card + 1 < (state.session?.teachingCards.length ?? 0)
+          return state.card + 1 < teachingCards(state.session).length
             ? { ...state, card: state.card + 1 }
             : { ...state, phase: 'answering' };
         case 'feedback': {
