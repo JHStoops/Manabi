@@ -99,7 +99,7 @@ async function move(
  * FR-225: deletes the row, or archives it when progress refers to it (a completed lesson, an open
  * lesson session, a unit completion or an answer report: foreign keys with ON DELETE RESTRICT).
  */
-async function deleteOrArchive(
+export async function deleteOrArchive(
   db: Queryable,
   remove: () => Promise<void>,
   archive: () => Promise<void>,

@@ -23,6 +23,7 @@ import type {
   LessonCompletion,
   LessonCompletionRequest,
   LessonSession,
+  LessonPreview,
   LessonSessionState,
   SessionExercise,
   TestOutCompletion,
@@ -51,7 +52,7 @@ function stableJson(value: unknown): string {
   );
 }
 
-function toItem(row: ItemRow): Item {
+export function toItem(row: ItemRow): Item {
   return {
     id: row.id,
     courseId: row.course_id,
@@ -109,11 +110,8 @@ export async function startSession(
   };
 }
 
-/**
- * SDD section 6: teaching cards for the new items, then the stored exercises, filled up to 10 by
- * the plugin's generators per the lesson type's recipe. Exercises use taught items only (FR-048).
- */
-async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<LessonSessionState> {
+/** What building a lesson's exercises needs: its plugin, new items and generator context. */
+async function lessonInputs(db: Queryable, lesson: q.LessonContextRow) {
   const plugin = languagePlugins.get(lesson.plugin);
   const newItems = (await q.listLessonItems(db, lesson.id)).map(toItem);
   const taughtItems = (await q.listTaughtItems(db, lesson.id)).map(toItem);
@@ -125,9 +123,19 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
     newItems.map((i) => i.id),
     taughtItems.map((i) => i.id),
   );
+  const context: GeneratorContext = { sectionLevel: lesson.level_code, taughtItems, sentences };
+  return { plugin, newItems, context };
+}
+
+/**
+ * SDD section 6: teaching cards for the new items, then the stored exercises, filled up to 10 by
+ * the plugin's generators per the lesson type's recipe. Exercises use taught items only (FR-048).
+ */
+async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<LessonSessionState> {
+  const { plugin, newItems, context } = await lessonInputs(db, lesson);
   const exercises = fillExercises(
     plugin,
-    { sectionLevel: lesson.level_code, taughtItems, sentences },
+    context,
     newItems,
     await q.listStoredExercises(db, lesson.id),
     lessonRecipes[lesson.type],
@@ -143,11 +151,53 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
   return lessonSessionStateSchema.parse({
     // FR-041: the first fitting sentence is a new item's example; none when none fits.
     teachingCards: newItems.map((item) => {
-      const s = sentences.find((sentence) => sentence.tokens.some((t) => t.itemId === item.id));
+      const s = context.sentences.find((sentence) =>
+        sentence.tokens.some((t) => t.itemId === item.id),
+      );
       return { item, example: s && { text: s.text, translation: s.translation, tiles: s.tokens } };
     }),
     exercises,
   });
+}
+
+/**
+ * FR-224: the lesson's session as a learner would get it, drafts included, for an admin to
+ * preview. Nothing is saved: no session row, so no completion can be recorded either.
+ */
+export async function previewLesson(db: Queryable, lessonId: number): Promise<LessonPreview> {
+  const lesson = await q.findLesson(db, lessonId);
+  if (!lesson) throw new AppError('not_found', 'Lesson not found');
+  return {
+    lessonId,
+    lessonTitle: lesson.title,
+    lessonType: lesson.type,
+    sectionLevel: lesson.level_code,
+    plugin: lesson.plugin,
+    ...(await buildState(db, lesson)),
+  };
+}
+
+/**
+ * FR-049, FR-223: what the lesson type's generators make from the new items, without the stored
+ * exercises, up to a session's maximum, for the author to pin.
+ */
+export async function generateExercises(
+  db: Queryable,
+  lessonId: number,
+): Promise<SessionExercise[]> {
+  const lesson = await q.findLesson(db, lessonId);
+  if (!lesson) throw new AppError('not_found', 'Lesson not found');
+  const { plugin, newItems, context } = await lessonInputs(db, lesson);
+  const recipe = lessonRecipes[lesson.type];
+  return fillExercises(
+    plugin,
+    context,
+    newItems,
+    [],
+    recipe,
+    LESSON_MAX_EXERCISES,
+    LESSON_MAX_EXERCISES,
+  );
 }
 
 /**

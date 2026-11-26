@@ -24,6 +24,7 @@ export * from './exercises/typed_answer';
 export * from './exercises/word_bank';
 export * from './http';
 export * from './languagePlugin';
+export * from './lessonEditor';
 export * from './lessonSession';
 export * from './pagination';
 export * from './primitives';
