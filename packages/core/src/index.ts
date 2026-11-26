@@ -24,6 +24,7 @@ export * from './exercises/stroke_trace';
 export * from './exercises/typed_answer';
 export * from './exercises/word_bank';
 export * from './http';
+export * from './itemEditor';
 export * from './languagePlugin';
 export * from './leaderboard';
 export * from './lessonEditor';

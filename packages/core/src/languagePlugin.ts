@@ -2,6 +2,7 @@ import type { ZodTypeAny } from 'zod';
 import type { Course, Item } from './content';
 import type { Exercise } from './exerciseRegistry';
 import type { AnswerText, Sentence, Tile } from './sentence';
+import type { ReadingAnnotationMode } from './settings';
 
 // NOTE: Several types below are placeholders. They will be replaced by the real
 // domain types (learner state) as the corresponding features land.
@@ -47,7 +48,7 @@ export type ReviewFacet = string;
 export type InputMode = string;
 
 /**
- * Placeholder for an annotation attached to a span of a sentence (e.g. furigana). `start` and
+ * An annotation attached to a span of a sentence (e.g. furigana). `start` and
  * `end` are UTF-16 code-unit offsets into the tiles' surfaces joined (end exclusive).
  */
 export type Annotation = { start: number; end: number; kind: string; value: string };
@@ -187,10 +188,11 @@ export interface LanguagePlugin {
    */
   tokenize(input: TokenizeInput): Tile[];
   /**
-   * Reading annotations (furigana) for a sentence's stored tiles, taking the learner's learned
-   * items into account. Offsets are into the tiles' surfaces joined.
+   * FR-140: reading annotations (furigana) for a sentence's stored tiles in the learner's mode.
+   * `learnedItems`: the learner's items at stage 4 or above, which `unlearned` mode leaves bare.
+   * Offsets are into the tiles' surfaces joined.
    */
-  annotate(tiles: readonly Tile[], learnedItems: Item[]): Annotation[];
+  annotate(tiles: readonly Tile[], learnedItems: Item[], mode: ReadingAnnotationMode): Annotation[];
   /** The teaching-card fields of an item in a section at `sectionLevel` (FR-041, FR-141). */
   teachingCard(item: Item, sectionLevel: string): TeachingCardFields;
   /** Exercise generators keyed by exercise type. */

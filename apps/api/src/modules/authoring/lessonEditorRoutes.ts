@@ -7,8 +7,6 @@ import {
   emptyQuerySchema,
   exerciseWriteSchema,
   generatedExercisesSchema,
-  itemSearchQuerySchema,
-  itemSearchResultSchema,
   lessonEditorSchema,
   lessonPreviewSchema,
   setLessonItemsRequestSchema,
@@ -33,20 +31,6 @@ const params = authoringIdParamsSchema;
  * /authoring (FR-006).
  */
 export const lessonEditorRoutes: FastifyPluginAsyncZod = async (app) => {
-  app.get(
-    '/authoring/courses/:id/items',
-    {
-      schema: {
-        summary: "The item picker: the course's items whose key contains q, at most 50",
-        tags,
-        querystring: itemSearchQuerySchema,
-        params,
-        response: { 200: itemSearchResultSchema, ...errors },
-      },
-    },
-    async (request) => editor.searchItems(app.db, request.params.id, request.query),
-  );
-
   app.get(
     '/authoring/lessons/:id/editor',
     {

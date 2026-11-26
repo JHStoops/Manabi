@@ -60,8 +60,8 @@ describe('ItemPicker', () => {
     fireEvent.change(screen.getByLabelText('Find items by key'), { target: { value: 'ひ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     const results = await screen.findByRole('list', { name: 'Items found' });
-    expect(api.GET).toHaveBeenCalledWith('/api/v1/authoring/courses/{id}/items', {
-      params: { path: { id: '7' }, query: { q: 'ひ' } },
+    expect(api.GET).toHaveBeenCalledWith('/api/v1/authoring/items', {
+      params: { query: { course: '7', q: 'ひ' } },
     });
     // An item already in the lesson cannot be added twice.
     const addWater = within(results).getByRole('button', { name: `Add ${water.key}` });

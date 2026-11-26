@@ -1,6 +1,6 @@
 import type { Queryable } from '../../db/db';
 import { insertReturning, query, queryOne } from '../../db/db';
-import type { ExerciseRow, ItemRow, JsonObject, LessonRow } from '../content/rows';
+import type { ExerciseRow, JsonObject, LessonRow } from '../content/rows';
 
 // Hand-written, parameterized SQL for the lesson editor (FR-223, FR-224). Nothing here writes to
 // a progress table.
@@ -25,24 +25,6 @@ export function findEditorLesson(db: Queryable, id: number): Promise<EditorLesso
       WHERE l.id = $1 AND l.archived_at IS NULL AND u.archived_at IS NULL
         AND s.archived_at IS NULL`,
     [id],
-  );
-}
-
-/** The item picker: the course's active items whose key contains `text`, by key, at most 50. */
-export function searchItems(
-  db: Queryable,
-  courseId: number,
-  text: string,
-  type: string | undefined,
-): Promise<ItemRow[]> {
-  return query<ItemRow>(
-    db,
-    `SELECT * FROM items
-      WHERE course_id = $1 AND archived_at IS NULL
-        AND strpos(lower(key), lower($2)) > 0 AND ($3::text IS NULL OR type = $3)
-      ORDER BY key
-      LIMIT 50`,
-    [courseId, text, type ?? null],
   );
 }
 

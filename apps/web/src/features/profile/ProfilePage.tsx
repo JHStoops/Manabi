@@ -16,6 +16,7 @@ import {
   updateMeRequestSchema,
 } from '@manabi/core';
 import type { User, z } from '@manabi/core';
+import { useFeatures } from '../../state/plugins';
 import { useApi, useSession, useSessionDispatch } from '../../state/session';
 import { tapTarget } from '../../theme';
 import { apiErrorMessage, Button, Field } from '../auth/ui';
@@ -103,6 +104,7 @@ function SettingsForm({ user }: { user: User }) {
   const api = useApi();
   const dispatch = useSessionDispatch();
   const theme = useTheme();
+  const features = useFeatures();
   // null: unchanged.
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [changes, setChanges] = useState<Changes>({});
@@ -232,11 +234,13 @@ function SettingsForm({ user }: { user: User }) {
             onChange={(e) => set({ reviewCap: e.target.value && Number(e.target.value) })}
           />
           {reviewCap.message}
-          <Toggle
-            label={t('profile.drawingExercises')}
-            checked={s.drawingExercises}
-            onChange={(drawingExercises) => set({ drawingExercises })}
-          />
+          {features.characterStudy && features.strokeDrawing && (
+            <Toggle
+              label={t('profile.drawingExercises')}
+              checked={s.drawingExercises}
+              onChange={(drawingExercises) => set({ drawingExercises })}
+            />
+          )}
           <Toggle
             label={t('profile.preferWordBank')}
             checked={s.preferWordBank}
@@ -261,22 +265,26 @@ function SettingsForm({ user }: { user: User }) {
             optionLabel={(mode) => t(`profile.colorModes.${mode}`)}
             onChange={(colorMode) => set({ colorMode })}
           />
-          {/* shortcut: always shown with Japanese labels since ja is the only course; show only
-              when the course's plugin enables features.readingAnnotations once a second language lands. */}
-          <Choice
-            label={t('profile.readingAnnotations')}
-            value={s.readingAnnotations}
-            options={readingAnnotationModeSchema.options}
-            optionLabel={(mode) => t(`profile.readingAnnotationModes.${mode}`)}
-            onChange={(readingAnnotations) => set({ readingAnnotations })}
-          />
-          <Choice
-            label={t('profile.targetTextSize')}
-            value={s.targetTextSize}
-            options={textSizeSchema.options}
-            optionLabel={(size) => t(`profile.textSizes.${size}`)}
-            onChange={(targetTextSize) => set({ targetTextSize })}
-          />
+          {/* FR-241. shortcut: the labels say Japanese and furigana since ja is the only course;
+              take them from the plugin once a second language with readings lands. */}
+          {features.readingAnnotations && (
+            <>
+              <Choice
+                label={t('profile.readingAnnotations')}
+                value={s.readingAnnotations}
+                options={readingAnnotationModeSchema.options}
+                optionLabel={(mode) => t(`profile.readingAnnotationModes.${mode}`)}
+                onChange={(readingAnnotations) => set({ readingAnnotations })}
+              />
+              <Choice
+                label={t('profile.targetTextSize')}
+                value={s.targetTextSize}
+                options={textSizeSchema.options}
+                optionLabel={(size) => t(`profile.textSizes.${size}`)}
+                onChange={(targetTextSize) => set({ targetTextSize })}
+              />
+            </>
+          )}
         </>,
       )}
       {group(

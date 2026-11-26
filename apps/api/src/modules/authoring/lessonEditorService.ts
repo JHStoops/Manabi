@@ -11,7 +11,6 @@ import type {
   EditorExercise,
   ExerciseWrite,
   GeneratedExercises,
-  ItemSearchResult,
   LanguagePlugin,
   LessonEditor,
   LessonPreview,
@@ -28,7 +27,6 @@ import { textFields } from '../content/lint';
 import { listBlockedWords, replaceLessonItems } from '../content/queries';
 import type { ExerciseRow, JsonObject } from '../content/rows';
 import { objectsIn } from '../content/service';
-import { findCourse } from '../courses/queries';
 import { listLessonItems, listStoredExercises } from '../lessons/queries';
 import { generateExercises, previewLesson, toItem } from '../lessons/service';
 import * as q from './lessonEditorQueries';
@@ -78,15 +76,6 @@ export async function getLessonEditor(db: Queryable, lessonId: number): Promise<
     items: (await listLessonItems(db, lessonId)).map(toItem),
     exercises: (await listStoredExercises(db, lessonId)).map(toEditorExercise),
   };
-}
-
-export async function searchItems(
-  db: Queryable,
-  courseId: number,
-  filter: { q: string; type?: string | undefined },
-): Promise<ItemSearchResult> {
-  if (!(await findCourse(db, courseId))) notFound('Course');
-  return { items: (await q.searchItems(db, courseId, filter.q, filter.type)).map(toItem) };
 }
 
 /** Rejects item ids that are not active items of the course, naming the request field. */

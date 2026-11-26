@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Item, LanguagePlugin } from '@manabi/core';
+import type { AuthoringItemSummary, Item, LanguagePlugin } from '@manabi/core';
 import { useApi } from '../../state/session';
 import { apiErrorMessage } from '../auth/ui';
 import { Button, Form } from '../admin/ui';
@@ -19,7 +19,7 @@ export function ItemPicker(props: {
   const { t } = useTranslation();
   const api = useApi();
   const [q, setQ] = useState('');
-  const [found, setFound] = useState<Item[] | null>(null);
+  const [found, setFound] = useState<AuthoringItemSummary[] | null>(null);
   const [message, setMessage] = useState('');
   const ids = props.items.map((i) => i.id);
   // The plugin's term for an item, with its key; just the key for a plugin the app lacks.
@@ -32,8 +32,8 @@ export function ItemPicker(props: {
     event.preventDefault();
     setMessage('');
     try {
-      const result = await api.GET('/api/v1/authoring/courses/{id}/items', {
-        params: { path: { id: String(props.courseId) }, query: { q } },
+      const result = await api.GET('/api/v1/authoring/items', {
+        params: { query: { course: String(props.courseId), q } },
       });
       setFound(result.items);
     } catch (err) {
@@ -94,7 +94,7 @@ export function ItemPicker(props: {
           {found.length === 0 && <li>{t('lessonEditor.noResults')}</li>}
           {found.map((item) => (
             <li key={item.id}>
-              {name(item)}{' '}
+              {item.key}{' '}
               <Button
                 aria-label={t('lessonEditor.addItem', { key: item.key })}
                 disabled={ids.includes(item.id)}

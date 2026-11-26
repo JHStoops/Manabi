@@ -15044,298 +15044,6 @@
         }
       }
     },
-    "/api/v1/authoring/courses/{id}/items": {
-      "get": {
-        "summary": "The item picker: the course's items whose key contains q, at most 50",
-        "tags": ["authoring"],
-        "parameters": [
-          {
-            "schema": { "default": "", "type": "string", "maxLength": 100 },
-            "in": "query",
-            "name": "q",
-            "required": false
-          },
-          {
-            "schema": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-            "in": "query",
-            "name": "type",
-            "required": false
-          },
-          {
-            "schema": { "type": "string", "pattern": "^[1-9][0-9]{0,15}$" },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "items": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991
-                          },
-                          "courseId": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991
-                          },
-                          "key": { "type": "string", "maxLength": 200, "pattern": "^\\S+$" },
-                          "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-                          "levelCode": {
-                            "nullable": true,
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$"
-                          },
-                          "data": { "type": "object", "additionalProperties": {} },
-                          "overrides": { "type": "object", "additionalProperties": {} },
-                          "source": { "nullable": true, "type": "string", "minLength": 1 },
-                          "datasetVersion": { "nullable": true, "type": "string", "minLength": 1 },
-                          "archivedAt": {
-                            "nullable": true,
-                            "type": "string",
-                            "format": "date-time",
-                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "courseId",
-                          "key",
-                          "type",
-                          "levelCode",
-                          "data",
-                          "overrides",
-                          "source",
-                          "datasetVersion",
-                          "archivedAt"
-                        ],
-                        "additionalProperties": false
-                      }
-                    }
-                  },
-                  "required": ["items"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "validation_failed",
-                            "unauthenticated",
-                            "password_change_required",
-                            "forbidden",
-                            "not_found",
-                            "conflict",
-                            "idempotency_conflict",
-                            "payload_too_large",
-                            "rate_limited",
-                            "internal_error",
-                            "service_unavailable"
-                          ]
-                        },
-                        "message": { "type": "string", "minLength": 1 },
-                        "details": {}
-                      },
-                      "required": ["code", "message"],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": ["error"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "validation_failed",
-                            "unauthenticated",
-                            "password_change_required",
-                            "forbidden",
-                            "not_found",
-                            "conflict",
-                            "idempotency_conflict",
-                            "payload_too_large",
-                            "rate_limited",
-                            "internal_error",
-                            "service_unavailable"
-                          ]
-                        },
-                        "message": { "type": "string", "minLength": 1 },
-                        "details": {}
-                      },
-                      "required": ["code", "message"],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": ["error"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "validation_failed",
-                            "unauthenticated",
-                            "password_change_required",
-                            "forbidden",
-                            "not_found",
-                            "conflict",
-                            "idempotency_conflict",
-                            "payload_too_large",
-                            "rate_limited",
-                            "internal_error",
-                            "service_unavailable"
-                          ]
-                        },
-                        "message": { "type": "string", "minLength": 1 },
-                        "details": {}
-                      },
-                      "required": ["code", "message"],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": ["error"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "validation_failed",
-                            "unauthenticated",
-                            "password_change_required",
-                            "forbidden",
-                            "not_found",
-                            "conflict",
-                            "idempotency_conflict",
-                            "payload_too_large",
-                            "rate_limited",
-                            "internal_error",
-                            "service_unavailable"
-                          ]
-                        },
-                        "message": { "type": "string", "minLength": 1 },
-                        "details": {}
-                      },
-                      "required": ["code", "message"],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": ["error"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "validation_failed",
-                            "unauthenticated",
-                            "password_change_required",
-                            "forbidden",
-                            "not_found",
-                            "conflict",
-                            "idempotency_conflict",
-                            "payload_too_large",
-                            "rate_limited",
-                            "internal_error",
-                            "service_unavailable"
-                          ]
-                        },
-                        "message": { "type": "string", "minLength": 1 },
-                        "details": {}
-                      },
-                      "required": ["code", "message"],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": ["error"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/authoring/lessons/{id}/editor": {
       "get": {
         "summary": "A lesson's new items and its authored and pinned exercises, in session order",
@@ -17360,6 +17068,833 @@
                     }
                   },
                   "required": ["lesson", "items", "exercises"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/authoring/items": {
+      "get": {
+        "summary": "A course's active items whose key contains `q`, first 50 by key",
+        "tags": ["authoring"],
+        "parameters": [
+          {
+            "schema": { "type": "string", "pattern": "^[1-9][0-9]{0,15}$" },
+            "in": "query",
+            "name": "course",
+            "required": true
+          },
+          {
+            "schema": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+            "in": "query",
+            "name": "type",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "maxLength": 200 },
+            "in": "query",
+            "name": "q",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991
+                          },
+                          "key": { "type": "string", "maxLength": 200, "pattern": "^\\S+$" },
+                          "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+                          "levelCode": {
+                            "nullable": true,
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$"
+                          },
+                          "source": { "nullable": true, "type": "string", "minLength": 1 },
+                          "overridden": { "type": "boolean" }
+                        },
+                        "required": ["id", "key", "type", "levelCode", "source", "overridden"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["items"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/authoring/items/{id}": {
+      "get": {
+        "summary": "An item's imported data, author overrides, merged data and form fields",
+        "tags": ["authoring"],
+        "parameters": [
+          {
+            "schema": { "type": "string", "pattern": "^[1-9][0-9]{0,15}$" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991
+                    },
+                    "key": { "type": "string", "maxLength": 200, "pattern": "^\\S+$" },
+                    "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+                    "levelCode": {
+                      "nullable": true,
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$"
+                    },
+                    "source": { "nullable": true, "type": "string", "minLength": 1 },
+                    "datasetVersion": { "nullable": true, "type": "string", "minLength": 1 },
+                    "data": { "type": "object", "additionalProperties": {} },
+                    "overrides": { "type": "object", "additionalProperties": {} },
+                    "effective": { "type": "object", "additionalProperties": {} },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "kind": {
+                            "type": "string",
+                            "enum": ["text", "number", "textList", "json"]
+                          },
+                          "optional": { "type": "boolean" }
+                        },
+                        "required": ["name", "kind", "optional"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "key",
+                    "type",
+                    "levelCode",
+                    "source",
+                    "datasetVersion",
+                    "data",
+                    "overrides",
+                    "effective",
+                    "fields"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Replace an item's overrides; the merged data must pass the language schema",
+        "tags": ["authoring"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "overrides": { "type": "object", "additionalProperties": {} } },
+                "required": ["overrides"]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": { "type": "string", "pattern": "^[1-9][0-9]{0,15}$" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991
+                    },
+                    "key": { "type": "string", "maxLength": 200, "pattern": "^\\S+$" },
+                    "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+                    "levelCode": {
+                      "nullable": true,
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$"
+                    },
+                    "source": { "nullable": true, "type": "string", "minLength": 1 },
+                    "datasetVersion": { "nullable": true, "type": "string", "minLength": 1 },
+                    "data": { "type": "object", "additionalProperties": {} },
+                    "overrides": { "type": "object", "additionalProperties": {} },
+                    "effective": { "type": "object", "additionalProperties": {} },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "kind": {
+                            "type": "string",
+                            "enum": ["text", "number", "textList", "json"]
+                          },
+                          "optional": { "type": "boolean" }
+                        },
+                        "required": ["name", "kind", "optional"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "key",
+                    "type",
+                    "levelCode",
+                    "source",
+                    "datasetVersion",
+                    "data",
+                    "overrides",
+                    "effective",
+                    "fields"
+                  ],
                   "additionalProperties": false
                 }
               }

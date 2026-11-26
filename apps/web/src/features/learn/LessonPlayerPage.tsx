@@ -4,12 +4,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import styled from '@emotion/styled';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  TEST_OUT_PASS_ACCURACY,
-  UnknownLanguagePluginError,
-  createLanguagePluginRegistry,
-  gradeResponse,
-} from '@manabi/core';
+import { TEST_OUT_PASS_ACCURACY, UnknownLanguagePluginError, gradeResponse } from '@manabi/core';
 import type {
   AnswerText,
   ExerciseResponse,
@@ -17,9 +12,9 @@ import type {
   TeachingCard as TeachingCardData,
   Tile,
 } from '@manabi/core';
-import { japanese } from '@manabi/lang-ja';
 import { SpeakerButton } from '../audio/SpeakerButton';
 import { SpeechProvider, useSpeech } from '../audio/speech';
+import { plugins } from '../../state/plugins';
 import { useApi, useSession } from '../../state/session';
 import { Confetti, tapTarget, useSound } from '../../theme';
 import { apiErrorMessage } from '../auth/ui';
@@ -28,9 +23,6 @@ import { WordBankAlternative } from '../exercises/WordBankAlternative';
 import { LessonResults } from './LessonResults';
 import { initialPlayerState, lessonPlayerReducer } from './lessonPlayer';
 import type { PlayerAction, PlayerCompletion, PlayerSession } from './lessonPlayer';
-
-/** The language plugins the web app ships; a session names its course's plugin (FR-242). */
-const plugins = createLanguagePluginRegistry([japanese]);
 
 // NFR-31: every feedback color comes with an icon (and text).
 const icons = { close: '✕', correct: '✓', tryAgain: '!', wrong: '✗' };

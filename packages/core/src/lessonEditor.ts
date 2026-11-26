@@ -33,14 +33,6 @@ export const lessonEditorSchema = z.object({
 });
 export type LessonEditor = z.infer<typeof lessonEditorSchema>;
 
-/** `GET /authoring/courses/:id/items`: the item picker's search over item keys. */
-export const itemSearchQuerySchema = z.object({
-  q: z.string().max(100).default(''),
-  type: typeIdSchema.optional(),
-});
-export const itemSearchResultSchema = z.object({ items: z.array(itemSchema) });
-export type ItemSearchResult = z.infer<typeof itemSearchResultSchema>;
-
 /** `PUT /authoring/lessons/:id/items`: the lesson's new items, in teaching order. */
 export const setLessonItemsRequestSchema = z.object({
   itemIds: z

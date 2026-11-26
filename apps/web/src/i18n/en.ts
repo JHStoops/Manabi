@@ -52,6 +52,9 @@ export const en = {
     save: 'Save settings',
     saved: 'Settings saved.',
   },
+  library: {
+    kanji: 'Kanji',
+  },
   // FR-180, FR-181: the weekly leaderboard and top-three badges.
   leaderboard: {
     title: 'This week',
@@ -185,6 +188,20 @@ export const en = {
     addSection: 'Add section',
     addUnitTo: 'Add unit to {{title}}',
     addLessonTo: 'Add lesson to {{title}}',
+    items: {
+      heading: 'Items',
+      search: 'Key contains',
+      find: 'Find',
+      results: 'Matching items',
+      none: 'No items match.',
+      edited: 'edited',
+      imported: 'Imported from {{source}} {{version}}. Edits are kept apart and survive re-import.',
+      authored: 'Authored in the content pack.',
+      importedValue: 'Overridden. Imported value: {{value}}',
+      clear: 'Clear override of {{field}}',
+      onePerLine: 'one per line',
+      badJson: 'This is not valid JSON.',
+    },
     editLesson: 'Edit {{title}}',
     editShort: 'Edit',
   },

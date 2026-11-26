@@ -3,6 +3,7 @@ import styled from '@emotion/styled';
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import './i18n';
+import { ActivePluginProvider } from './state/plugins';
 import { useSession } from './state/session';
 import { tapTarget, useMediaQuery } from './theme';
 
@@ -97,7 +98,9 @@ function Layout() {
       {wide && nav}
       <Main>
         <Suspense fallback={<Loading />}>
-          <Outlet />
+          <ActivePluginProvider>
+            <Outlet />
+          </ActivePluginProvider>
         </Suspense>
       </Main>
       {!wide && nav}

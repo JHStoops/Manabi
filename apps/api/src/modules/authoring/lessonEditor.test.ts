@@ -99,17 +99,11 @@ describeWithDb('lesson editor API', () => {
   const count = async (table: string) =>
     (await query<{ n: number }>(pool(), `SELECT count(*)::int AS n FROM ${table}`))[0]!.n;
 
-  it('sets the new items in order and finds items by key', async () => {
+  it('sets the new items in order and rejects unknown ones', async () => {
     const editor = await ok<LessonEditor>('PUT', `/authoring/lessons/${lessonId}/items`, {
       itemIds: [itemIds[2], itemIds[0]],
     });
     expect(editor.items.map((i) => i.id)).toEqual([itemIds[2], itemIds[0]]);
-
-    const found = await ok<{ items: { id: number }[] }>(
-      'GET',
-      `/authoring/courses/${courseId}/items?q=WORD:2`,
-    );
-    expect(found.items.map((i) => i.id)).toEqual([itemIds[1]]);
 
     const unknown = await call('PUT', `/authoring/lessons/${lessonId}/items`, {
       itemIds: [999999],

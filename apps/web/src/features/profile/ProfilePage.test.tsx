@@ -3,8 +3,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { ApiRequestError } from '@manabi/api-client';
 import type { ApiClient } from '@manabi/api-client';
 import { learnerSettingsSchema } from '@manabi/core';
-import type { User } from '@manabi/core';
+import type { LanguagePlugin, User } from '@manabi/core';
+import { japanese } from '@manabi/lang-ja';
 import '../../i18n';
+import { ActivePluginContext } from '../../state/plugins';
 import { ApiContext, SessionProvider } from '../../state/session';
 import { AppThemeProvider } from '../../theme';
 import ProfilePage from './ProfilePage';
@@ -32,7 +34,7 @@ const user: User = {
   disabledAt: null,
 };
 
-function mount(patch: jest.Mock) {
+function mount(patch: jest.Mock, plugin: LanguagePlugin = japanese) {
   const api = {
     GET: (url: string) =>
       Promise.resolve(url === '/api/v1/me' ? user : { sessions: [], badges: [] }),
@@ -43,7 +45,9 @@ function mount(patch: jest.Mock) {
       <AppThemeProvider>
         <MemoryRouter>
           <SessionProvider>
-            <ProfilePage />
+            <ActivePluginContext.Provider value={plugin}>
+              <ProfilePage />
+            </ActivePluginContext.Provider>
           </SessionProvider>
         </MemoryRouter>
       </AppThemeProvider>
@@ -90,6 +94,23 @@ describe('ProfilePage', () => {
     for (const label of ['Appear on the leaderboard', 'Allow nudges from friends']) {
       expect((social.getByLabelText(label) as HTMLInputElement).checked).toBe(true);
     }
+  });
+
+  it('hides drawing and furigana settings when the course plugin disables them (FR-241)', async () => {
+    mount(jest.fn(), {
+      ...japanese,
+      features: {
+        characterStudy: false,
+        strokeDrawing: true,
+        readingAnnotations: false,
+        inputConversion: true,
+      },
+    });
+    await screen.findByRole('group', { name: 'Study' });
+    expect(screen.queryByLabelText('Drawing exercises')).toBeNull();
+    expect(screen.queryByLabelText('Furigana')).toBeNull();
+    expect(screen.queryByLabelText('Japanese text size')).toBeNull();
+    screen.getByLabelText('Theme');
   });
 
   it('sends only the changed fields through PATCH /me', async () => {
