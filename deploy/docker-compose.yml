@@ -18,7 +18,9 @@ x-app: &app
     TRUST_PROXY: ${TRUST_PROXY:-1}
     LOG_LEVEL: ${LOG_LEVEL:-info}
     LEVEL_CEILING: ${LEVEL_CEILING:-N3}
+    SRS_INTERVAL_HOURS: ${SRS_INTERVAL_HOURS:-}
     MEDIA_DIR: /media
+    TTS_URL: http://tts:8880
     DATASETS_DIR: /datasets
     SMTP_HOST: ${SMTP_HOST:-}
     SMTP_PORT: ${SMTP_PORT:-}

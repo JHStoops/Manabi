@@ -132,6 +132,7 @@ export function App() {
         <Route element={<RequireSignedIn />}>
           {/* Full screen, outside the tab layout (Product Spec section 2). */}
           <Route path="/lesson/:lessonId" element={<LessonPlayerPage />} />
+          <Route path="/unit/:unitId/test-out" element={<LessonPlayerPage />} />
           <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route element={<Layout />}>
             <Route path="/learn" element={<LearnPage />} />

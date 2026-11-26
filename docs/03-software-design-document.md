@@ -142,8 +142,8 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 | --- | --- | --- |
 | `enrollments` | user_id, course_id, started_at, total_xp, level | A learner may enroll in several courses; XP total and level are kept per course here |
 | `lesson_progress` | user_id, lesson_id, completed_at, best_accuracy, times_completed | Drives path unlocking |
-| `unit_completions` | user_id, unit_id, completed_at | Insert-only; written when a unit's last visible lesson is completed or its test-out is passed. Unlocks the next unit for good, so lessons added to the unit later never re-lock it (FR-232) |
-| `lesson_sessions` | id, user_id, lesson_id, unit_id, state (JSONB), expires_at | Resume within 24 hours; a unit challenge session has unit_id set and no lesson_id |
+| `unit_completions` | user_id, unit_id, completed_at, tested_out | Insert-only; written when a unit's last visible lesson is completed or its test-out is passed (tested_out true, which also opens every lesson of the unit). Unlocks the next unit for good, so lessons added to the unit later never re-lock it (FR-232) |
+| `lesson_sessions` | id, user_id, lesson_id, unit_id, state (JSONB), expires_at | Resume within 24 hours; a unit test-out or challenge session has unit_id set and no lesson_id |
 | `item_progress` | user_id, item_id, facet, stage, due_at, last_reviewed_at, correct_count, wrong_count | One row per review facet; index on (user_id, due_at) |
 | `review_log` | id, user_id, item_id, facet, exercise_type, correct, stage_before, stage_after, answered_at | Append-only; feeds stats and future scheduler tuning |
 | `xp_events` | id, user_id, course_id, base_amount, multiplier, amount, reason, ref_id, earned_at, local_date | Append-only ledger; source of truth for XP |
@@ -226,7 +226,7 @@ The web app uses only the public REST API under `/api/v1`, so a mobile client ge
 | --- | --- |
 | Auth | `POST /auth/login`, `POST /auth/logout`, `POST /auth/accept-invite`, `POST /auth/change-password`, `POST /auth/password-reset`, `GET /me`, `PATCH /me`, `GET /me/sessions`, `DELETE /me/sessions/:id` |
 | Courses | `GET /courses`, `POST /courses/:id/enroll`, `GET /courses/:id/path` (sections, units, lessons with the learner's state) |
-| Lessons | `POST /lessons/:id/sessions` (start or resume), `POST /lesson-sessions/:id/complete`, `POST /units/:id/test-out`, `POST /units/:id/challenge` (start or resume a unit challenge) |
+| Lessons | `POST /lessons/:id/sessions` (start or resume), `POST /lesson-sessions/:id/complete`, `POST /units/:id/test-out` (start or resume a unit test-out), `POST /test-out-sessions/:id/complete`, `POST /units/:id/challenge` (start or resume a unit challenge) |
 | Reviews | `GET /reviews/summary` (due now, forecast), `POST /reviews/sessions`, `POST /review-sessions/:id/answers` |
 | Library | `GET /items` (filter by type, level, stage, search), `GET /items/:key`, `PUT /items/:key/note`, `POST /items/:key/drill`, `PATCH /items/:key/progress` |
 | Media | `GET /media/audio/:ownerType/:ownerId` (the uploaded or cached clip; generated on the first request), `GET /media/strokes/:itemKey` |

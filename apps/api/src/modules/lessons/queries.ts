@@ -1,4 +1,4 @@
-import type { LessonSessionState, LessonType } from '@manabi/core';
+import type { LessonSessionState, LessonType, TestOutState } from '@manabi/core';
 import type { Queryable } from '../../db/db';
 import { insertReturning, query, queryOne } from '../../db/db';
 import type { ExerciseRow, ItemRow, SentenceRow } from '../content/rows';
@@ -55,6 +55,83 @@ export function resumeOpenSession(
                    LIMIT 1)
       RETURNING *`,
     [userId, lessonId],
+  );
+}
+
+/** FR-024: a unit with what building its test-out needs from its section and course. */
+export interface UnitContextRow {
+  id: number;
+  title: string;
+  course_id: number;
+  plugin: string;
+  level_code: string;
+}
+
+export function findUnit(db: Queryable, unitId: number): Promise<UnitContextRow | null> {
+  return queryOne<UnitContextRow>(
+    db,
+    `SELECT u.id, u.title, s.course_id, c.plugin, s.level_code
+       FROM units u
+       JOIN sections s ON s.id = u.section_id
+       JOIN courses c ON c.id = s.course_id
+      WHERE u.id = $1`,
+    [unitId],
+  );
+}
+
+/** FR-024: the unit's visible (published, active) lessons in path order. */
+export function listUnitLessons(
+  db: Queryable,
+  unitId: number,
+): Promise<{ id: number; type: LessonType }[]> {
+  return query(
+    db,
+    `SELECT id, type FROM lessons
+      WHERE unit_id = $1 AND status = 'published' AND archived_at IS NULL
+      ORDER BY position`,
+    [unitId],
+  );
+}
+
+/** Serializes test-out start-or-resume per learner and unit, so a double start makes one. */
+export async function lockUnitSessions(db: Queryable, userId: number, unitId: number) {
+  await query(db, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [
+    `unit_session:${userId}:${unitId}`,
+  ]);
+}
+
+/** FR-024, FR-050: the learner's newest unexpired test-out for the unit, kept 24 more hours. */
+export function resumeOpenUnitSession(
+  db: Queryable,
+  userId: number,
+  unitId: number,
+): Promise<LessonSessionRow | null> {
+  return queryOne<LessonSessionRow>(
+    db,
+    `UPDATE lesson_sessions
+        SET expires_at = now() + interval '24 hours', updated_at = now()
+      WHERE id = (SELECT id FROM lesson_sessions
+                   WHERE user_id = $1 AND unit_id = $2 AND expires_at > now()
+                   ORDER BY id DESC
+                   LIMIT 1)
+      RETURNING *`,
+    [userId, unitId],
+  );
+}
+
+/** FR-024, FR-050: a new test-out session, resumable for 24 hours. */
+export function insertUnitSession(
+  db: Queryable,
+  userId: number,
+  unitId: number,
+  state: TestOutState,
+): Promise<LessonSessionRow> {
+  return insertReturning<LessonSessionRow>(
+    db,
+    `INSERT INTO lesson_sessions (user_id, unit_id, state, expires_at)
+     VALUES ($1, $2, $3, now() + interval '24 hours')
+     RETURNING *`,
+    [userId, unitId, state],
   );
 }
 

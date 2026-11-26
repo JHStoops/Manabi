@@ -1,7 +1,7 @@
 import styled from '@emotion/styled';
 import { useTheme } from '@emotion/react';
 import type { Theme } from '@emotion/react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { CoursePath, LessonState, LessonType } from '@manabi/core';
 import { useApi } from '../../state/session';
@@ -126,6 +126,23 @@ const Band = styled.section<{ bandColor: string }>`
     align-items: center;
     gap: ${({ theme }) => theme.spacing(3)};
   }
+`;
+
+// FR-024: the unit's test-out, under its title.
+const TestOut = styled(Link)`
+  ${({ theme }) => tapTarget(theme)};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  margin: 0 auto ${({ theme }) => theme.spacing(3)};
+  padding: 0 ${({ theme }) => theme.spacing(3)};
+  border-radius: ${({ theme }) => theme.radii.small};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.fontSizes.small};
+  text-decoration: none;
 `;
 
 const Node = styled.button<{ nodeColor: string; windOffset: number; lessonState: LessonState }>`
@@ -339,6 +356,11 @@ function PathScreen() {
               {section.units.map((unit) => (
                 <section key={unit.id} aria-labelledby={`unit-${unit.id}`}>
                   <h3 id={`unit-${unit.id}`}>{unit.title}</h3>
+                  {unit.testOutAvailable && (
+                    <TestOut to={`/unit/${unit.id}/test-out`}>
+                      {t('learn.testOut', { title: unit.title })}
+                    </TestOut>
+                  )}
                   <ol>
                     {unit.lessons.map((lesson) => (
                       <LessonNode

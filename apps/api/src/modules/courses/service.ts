@@ -79,11 +79,9 @@ export async function getPath(
     if (unit?.[0]!.unit_id === row.unit_id) unit.push(row);
     else units.push([row]);
   }
-  // shortcut: no unit is ever tested out, since test-out results are not stored yet; pass them in
-  // when FR-024 (test-out, #96) adds their storage.
   const states = lessonStates(
     units.map((lessons) => ({
-      testedOut: false,
+      testedOut: lessons[0]!.unit_tested_out,
       completed: lessons[0]!.unit_completed,
       lessons: lessons.map((l) => ({ completed: l.completed })),
     })),
@@ -106,6 +104,11 @@ export async function getPath(
       key: first.unit_key,
       title: first.unit_title,
       status: first.unit_status,
+      // FR-024: open (its first lesson is not locked), not finished, and a lesson still to do.
+      testOutAvailable:
+        !first.unit_completed &&
+        states[k]![0] !== 'locked' &&
+        states[k]!.some((state) => state !== 'completed'),
       lessons: lessons.map((l, i) => ({
         id: l.lesson_id,
         key: l.lesson_key,
@@ -192,6 +195,26 @@ export async function awardLessonXp(
     xpEarned += result.xpEarned;
   }
   return { ...result!, xpEarned };
+}
+
+/**
+ * FR-024, FR-021: the XP side of a finished test-out, inside its transaction. A pass records the
+ * unit as finished by test-out and awards test-out XP; a unit already finished (by its lessons or
+ * an earlier pass) gets neither, and a fail changes nothing. Returns the course XP either way.
+ */
+export async function recordTestOut(
+  db: Queryable,
+  award: { userId: number; courseId: number; unitId: number; passed: boolean },
+): Promise<XpAward> {
+  const { userId, courseId, unitId, passed } = award;
+  const at = new Date();
+  const enrollment = await q.lockEnrollmentForAward(db, userId, courseId, at);
+  if (!enrollment) throw new AppError('conflict', 'Not enrolled in this course');
+  // The completion row is the once-only guard: a concurrent second pass waits on it, then skips.
+  if (passed && (await q.insertUnitCompletion(db, userId, unitId, true))) {
+    return awardXp(db, { userId, courseId, reason: 'test_out', refId: unitId, at });
+  }
+  return { xpEarned: 0, totalXp: enrollment.total_xp, level: levelForXp(enrollment.total_xp) };
 }
 
 /**

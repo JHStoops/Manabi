@@ -52,6 +52,18 @@ export const en = {
     save: 'Save settings',
     saved: 'Settings saved.',
   },
+  // FR-180, FR-181: the weekly leaderboard and top-three badges.
+  leaderboard: {
+    title: 'This week',
+    empty: 'Nobody has earned XP this week yet.',
+    row: '{{rank}}. {{name}}: {{xp}} XP',
+    you: 'you',
+    optedOut:
+      'You are not on the board. Turn on "Appear on the leaderboard" in your profile to join.',
+    badgesTitle: 'Weekly badges',
+    badge: 'Week of {{date}}: place {{rank}} ({{xp}} XP)',
+    noBadges: 'No badges yet. Finish in the top three of a week to earn one.',
+  },
   // FR-160, FR-162: the lesson results screen.
   results: {
     xpEarned: '+{{count}} XP',
@@ -143,6 +155,37 @@ export const en = {
     },
   },
   // Admin console and password reset (#23).
+  // FR-220, FR-225: the course tree editor.
+  authoring: {
+    course: 'Course',
+    sections: 'Sections',
+    unitsOf: 'Units of {{title}}',
+    lessonsOf: 'Lessons of {{title}}',
+    unit: 'Unit',
+    dragHint: 'Drag a row, or use the arrow buttons, to change its order.',
+    status: { draft: 'Draft', published: 'Published' },
+    publish: 'Publish',
+    unpublish: 'Unpublish',
+    up: '↑',
+    down: '↓',
+    moveUp: 'Move {{title}} up',
+    moveDown: 'Move {{title}} down',
+    rename: 'Rename {{title}}',
+    renameShort: 'Rename',
+    delete: 'Delete {{title}}',
+    deleteShort: 'Delete',
+    confirmDelete:
+      'Delete {{title}}? Content that learners have progress in is archived instead of deleted.',
+    save: 'Save',
+    cancel: 'Cancel',
+    slug: 'Key',
+    title: 'Title',
+    type: 'Type',
+    level: 'Level',
+    addSection: 'Add section',
+    addUnitTo: 'Add unit to {{title}}',
+    addLessonTo: 'Add lesson to {{title}}',
+  },
   admin: {
     roles: { admin: 'Admin', learner: 'Learner' },
     users: {
@@ -199,6 +242,30 @@ export const en = {
       none: 'No imports yet.',
       queueDown: 'The job queue is unavailable. Try again later.',
     },
+    wordLists: {
+      supplementaryTitle: 'Supplementary words',
+      blockedTitle: 'Blocked words',
+      courseKey: 'Course key',
+      level: 'Level',
+      allLevels: 'All levels',
+      written: 'Written form',
+      reading: 'Reading',
+      note: 'Note (optional)',
+      add: 'Add word',
+      save: 'Save word',
+      cancel: 'Cancel',
+      edit: 'Edit',
+      editWord: 'Edit {{word}}',
+      remove: 'Remove',
+      removeWord: 'Remove {{word}}',
+      lang: 'Language code',
+      word: 'Word',
+      block: 'Block word',
+      unblockWord: 'Unblock {{word}}',
+      noSupplementary: 'No supplementary words.',
+      noBlocked: 'No blocked words.',
+      saveNote: 'Edits apply to the next import. Export the pack to write them to its files.',
+    },
   },
   passwordReset: {
     forgotTitle: 'Forgot password',
@@ -239,6 +306,14 @@ export const en = {
       unit_review: 'Unit review',
     },
     state: { locked: 'locked', available: 'available', completed: 'completed' },
+    testOut: 'Test out of {{title}}',
+  },
+  // FR-024: the unit test-out, played by the lesson player.
+  testOut: {
+    title: 'Test out of {{unit}}',
+    intro: 'Answer {{count}} exercises. Get {{pass}}% right to complete the unit and skip ahead.',
+    passed: 'Unit complete!',
+    failed: 'Not this time: you need {{pass}}% to pass. Keep going with the lessons.',
   },
   // FR-046, FR-047, Product Spec section 4: the lesson player.
   player: {
@@ -273,6 +348,8 @@ export const en = {
     wordBank: {
       answer: 'Your answer',
       bank: 'Word bank',
+      useInstead: 'Use word bank instead',
+      typeInstead: 'Type instead',
       hint: 'Tap a word to add it or take it back. Move a word in your answer with the arrow keys.',
     },
     reorder: {
