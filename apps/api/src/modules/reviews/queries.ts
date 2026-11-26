@@ -87,19 +87,23 @@ export async function insertReviewEntries(
   );
 }
 
-/** A due item with one of its due facets and its course's plugin. */
-export type DueFacetRow = ItemRow & { facet: string; plugin: string };
+/**
+ * A due item with one of its due facets, its course's plugin and the level of the section that
+ * first teaches it (generators depend on it, FR-141; imported items may have no level).
+ */
+export type DueFacetRow = ItemRow & { facet: string; plugin: string; section_level: string | null };
 
 /**
- * FR-114: the due facets of the learner's `limit` oldest due items (by their first due facet),
- * oldest first, an item's facets together. Archived items are left out. Served by
- * item_progress_user_due_idx. Exported so tests can time it.
+ * FR-114: the due facets of the learner's oldest due items (by their first due facet), `limit`
+ * items from `offset`, oldest first, an item's facets together. Archived items are left out.
+ * Served by item_progress_user_due_idx.
  */
 export function listDueItemFacets(
   db: Queryable,
   userId: number,
   now: Date,
   limit: number,
+  offset: number,
 ): Promise<DueFacetRow[]> {
   return query<DueFacetRow>(
     db,
@@ -110,15 +114,22 @@ export function listDueItemFacets(
         WHERE p.user_id = $1 AND p.due_at <= $2
         GROUP BY p.item_id
         ORDER BY first_due, p.item_id
-        LIMIT $3
+        LIMIT $3 OFFSET $4
      )
-     SELECT i.*, p.facet, c.plugin
+     SELECT i.*, p.facet, c.plugin,
+            (SELECT s.level_code FROM lesson_items li
+               JOIN lessons l ON l.id = li.lesson_id
+               JOIN units u ON u.id = l.unit_id
+               JOIN sections s ON s.id = u.section_id
+              WHERE li.item_id = i.id
+              ORDER BY s.position, u.position, l.position
+              LIMIT 1) AS section_level
        FROM due
        JOIN item_progress p ON p.user_id = $1 AND p.item_id = due.item_id AND p.due_at <= $2
        JOIN items i ON i.id = due.item_id
        JOIN courses c ON c.id = i.course_id
       ORDER BY due.first_due, due.item_id, p.facet`,
-    [userId, now, limit],
+    [userId, now, limit, offset],
   );
 }
 
@@ -268,12 +279,14 @@ export async function setFacetStage(
   );
 }
 
-/** FR-113: the learner's items with a facet due at `now`. */
+/** FR-113: the learner's active items with a facet due at `now`. */
 export async function countDueItems(db: Queryable, userId: number, now: Date): Promise<number> {
   const row = await queryOne<{ count: number }>(
     db,
-    `SELECT count(DISTINCT item_id)::int AS count FROM item_progress
-      WHERE user_id = $1 AND due_at <= $2`,
+    `SELECT count(DISTINCT p.item_id)::int AS count
+       FROM item_progress p
+       JOIN items i ON i.id = p.item_id AND i.archived_at IS NULL
+      WHERE p.user_id = $1 AND p.due_at <= $2`,
     [userId, now],
   );
   return row?.count ?? 0;
@@ -293,7 +306,9 @@ export function forecastDueItems(
     `WITH tz AS (SELECT time_zone FROM users WHERE id = $1),
      coming AS (
        SELECT (min(p.due_at) AT TIME ZONE tz.time_zone)::date AS day
-         FROM item_progress p, tz
+         FROM item_progress p
+         JOIN items i ON i.id = p.item_id AND i.archived_at IS NULL
+         CROSS JOIN tz
         WHERE p.user_id = $1 AND p.due_at > $2
         GROUP BY p.item_id, tz.time_zone
      )

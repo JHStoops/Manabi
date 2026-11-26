@@ -36,10 +36,10 @@ import type { ReviewSessionRow, Stage } from './rows';
 const HOUR = 3_600_000;
 
 /**
- * Due items looked at to fill one session. Items with a facet no exercise can be built for are
- * skipped (they stay due), so the session looks past them instead of stalling on them.
+ * Due items read at a time to fill one session. Items with a facet no exercise can be built for
+ * are skipped (they stay due), so the session pages past them instead of stalling on them.
  */
-const SESSION_CANDIDATE_ITEMS = 100;
+const DUE_PAGE_ITEMS = 100;
 
 /**
  * FR-110: inside the lesson-completion transaction, a review entry per facet for each of the
@@ -111,54 +111,58 @@ export async function startSession(
 }
 
 async function buildState(db: Queryable, userId: number, now: Date): Promise<ReviewSessionState> {
-  const due = await q.listDueItemFacets(db, userId, now, SESSION_CANDIDATE_ITEMS);
-  const byItem = new Map<number, q.DueFacetRow[]>();
-  for (const row of due) byItem.set(row.id, [...(byItem.get(row.id) ?? []), row]);
-  const stored = await q.listStoredReviewExercises(db, [...byItem.keys()]);
   const learned = new Map<number, Item[]>();
-
   const exercises: ReviewSessionState['exercises'] = [];
   let items = 0;
-  for (const [itemId, facets] of byItem) {
-    if (items === REVIEW_SESSION_ITEMS) break;
-    const { course_id: courseId, plugin: pluginCode, level_code: level } = facets[0]!;
-    const plugin = languagePlugins.get(pluginCode);
-    if (!learned.has(courseId)) {
-      learned.set(courseId, (await q.listLearnedItems(db, userId, courseId)).map(toItem));
-    }
-    const taughtItems = learned.get(courseId)!;
-    const taught = new Set(taughtItems.map((i) => i.id));
-    const item = toItem(facets[0]!);
+  for (let offset = 0; items < REVIEW_SESSION_ITEMS; offset += DUE_PAGE_ITEMS) {
+    const due = await q.listDueItemFacets(db, userId, now, DUE_PAGE_ITEMS, offset);
+    if (due.length === 0) break;
+    const byItem = new Map<number, q.DueFacetRow[]>();
+    for (const row of due) byItem.set(row.id, [...(byItem.get(row.id) ?? []), row]);
+    const stored = await q.listStoredReviewExercises(db, [...byItem.keys()]);
 
-    const picked = facets.map((row): SessionExercise | undefined => {
-      const types = plugin.reviewFacets(item.type)[row.facet] ?? [];
-      const own = stored.filter((e) => e.for_item_id === itemId && types.includes(e.type));
-      const storedPick = pickRandom(own);
-      if (storedPick) return { type: storedPick.type, payload: storedPick.payload };
-      // FR-048: generated exercises use the learner's items only.
-      for (const type of [...types].sort(() => Math.random() - 0.5)) {
-        const generate = Object.hasOwn(plugin.generators, type) ? plugin.generators[type] : null;
-        const made = (generate?.(item, { sectionLevel: level ?? '', taughtItems, sentences: [] }) ??
-          []) as SessionExercise[];
-        const fit = made.find((e) => payloadItemIds(e.payload).every((id) => taught.has(id)));
-        if (fit) return fit;
+    for (const [itemId, facets] of byItem) {
+      if (items === REVIEW_SESSION_ITEMS) break;
+      const { course_id: courseId, plugin: pluginCode } = facets[0]!;
+      const sectionLevel = facets[0]!.section_level ?? facets[0]!.level_code ?? '';
+      const plugin = languagePlugins.get(pluginCode);
+      if (!learned.has(courseId)) {
+        learned.set(courseId, (await q.listLearnedItems(db, userId, courseId)).map(toItem));
       }
-      return undefined;
-    });
-    // FR-112: an item is reviewed on all its due facets or not at all.
-    if (picked.some((e) => e === undefined)) continue;
-    picked.forEach((e, i) =>
-      exercises.push({
-        ...e!,
-        itemId,
-        facet: facets[i]!.facet,
-        plugin: pluginCode,
-        courseId,
-        correct: null,
-        retry: false,
-      }),
-    );
-    items++;
+      const taughtItems = learned.get(courseId)!;
+      const taught = new Set(taughtItems.map((i) => i.id));
+      const item = toItem(facets[0]!);
+
+      const picked = facets.map((row): SessionExercise | undefined => {
+        const types = plugin.reviewFacets(item.type)[row.facet] ?? [];
+        const own = stored.filter((e) => e.for_item_id === itemId && types.includes(e.type));
+        const storedPick = pickRandom(own);
+        if (storedPick) return { type: storedPick.type, payload: storedPick.payload };
+        // FR-048: generated exercises use the learner's items only.
+        for (const type of [...types].sort(() => Math.random() - 0.5)) {
+          const generate = Object.hasOwn(plugin.generators, type) ? plugin.generators[type] : null;
+          const made = (generate?.(item, { sectionLevel, taughtItems, sentences: [] }) ??
+            []) as SessionExercise[];
+          const fit = made.find((e) => payloadItemIds(e.payload).every((id) => taught.has(id)));
+          if (fit) return fit;
+        }
+        return undefined;
+      });
+      // FR-112: an item is reviewed on all its due facets or not at all.
+      if (picked.some((e) => e === undefined)) continue;
+      picked.forEach((e, i) =>
+        exercises.push({
+          ...e!,
+          itemId,
+          facet: facets[i]!.facet,
+          plugin: pluginCode,
+          courseId,
+          correct: null,
+          retry: false,
+        }),
+      );
+      items++;
+    }
   }
   return { exercises };
 }
@@ -226,35 +230,37 @@ export async function answer(
     if (!row) throw new AppError('conflict', 'This item is no longer in reviews');
 
     const siblings = state.exercises.filter((e) => e.itemId === itemId && !e.retry);
-    let stage: Stage | null = null;
-    let xpEarned = 0;
+    let next: { stage: Stage; dueAt: Date | null } | null = null;
     if (siblings.every((e) => e.correct !== null)) {
       const right = siblings.every((e) => e.correct);
-      const next = new FixedLadderScheduler(intervalHours).next(row.stage, right, now);
-      stage = next.stage as Stage;
+      // An item's facets share one stage: they are created together and always moved together.
+      const scheduled = new FixedLadderScheduler(intervalHours).next(row.stage, right, now);
+      next = { stage: scheduled.stage as Stage, dueAt: scheduled.dueAt };
       for (const e of siblings) {
-        await q.setFacetStage(client, userId, itemId, e.facet, stage, next.dueAt);
-      }
-      if (right) {
-        const xp = await awardXp(client, {
-          userId,
-          courseId: exercise.courseId,
-          reason: 'review_correct',
-          refId: itemId,
-          at: now,
-        });
-        xpEarned = xp.xpEarned;
+        await q.setFacetStage(client, userId, itemId, e.facet, next.stage, next.dueAt);
       }
     }
-    await q.insertReviewLog(client, {
+    const log = await q.insertReviewLog(client, {
       userId,
       itemId,
       facet,
       exerciseType: exercise.type,
       correct,
       stageBefore: row.stage,
-      stageAfter: stage ?? row.stage,
+      stageAfter: next?.stage ?? row.stage,
     });
+    let xpEarned = 0;
+    if (next && siblings.every((e) => e.correct)) {
+      const xp = await awardXp(client, {
+        userId,
+        courseId: exercise.courseId,
+        reason: 'review_correct',
+        refId: log.id,
+        at: now,
+      });
+      xpEarned = xp.xpEarned;
+    }
+    const stage = next?.stage ?? null;
 
     await save();
     return { correct, stage, xpEarned, retryIndex };

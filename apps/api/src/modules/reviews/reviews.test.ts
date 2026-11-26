@@ -105,7 +105,7 @@ describeWithDb('reviews API', () => {
     );
     await sql(
       `INSERT INTO exercises (lesson_id, type, payload, origin)
-       SELECT l.id, 'test_echo', jsonb_build_object('prompt', 'p' || n, 'answer', 'Water'),
+       SELECT l.id, 'test_echo', jsonb_build_object('prompt', l.key || n, 'answer', 'Water'),
               'authored'
          FROM lessons l, generate_series(1, 10) AS n`,
     );
@@ -335,9 +335,13 @@ describeWithDb('reviews API', () => {
       { item_id: item.word, facet: 'meaning', correct: true, stage_before: 5, stage_after: 5 },
       { item_id: item.word, facet: 'reading', correct: true, stage_before: 5, stage_after: 6 },
     ]);
+    // The award points at the review log row of the answer that settled the word.
+    const [settled] = await sql(`SELECT id FROM review_log WHERE item_id = $1 ORDER BY id DESC`, [
+      item.word,
+    ]);
     expect(
       await sql(`SELECT reason, amount, ref_id FROM xp_events ORDER BY id OFFSET $1`, [xpBefore]),
-    ).toEqual([{ reason: 'review_correct', amount: 1, ref_id: item.word }]);
+    ).toEqual([{ reason: 'review_correct', amount: 1, ref_id: settled!.id }]);
     // The missed kanji reading is asked again at the end until it is right; retries change no
     // progress and are not logged.
     const retry = (await startReviews(session)).json<ReviewSession>().exercises[4];
@@ -441,7 +445,7 @@ describeWithDb('reviews API', () => {
 
   it('summarizes items due now and the next 7 days in the learner time zone (FR-113)', async () => {
     const { courseId, item, lesson } = await seed();
-    const { session } = await learner('aiko', courseId);
+    const { userId, session } = await learner('aiko', courseId);
     await completeAll(lesson, session);
     await sql(`UPDATE item_progress SET due_at = now() - interval '1 hour' WHERE item_id = $1`, [
       item.kanji,
@@ -449,6 +453,18 @@ describeWithDb('reviews API', () => {
     await sql(`UPDATE item_progress SET due_at = now() + interval '2 days' WHERE item_id = $1`, [
       item.word,
     ]);
+    // An archived item is never served, so it is not counted either.
+    const [archived] = await sql(
+      `INSERT INTO items (course_id, key, type, level_code, archived_at)
+       VALUES ($1, 'gone', 'word', 'N5', now()) RETURNING id`,
+      [courseId],
+    );
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at) VALUES
+         ($1, $2, 'meaning', 2, now() - interval '1 hour'),
+         ($1, $2, 'reading', 2, now() + interval '1 day')`,
+      [userId, archived!.id],
+    );
     const response = await app.inject({
       method: 'GET',
       url: '/api/v1/reviews/summary',
@@ -464,6 +480,104 @@ describeWithDb('reviews API', () => {
     expect(summary.forecast.map((d) => d.date)).toEqual([0, 1, 2, 3, 4, 5, 6].map(day));
     // The word is due in 2 days, the kana (stage 4) in 7: outside the window.
     expect(summary.forecast.map((d) => d.count)).toEqual([0, 0, 1, 0, 0, 0, 0]);
+  });
+
+  it('pages past due items it cannot serve instead of stalling on them (FR-114)', async () => {
+    const { courseId } = await seed();
+    const { userId, session } = await learner('aiko', courseId);
+    // 150 grammar points the test plugin has no exercise types for, due before one word.
+    await sql(
+      `INSERT INTO items (course_id, key, type, level_code)
+       SELECT $1, 'g' || n, 'grammar', 'N5' FROM generate_series(1, 150) AS n`,
+      [courseId],
+    );
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       SELECT $1, id, 'usage', 2, now() - interval '2 days' FROM items WHERE type = 'grammar'`,
+      [userId],
+    );
+    const [word] = await sql(
+      `INSERT INTO items (course_id, key, type, level_code) VALUES ($1, 'late', 'word', 'N5')
+       RETURNING id`,
+      [courseId],
+    );
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       VALUES ($1, $2, 'meaning', 2, now() - interval '1 hour')`,
+      [userId, word!.id],
+    );
+    await sql(
+      `INSERT INTO exercises (item_id, type, payload, origin)
+       VALUES ($1, 'test_echo', '{"prompt": "p", "answer": "Water"}', 'generated')`,
+      [word!.id],
+    );
+    const response = await startReviews(session);
+    expect(response.statusCode).toBe(200);
+    expect(response.json<ReviewSession>().exercises.map((e) => e.itemId)).toEqual([word!.id]);
+  });
+
+  it('builds kana reviews at the level of the section that taught them (FR-141)', async () => {
+    // Imported kana have no level of their own; generators need the kana section's level.
+    const [course] = await sql(
+      `INSERT INTO courses (key, target_lang, base_lang, plugin, title, status)
+       VALUES ('ja-test', 'ja', 'en', 'ja', 'Japanese', 'published') RETURNING id`,
+    );
+    const [kana] = await sql(
+      `INSERT INTO items (course_id, key, type, data)
+       VALUES ($1, 'ja:kana:a', 'kana', '{"character": "あ", "script": "hiragana", "romaji": "a"}')
+       RETURNING id`,
+      [course!.id],
+    );
+    await sql(
+      `WITH s AS (
+         INSERT INTO sections (course_id, key, position, title, level_code)
+         VALUES ($1, 'kana', 0, 'Kana', 'kana') RETURNING id
+       ), u AS (
+         INSERT INTO units (section_id, key, position, title, status)
+         SELECT id, 'k', 0, 'k', 'published' FROM s RETURNING id
+       ), l AS (
+         INSERT INTO lessons (unit_id, key, position, type, title, status)
+         SELECT id, 'k1', 0, 'kana', 'k1', 'published' FROM u RETURNING id
+       )
+       INSERT INTO lesson_items (lesson_id, item_id, position) SELECT id, $2, 0 FROM l`,
+      [course!.id, kana!.id],
+    );
+    const { userId, session } = await learner('aiko', course!.id);
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       VALUES ($1, $2, 'reading', 4, now() - interval '1 hour')`,
+      [userId, kana!.id],
+    );
+    const response = await startReviews(session);
+    expect(response.statusCode).toBe(200);
+    expect(response.json<ReviewSession>().exercises).toEqual([
+      expect.objectContaining({ itemId: kana!.id, facet: 'reading', plugin: 'ja' }),
+    ]);
+  });
+
+  it('puts a tested-out unit into reviews (FR-110, FR-024)', async () => {
+    const { courseId, item } = await seed();
+    const { userId, session } = await learner('aiko', courseId);
+    const [unit] = await sql(`SELECT id FROM units`);
+    const started = await app.inject({
+      method: 'POST',
+      url: `/api/v1/units/${unit!.id}/test-out`,
+      ...session,
+    });
+    const done = await app.inject({
+      method: 'POST',
+      url: `/api/v1/test-out-sessions/${started.json<{ id: number }>().id}/complete`,
+      ...session,
+      payload: { responses: Array.from({ length: 20 }, () => RIGHT) },
+    });
+    expect(done.statusCode).toBe(200);
+    expect((await progress(userId)).map((r) => [r.item_id, r.facet, r.stage])).toEqual([
+      [item.kana, 'reading', 4],
+      [item.kanji, 'meaning', 1],
+      [item.kanji, 'reading', 1],
+      [item.word, 'meaning', 1],
+      [item.word, 'reading', 1],
+    ]);
   });
 
   it('starts a session in under a second with 2,000 due items (NFR-02)', async () => {

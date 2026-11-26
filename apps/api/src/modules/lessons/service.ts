@@ -421,6 +421,7 @@ export async function completeTestOut(
   sessionId: number,
   body: TestOutCompletionRequest,
   idempotencyKey: string | undefined,
+  srsIntervalHours: readonly number[],
 ): Promise<TestOutCompletion> {
   return completeOnce(
     db,
@@ -444,8 +445,19 @@ export async function completeTestOut(
         unitId: unit.id,
         passed,
       });
-      // shortcut: a pass creates no review entries for the unit's items; add them with the
-      // review scheduler (FR-110, #48).
+      // FR-110: a pass puts the unit's items into reviews, as completing its lessons would.
+      if (passed) {
+        for (const lesson of await q.listUnitLessons(client, unit.id)) {
+          await createReviewEntries(
+            client,
+            userId,
+            lesson.type,
+            await q.listLessonItems(client, lesson.id),
+            languagePlugins.get(unit.plugin),
+            srsIntervalHours,
+          );
+        }
+      }
       await q.deleteSession(client, session.id);
 
       return {
