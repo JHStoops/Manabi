@@ -2446,6 +2446,7 @@ export interface paths {
                   /** Format: date-time */
                   archivedAt: string | null;
                 };
+                /** @default [] */
                 examples: {
                   text: string;
                   translation: string;
@@ -11401,6 +11402,7 @@ export interface paths {
                   /** Format: date-time */
                   archivedAt: string | null;
                 };
+                /** @default [] */
                 examples: {
                   text: string;
                   translation: string;

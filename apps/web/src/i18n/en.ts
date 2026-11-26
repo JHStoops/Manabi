@@ -380,6 +380,8 @@ export const en = {
     meaning: 'Meaning',
     example: 'Example',
     formation: 'Formation',
+    wordType: 'Word type',
+    form: 'Form',
     unknownLanguage: 'This version of Manabi cannot play this course yet. Reload the page.',
     next: 'Next',
     exercise: 'Exercise',

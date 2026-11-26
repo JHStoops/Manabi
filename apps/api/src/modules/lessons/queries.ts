@@ -238,18 +238,20 @@ export function listSentences(
      )
      SELECT s.id, s.text, s.tokens, s.translation, s.grammar
        FROM sentences s
+      CROSS JOIN LATERAL (SELECT EXISTS (SELECT 1 FROM sentence_items si
+                                          WHERE si.sentence_id = s.id
+                                            AND si.item_id = ANY ($3::bigint[])) AS linked) l
       WHERE s.course_id = $1 AND s.archived_at IS NULL
         AND s.challenge_override IS NOT TRUE
         AND (s.vocab_level_code IS NULL OR s.vocab_level_code IN (SELECT level_code FROM allowed))
         AND (s.grammar_level_code IS NULL
              OR s.grammar_level_code IN (SELECT level_code FROM allowed))
-        AND (EXISTS (SELECT 1 FROM sentence_items si
-                      WHERE si.sentence_id = s.id AND si.item_id = ANY ($3::bigint[]))
-             -- Product Spec section 6: a grammar point's examples are sentences it was detected in.
-             OR s.grammar ?| ARRAY(SELECT key FROM items WHERE id = ANY ($3::bigint[])))
+        -- Product Spec section 6: a grammar point's examples are sentences it was detected in;
+        -- sentences linked by a tile come first, so a common point cannot crowd them out.
+        AND (l.linked OR s.grammar ?| ARRAY(SELECT key FROM items WHERE id = ANY ($3::bigint[])))
         AND NOT EXISTS (SELECT 1 FROM sentence_items si
                          WHERE si.sentence_id = s.id AND si.item_id <> ALL ($4::bigint[]))
-      ORDER BY s.id
+      ORDER BY l.linked DESC, s.id
       LIMIT 100`,
     [courseId, levelCode, lessonItemIds, taughtItemIds],
   );

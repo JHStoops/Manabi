@@ -141,7 +141,7 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
     plugin,
     context,
     newItems,
-    lesson.type === 'grammar' ? grammarExercises(stored) : stored,
+    lesson.type === 'grammar' ? grammarExercises(stored, context) : stored,
     lessonRecipes[lesson.type],
     LESSON_MIN_EXERCISES,
     LESSON_MAX_EXERCISES,
@@ -159,7 +159,7 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
       item,
       examples: context.sentences
         .filter((s) => s.tokens.some((t) => t.itemId === item.id) || s.grammar.includes(item.key))
-        .slice(0, item.type === 'grammar' ? 2 : 1)
+        .slice(0, lesson.type === 'grammar' ? 2 : 1)
         .map((s) => ({ text: s.text, translation: s.translation, tiles: s.tokens })),
     })),
     exercises,
@@ -171,11 +171,13 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
  * the grammar types only, with at most one listening exercise (last). A type not registered yet
  * (EX-07 before #67) is left out, so the lesson still plays.
  */
-function grammarExercises(stored: ExerciseRow[]): ExerciseRow[] {
+function grammarExercises(stored: ExerciseRow[], context: GeneratorContext): ExerciseRow[] {
   const registered = new Set(exerciseTypeIds());
   const rank = (e: ExerciseRow) => GRAMMAR_EXERCISE_ORDER.indexOf(e.type);
+  // Taught-only first (FR-048), so the cap below keeps only exercises the session can use.
+  const fits = storedFits(context);
   const ordered = stored
-    .filter((e) => e.origin === 'authored' && rank(e) >= 0 && registered.has(e.type))
+    .filter((e) => e.origin === 'authored' && rank(e) >= 0 && registered.has(e.type) && fits(e))
     .sort((a, b) => rank(a) - rank(b));
   const listening = ordered.filter((e) => e.type === 'listen_choose').slice(0, 1);
   return [
@@ -184,6 +186,14 @@ function grammarExercises(stored: ExerciseRow[]): ExerciseRow[] {
       .slice(0, LESSON_MAX_EXERCISES - listening.length),
     ...listening,
   ];
+}
+
+/** FR-048: whether a stored exercise uses taught items only. */
+function storedFits(context: GeneratorContext) {
+  const taught = new Set(context.taughtItems.map((i) => i.id));
+  return (e: Pick<ExerciseRow, 'item_id' | 'payload'>) =>
+    (e.item_id === null || taught.has(e.item_id)) &&
+    payloadItemIds(e.payload).every((id) => taught.has(id));
 }
 
 /**
@@ -296,8 +306,9 @@ function fillExercises(
     exercises.push(e);
     return true;
   };
+  const fits = storedFits(context);
   for (const e of stored) {
-    if ((e.item_id === null || taught.has(e.item_id)) && usesTaughtOnly(e.payload)) {
+    if (fits(e)) {
       add({ type: e.type, payload: e.payload });
     }
   }

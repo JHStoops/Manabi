@@ -196,8 +196,10 @@ describe('LessonPlayerPage', () => {
     expect(screen.getByText('Verb-te + ください')).toBeTruthy();
     expect(screen.getByText('Meaning').nextSibling?.textContent).toBe('please do');
     const table = screen.getByRole('table', { name: 'Formation' });
-    expect(table.textContent).toBe('FormationVerbte-form + ください見てください');
-    expect(screen.getAllByText('Example')).toHaveLength(2);
+    expect(table.textContent).toBe(
+      'FormationWord typeFormExampleVerbte-form + ください見てください',
+    );
+    expect(screen.getAllByText('Example')).toHaveLength(3);
     expect(screen.getByText('来てください。 (en)')).toBeTruthy();
   });
 

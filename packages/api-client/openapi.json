@@ -3457,6 +3457,7 @@
                             "additionalProperties": false
                           },
                           "examples": {
+                            "default": [],
                             "maxItems": 2,
                             "type": "array",
                             "items": {
@@ -17211,6 +17212,7 @@
                             "additionalProperties": false
                           },
                           "examples": {
+                            "default": [],
                             "maxItems": 2,
                             "type": "array",
                             "items": {

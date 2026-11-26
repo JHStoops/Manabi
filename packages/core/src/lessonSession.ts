@@ -66,7 +66,9 @@ export const teachingCardSchema = z.object({
         tiles: z.array(tileSchema),
       }),
     )
-    .max(2),
+    .max(2)
+    // Sessions saved before #59 have none; they still resume and complete.
+    .default([]),
 });
 export type TeachingCard = z.infer<typeof teachingCardSchema>;
 

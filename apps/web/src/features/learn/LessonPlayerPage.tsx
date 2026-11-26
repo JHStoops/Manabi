@@ -185,6 +185,13 @@ function TeachingCard(props: {
       {formation && formation.length > 0 && (
         <table>
           <caption>{t('player.formation')}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{t('player.wordType')}</th>
+              <th scope="col">{t('player.form')}</th>
+              <th scope="col">{t('player.example')}</th>
+            </tr>
+          </thead>
           <tbody>
             {formation.map((row, i) => (
               <tr key={i}>

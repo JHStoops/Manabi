@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { registerExerciseType, z } from '@manabi/core';
+import { exerciseTypeIds, registerExerciseType, z } from '@manabi/core';
 import type { LessonSession, ReviewSession } from '@manabi/core';
 import { query } from '../../db/db';
 import { testApp } from '../../test/app';
@@ -222,14 +222,43 @@ describeWithDb('grammar lessons API', () => {
     ]);
   });
 
+  it('drops exercises on untaught items before capping at 15, and resumes pre-#59 sessions', async () => {
+    const { courseId, lessonId, pointId } = await seed();
+    const { session } = await learner(courseId);
+    await exercises(lessonId, [
+      ...Array.from(
+        { length: 2 },
+        (_, i) => ['choice', { ...choice(`late${i}`), itemId: pointId + 99 }] as [string, object],
+      ),
+      ...Array.from({ length: 15 }, (_, i) => ['choice', choice(`c${i}`)] as [string, object]),
+    ]);
+    const first = (await start(lessonId, session)).json<LessonSession>();
+    expect(first.exercises.map((e) => e.payload.prompt)).toEqual(
+      Array.from({ length: 15 }, (_, i) => `c${i}`),
+    );
+
+    // A session saved before teaching cards had `examples` still resumes.
+    await sql(
+      `UPDATE lesson_sessions SET state = jsonb_set(state, '{teachingCards,0}',
+         (state #> '{teachingCards,0}') - 'examples')`,
+    );
+    const resumed = await start(lessonId, session);
+    expect(resumed.statusCode).toBe(200);
+    expect(resumed.json<LessonSession>()).toMatchObject({ id: first.id });
+    expect(resumed.json<LessonSession>().teachingCards[0]!.examples).toEqual([]);
+  });
+
   // Last: registering EX-07 stays for the rest of this file.
   it('keeps one listening exercise, last, once EX-07 is registered (FR-091)', async () => {
-    registerExerciseType({
-      id: 'listen_choose',
-      payloadSchema: z.object({ prompt: z.string() }),
-      answerSchema: z.number(),
-      grade: () => ({ result: 'correct' }),
-    });
+    // A stand-in until #67 registers EX-07 itself.
+    if (!exerciseTypeIds().includes('listen_choose')) {
+      registerExerciseType({
+        id: 'listen_choose',
+        payloadSchema: z.object({ prompt: z.string() }),
+        answerSchema: z.number(),
+        grade: () => ({ result: 'correct' }),
+      });
+    }
     const { courseId, lessonId } = await seed();
     const { session } = await learner(courseId);
     await exercises(lessonId, [
