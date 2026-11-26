@@ -1,5 +1,6 @@
 import type {
   ChoicePayload,
+  ConjugatePayload,
   ExerciseGenerator,
   GeneratorContext,
   Item,
@@ -11,12 +12,14 @@ import type {
 } from '@manabi/core';
 import {
   CHOICE_TYPE,
+  CONJUGATE_TYPE,
   MATCH_PAIRS_TYPE,
   READING_IN_CONTEXT_TYPE,
   TYPED_ANSWER_TYPE,
   WORD_BANK_TYPE,
 } from '@manabi/core';
 import { toHiragana } from './answer';
+import { conjugate, FORM_LABELS, formsFor } from './conjugate';
 import type { KanjiData } from './itemSchemas';
 import { kanaDataSchema, kanjiDataSchema, wordDataSchema } from './itemSchemas';
 import { kanaToRomaji } from './romaji';
@@ -297,6 +300,28 @@ const readingInContext: ExerciseGenerator = (item, { taughtItems }) => {
   return [{ type: READING_IN_CONTEXT_TYPE, payload }];
 };
 
+/**
+ * EX-10: the requested form of a taught verb or adjective, accepting its kanji and kana
+ * spellings. Words with no supported part-of-speech code get no exercise.
+ */
+// shortcut: the form is picked at random from those the word's class supports; a grammar point
+// cannot yet name the forms it drills (its formation rows), upgrade with the grammar drills.
+const conjugateGenerator: ExerciseGenerator = (item) => {
+  const word = item.type === 'word' ? wordDataSchema.safeParse(effective(item)).data : undefined;
+  const pos = word?.senses.flatMap((s) => s.partsOfSpeech).find((code) => formsFor(code).length);
+  if (!word || !pos) return [];
+  const form = shuffled(formsFor(pos))[0]!;
+  const [written, reading] = [word.written, word.reading].map((text) => conjugate(text, pos, form));
+  if (!written || !reading) return [];
+  const tile = { surface: written, base: word.written, reading, itemId: item.id };
+  const payload: ConjugatePayload = {
+    prompt: FORM_LABELS[form],
+    word: word.written,
+    accept: [...new Set([written, reading])].map((text) => ({ text, tiles: [tile] })),
+  };
+  return [{ type: CONJUGATE_TYPE, payload }];
+};
+
 /** Exercise generators keyed by exercise type id. */
 export const generators: Record<string, ExerciseGenerator> = {
   [CHOICE_TYPE]: choice,
@@ -304,4 +329,5 @@ export const generators: Record<string, ExerciseGenerator> = {
   [WORD_BANK_TYPE]: wordBank,
   [TYPED_ANSWER_TYPE]: typedAnswer,
   [READING_IN_CONTEXT_TYPE]: readingInContext,
+  [CONJUGATE_TYPE]: conjugateGenerator,
 };
