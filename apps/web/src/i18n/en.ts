@@ -542,6 +542,8 @@ export const en = {
   // FR-071 to FR-073: the stroke canvas.
   strokes: {
     canvas: 'Drawing area for {{character}}',
+    // Memory mode must not give the character away.
+    memoryCanvas: 'Drawing area',
     animation: 'Stroke order of {{character}}',
     play: 'Play',
     pause: 'Pause',

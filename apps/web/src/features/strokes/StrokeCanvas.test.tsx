@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import HanziWriter from 'hanzi-writer';
 import type { ApiClient } from '@manabi/api-client';
-import { STROKE_TRACE_TYPE } from '@manabi/core';
+import { DRAW_MEMORY_TYPE, STROKE_TRACE_TYPE } from '@manabi/core';
 import { japanese as plugin } from '@manabi/lang-ja';
 import '../../i18n';
 import { ApiContext } from '../../state/session';
@@ -100,7 +100,7 @@ describe('StrokeCanvas animation', () => {
   });
 });
 
-describe('EX-11 stroke trace renderer', () => {
+describe('stroke drawing renderers', () => {
   // Hanzi Writer maps its 1024 box into the 300 px board less 16 px padding, with y pointing up;
   // jsdom puts the board at (0, 0).
   const scale = (300 - 32) / 1024;
@@ -161,5 +161,45 @@ describe('EX-11 stroke trace renderer', () => {
     draw(line(100, 900, 200));
     await waitFor(() => expect(onAnswer).toHaveBeenCalledWith({ mistakes: 2 }));
     expect(screen.getByRole('status').textContent).toBe('All strokes done');
+  });
+
+  it('EX-12 hides the guide, flashes a stroke once after its second miss, then passes', async () => {
+    const highlight = jest.spyOn(HanziWriter.prototype, 'highlightStroke');
+    const { api } = fakeApi();
+    const onAnswer = jest.fn();
+    render(
+      <ApiContext.Provider value={api}>
+        <ExerciseRendererHarness
+          exercise={{
+            type: DRAW_MEMORY_TYPE,
+            payload: { itemKey: 'ja:kanji:二', character: '二', prompt: 'Draw "two"' },
+          }}
+          plugin={plugin}
+          onAnswer={onAnswer}
+        />
+      </ApiContext.Provider>,
+    );
+    expect(await screen.findByText('Draw "two"')).toBeTruthy();
+    // The accessible name must not give the character away.
+    expect(screen.getByRole('img', { name: 'Drawing area' })).toBeTruthy();
+    await waitFor(() => expect(document.querySelector('svg path')).toBeTruthy());
+
+    // Stroke 1 reversed three times: the guide flashes at the second miss only.
+    draw(line(850, 150, 600));
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toBe('Not that stroke. Try again.'),
+    );
+    expect(highlight).not.toHaveBeenCalled();
+    draw(line(850, 150, 600));
+    await waitFor(() => expect(highlight).toHaveBeenCalledWith(0));
+    draw(line(850, 150, 600));
+    expect(highlight).toHaveBeenCalledTimes(1);
+
+    draw(line(150, 850, 600));
+    // No stroke count either: it is part of what is tested.
+    await waitFor(() => expect(screen.getByRole('status').textContent).toBe(''));
+    draw(line(100, 900, 200));
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith({ mistakes: 3 }));
+    expect(highlight).toHaveBeenCalledTimes(1);
   });
 });

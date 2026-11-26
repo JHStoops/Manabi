@@ -1,6 +1,7 @@
 import {
   CHOICE_TYPE,
   CONJUGATE_TYPE,
+  DRAW_MEMORY_TYPE,
   FILL_BLANK_TYPE,
   MATCH_PAIRS_TYPE,
   READING_IN_CONTEXT_TYPE,
@@ -21,3 +22,4 @@ registerExerciseRenderer(REORDER_TYPE, () => import('./ReorderRenderer'));
 registerExerciseRenderer(READING_IN_CONTEXT_TYPE, () => import('./ReadingInContextRenderer'));
 registerExerciseRenderer(CONJUGATE_TYPE, () => import('./ConjugateRenderer'));
 registerExerciseRenderer(STROKE_TRACE_TYPE, () => import('./StrokeTraceRenderer'));
+registerExerciseRenderer(DRAW_MEMORY_TYPE, () => import('./DrawMemoryRenderer'));

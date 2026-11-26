@@ -152,6 +152,28 @@ describeWithDb('unit test-out API', () => {
     expect((await start(unit.u1!, session)).json<TestOutSession>().id).toBe(body.id);
   });
 
+  it('leaves drawing exercises out for a learner who turned drawing off (FR-074)', async () => {
+    const { courseId, unit, lesson } = await seed();
+    await sql(
+      `INSERT INTO exercises (lesson_id, position, type, payload, origin)
+       VALUES ($1, 0, 'stroke_trace', $2, 'pinned')`,
+      [lesson.a, { itemKey: 'none', character: '一' }],
+    );
+    const { userId, session } = await learner('aiko', courseId);
+    await sql(
+      `UPDATE users SET settings = settings || '{"drawingExercises": false}' WHERE id = $1`,
+      [userId],
+    );
+
+    const body = (await start(unit.u1!, session)).json<TestOutSession>();
+    expect(body.exercises).toHaveLength(EXERCISES);
+    expect(body.exercises.map((e) => e.type)).not.toContain('stroke_trace');
+    // Drawing is on by default.
+    const other = await learner('bento', courseId);
+    const drawn = (await start(unit.u1!, other.session)).json<TestOutSession>();
+    expect(drawn.exercises[0]!.type).toBe('stroke_trace');
+  });
+
   it('passes at 85%: finishes the unit, opens its lessons and the next unit, awards 30 XP (FR-024, FR-021)', async () => {
     const { courseId, unit } = await seed();
     const { userId, session } = await learner('aiko', courseId);
