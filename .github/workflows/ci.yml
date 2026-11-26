@@ -62,6 +62,9 @@ jobs:
         run: |
           npm run build --workspace @manabi/web
           node apps/web/scripts/checkBundleSize.cjs
+      # NFR-07: the audio tests encode and probe real clips.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Test with coverage
         run: npm run test:coverage
       # Report only by decision (#119): findings that stay are listed with a reason and review

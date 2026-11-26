@@ -9981,6 +9981,101 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/media/audio/{ownerType}/{ownerId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Ogg Opus clip of an item or sentence, generated on first request */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          ownerType: 'item' | 'sentence';
+          ownerId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': unknown;
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        503: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/openapi.json': {
     parameters: {
       query?: never;

@@ -15044,6 +15044,112 @@
         }
       }
     },
+    "/api/v1/media/audio/{ownerType}/{ownerId}": {
+      "get": {
+        "summary": "Ogg Opus clip of an item or sentence, generated on first request",
+        "tags": ["media"],
+        "parameters": [
+          {
+            "schema": { "type": "string", "enum": ["item", "sentence"] },
+            "in": "path",
+            "name": "ownerType",
+            "required": true
+          },
+          {
+            "schema": { "type": "string", "pattern": "^[1-9][0-9]{0,15}$" },
+            "in": "path",
+            "name": "ownerId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": { "application/json": { "schema": {} } }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/openapi.json": {
       "get": {
         "summary": "OpenAPI description of this API",
