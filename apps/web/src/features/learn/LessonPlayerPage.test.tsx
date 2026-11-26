@@ -43,7 +43,7 @@ const session: LessonSession = {
   lessonType: 'kana',
   sectionLevel: 'kana',
   plugin: 'ja',
-  teachingCards: [{ item: kana }],
+  teachingCards: [{ item: kana, examples: [] }],
   exercises: Array.from({ length: 10 }, (_, i) => ({
     type: TEST_EXERCISE_TYPE,
     payload: { prompt: `Type a${i}`, answer: `a${i}` },
@@ -99,8 +99,11 @@ describe('LessonPlayerPage', () => {
     const twoKana = {
       ...session,
       teachingCards: [
-        { item: kana },
-        { item: item(2, 'kana', { character: 'い', script: 'hiragana', romaji: 'i' }) },
+        { item: kana, examples: [] },
+        {
+          item: item(2, 'kana', { character: 'い', script: 'hiragana', romaji: 'i' }),
+          examples: [],
+        },
       ],
     };
     show(jest.fn(() => Promise.resolve(twoKana)));
@@ -127,7 +130,7 @@ describe('LessonPlayerPage', () => {
           ...session,
           lessonType: 'vocabulary',
           sectionLevel: 'N5',
-          teachingCards: [{ item: water }],
+          teachingCards: [{ item: water, examples: [] }],
         }),
       ),
     );
@@ -155,7 +158,10 @@ describe('LessonPlayerPage', () => {
           ...session,
           lessonType: 'vocabulary',
           sectionLevel: 'N5',
-          teachingCards: [{ item: water, example }, { item: water }],
+          teachingCards: [
+            { item: water, examples: [example] },
+            { item: water, examples: [] },
+          ],
         }),
       ),
     );
@@ -165,6 +171,34 @@ describe('LessonPlayerPage', () => {
     expect(screen.getByText('Water, please.')).toBeTruthy();
     fireEvent.click(button('Next'));
     expect(screen.queryByText('Example')).toBeNull();
+  });
+
+  it('teaches a grammar point with its pattern, meaning, formation table and two examples (Product Spec 6)', async () => {
+    const point = item(4, 'grammar', {
+      pattern: 'Verb-te + ください',
+      meaning: 'please do',
+      formation: [{ wordType: 'Verb', form: 'te-form + ください', example: '見てください' }],
+    });
+    const example = (text: string) => ({ text, translation: `${text} (en)`, tiles: [] });
+    show(
+      jest.fn(() =>
+        Promise.resolve({
+          ...session,
+          lessonType: 'grammar',
+          sectionLevel: 'N5',
+          teachingCards: [
+            { item: point, examples: [example('見てください。'), example('来てください。')] },
+          ],
+        }),
+      ),
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+    expect(screen.getByText('Verb-te + ください')).toBeTruthy();
+    expect(screen.getByText('Meaning').nextSibling?.textContent).toBe('please do');
+    const table = screen.getByRole('table', { name: 'Formation' });
+    expect(table.textContent).toBe('FormationVerbte-form + ください見てください');
+    expect(screen.getAllByText('Example')).toHaveLength(2);
+    expect(screen.getByText('来てください。 (en)')).toBeTruthy();
   });
 
   it('plays a preview without recording a completion (FR-224)', async () => {
@@ -358,7 +392,7 @@ describe('LessonPlayerPage', () => {
             ...session,
             lessonType: 'vocabulary',
             sectionLevel: 'N5',
-            teachingCards: [{ item: water }],
+            teachingCards: [{ item: water, examples: [] }],
             exercises: [typed],
           }),
         ),

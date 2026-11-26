@@ -34,22 +34,39 @@ export const lessonRecipes: Readonly<Record<LessonType, readonly string[]>> = {
   unit_review: [],
 };
 
+/**
+ * FR-091, Product Spec section 6: a grammar lesson's authored exercises in this order:
+ * recognition (EX-01), formation (EX-05, EX-10), production (EX-06, EX-03), then one listening
+ * exercise (EX-07). Authored exercises of other types are left out.
+ */
+export const GRAMMAR_EXERCISE_ORDER: readonly string[] = [
+  'choice',
+  'fill_blank',
+  'conjugate',
+  'reorder',
+  'word_bank',
+  'listen_choose',
+];
+
 /** `/lessons/:id/...`. */
 export const lessonIdParamsSchema = z.object({ id: idParamSchema });
 
 /**
- * FR-041, Product Spec section 4: one teaching card per new item of the lesson, in lesson order,
- * with one example sentence (its tiles for audio) and translation when one fits.
+ * FR-041, Product Spec sections 4 and 6: one teaching card per new item of the lesson, in lesson
+ * order, with example sentences (their tiles for audio) and translations: one for most items,
+ * two for a grammar point, fewer when fewer fit.
  */
 export const teachingCardSchema = z.object({
   item: itemSchema,
-  example: z
-    .object({
-      text: nonEmptyTextSchema,
-      translation: nonEmptyTextSchema,
-      tiles: z.array(tileSchema),
-    })
-    .optional(),
+  examples: z
+    .array(
+      z.object({
+        text: nonEmptyTextSchema,
+        translation: nonEmptyTextSchema,
+        tiles: z.array(tileSchema),
+      }),
+    )
+    .max(2),
 });
 export type TeachingCard = z.infer<typeof teachingCardSchema>;
 

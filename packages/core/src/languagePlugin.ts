@@ -39,6 +39,8 @@ export interface TeachingCardFields {
   meaning: string | null;
   /** FR-135, FR-136: the text the speaker button sends to TTS (Japanese: the kana reading). */
   spoken: string;
+  /** Product Spec section 6: a grammar point's formation table; empty for other items. */
+  formation?: readonly { wordType: string; form: string; example: string }[];
 }
 
 /** A review facet is one independently scheduled way of recalling an item (e.g. "reading"). */
