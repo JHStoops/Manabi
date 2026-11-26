@@ -299,18 +299,24 @@ function fillExercises(
     exercises.push(e);
     return true;
   };
+  const swapped = new Set<number>();
   for (const e of stored) {
     if (!((e.item_id === null || taught.has(e.item_id)) && usesTaughtOnly(e.payload))) continue;
     if (!offDrawing(e.type)) {
       add({ type: e.type, payload: e.payload });
       continue;
     }
-    // Drawing payloads name their character by item key (EX-11, EX-12).
+    // Drawing payloads name their character by item key (EX-11, EX-12). One EX-01 per item, so
+    // an item's EX-11 and EX-12 do not become two near-identical choices.
+    // shortcut: when the plugin makes no EX-01 for the item (too few distractors), the drawing
+    // exercise is dropped and the recipe fill below makes up the count; add another recognition
+    // fallback if drawing-off learners hit "not enough exercises".
     const item = context.taughtItems.find((i) => i.key === e.payload.itemKey);
-    const choice =
-      item && Object.hasOwn(plugin.generators, CHOICE_TYPE)
-        ? (plugin.generators[CHOICE_TYPE]!(item, context) as SessionExercise[])[0]
-        : undefined;
+    if (!item || swapped.has(item.id)) continue;
+    swapped.add(item.id);
+    const choice = Object.hasOwn(plugin.generators, CHOICE_TYPE)
+      ? (plugin.generators[CHOICE_TYPE]!(item, context) as SessionExercise[])[0]
+      : undefined;
     if (choice && usesTaughtOnly(choice.payload)) add(choice);
   }
 
