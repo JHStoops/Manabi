@@ -57,6 +57,11 @@ jobs:
           fi
       - name: Check PostgreSQL is reachable
         run: psql "$DATABASE_URL" -c 'select 1'
+      # NFR-04: initial JavaScript under 250 kB gzip.
+      - name: Check the first-load bundle size
+        run: |
+          npm run build --workspace @manabi/web
+          node apps/web/scripts/checkBundleSize.cjs
       - name: Test with coverage
         run: npm run test:coverage
       # Report only by decision (#119): findings that stay are listed with a reason and review
