@@ -77,6 +77,26 @@ export const en = {
     notAWord: 'This item is not a word.',
     partOfSpeech: '({{pos}})',
   },
+  // FR-113, FR-114: the Review tab and the review session.
+  review: {
+    dueNow: 'Due now: {{count}}',
+    nothingDue: 'Nothing is due right now.',
+    start: 'Start review',
+    intro: 'Questions: {{count}}. Leave any time: answers you gave are kept.',
+    forecast: 'Next 7 days',
+    forecastDay: '{{date}}: {{count}} due',
+    done: 'Review complete',
+    loadFailed: 'The review summary could not be loaded.',
+  },
+  // FR-102, NFR-31: an item's stage is always shown as text as well as a ring.
+  stage: {
+    not_started: 'Not started',
+    learning: 'Learning',
+    familiar: 'Familiar',
+    strong: 'Strong',
+    mastered: 'Mastered',
+    retired: 'Retired',
+  },
   // FR-090, FR-092: the grammar reference and point pages.
   grammar: {
     title: 'Grammar',

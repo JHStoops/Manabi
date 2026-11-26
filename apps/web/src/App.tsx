@@ -141,6 +141,8 @@ export function App() {
           {/* Full screen, outside the tab layout (Product Spec section 2). */}
           <Route path="/lesson/:lessonId" element={<LessonPlayerPage />} />
           <Route path="/unit/:unitId/test-out" element={<LessonPlayerPage />} />
+          {/* FR-114: the review session runs in the same player, full screen. */}
+          <Route path="/review/session" element={<LessonPlayerPage review />} />
           {/* FR-224: the lesson preview runs the real player, full screen. */}
           <Route element={<RequireAdmin />}>
             <Route
