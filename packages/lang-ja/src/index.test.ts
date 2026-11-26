@@ -53,11 +53,6 @@ describe('japanese language plugin', () => {
 
   // Each stubbed member must throw instead of returning a fake result.
   it.each<[string, number, () => unknown]>([
-    [
-      'annotate',
-      57,
-      () => japanese.annotate([{ surface: '日本語', base: '日本語', reading: 'にほんご' }], []),
-    ],
     ['reviewFacets', 48, () => japanese.reviewFacets('word')],
   ])('throws from stubbed %s', (member, issue, call) => {
     expect(call).toThrow(NotImplementedError);

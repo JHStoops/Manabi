@@ -1,4 +1,5 @@
 import type { LanguagePlugin } from '@manabi/core';
+import { annotate } from './annotate';
 import { checkAnswer, normalizeAnswer } from './answer';
 import { convertInput } from './convertInput';
 import { detectGrammar } from './grammar';
@@ -8,6 +9,7 @@ import { segment } from './segment';
 import { teachingCard } from './teachingCard';
 import { readingOf, tokenize } from './tokenize';
 
+export { annotate } from './annotate';
 export { checkAnswer, normalizeAnswer } from './answer';
 export { convertInput } from './convertInput';
 export { detectGrammar } from './grammar';
@@ -53,7 +55,7 @@ export const japanese: LanguagePlugin = {
   checkAnswer,
   convertInput,
   tokenize,
-  annotate: () => notImplemented('annotate', 57),
+  annotate,
   teachingCard,
   // Kana and vocabulary generators (#30) and EX-09 (#50); the other kanji ones join with #53.
   generators,

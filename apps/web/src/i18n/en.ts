@@ -52,6 +52,9 @@ export const en = {
     save: 'Save settings',
     saved: 'Settings saved.',
   },
+  library: {
+    kanji: 'Kanji',
+  },
   // FR-180, FR-181: the weekly leaderboard and top-three badges.
   leaderboard: {
     title: 'This week',
