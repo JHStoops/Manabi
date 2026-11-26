@@ -5,6 +5,8 @@ import type {
   LessonCompletion,
   LessonPreview,
   LessonSession,
+  ReviewExercise,
+  ReviewSession,
   TestOutCompletion,
   TestOutSession,
 } from '@manabi/core';
@@ -13,7 +15,7 @@ import type {
  * FR-024: the player also plays a unit test-out, which has no teaching cards. FR-224: and an
  * author's preview, which has no session id and whose completion is only its accuracy.
  */
-export type PlayerSession = LessonSession | TestOutSession | LessonPreview;
+export type PlayerSession = LessonSession | TestOutSession | LessonPreview | ReviewSession;
 export type PlayerCompletion =
   LessonCompletion | TestOutCompletion | Pick<LessonCompletion, 'accuracy'>;
 
@@ -58,6 +60,8 @@ export type PlayerAction =
   | { type: 'answered'; answer: unknown }
   /** The grade of the current answer on its own, from gradeResponse. */
   | { type: 'checked'; grade: GradeResult }
+  /** FR-046: the server queued a missed review exercise again at the end; it plays as a new one. */
+  | { type: 'retryQueued'; exercise: ReviewExercise }
   | { type: 'completed'; completion: PlayerCompletion }
   | { type: 'failed'; error: unknown };
 
@@ -84,7 +88,10 @@ export function lessonPlayerReducer(state: PlayerState, action: PlayerAction): P
         ...initialPlayerState,
         phase: 'intro',
         session: action.session,
-        queue: action.session.exercises.map((_, i) => i),
+        // FR-114: a resumed review skips exercises already answered (the server rejects a second answer).
+        queue: action.session.exercises.flatMap((e, i) =>
+          'correct' in e && e.correct !== null ? [] : [i],
+        ),
         responses: action.session.exercises.map(() => undefined),
       };
 
@@ -95,7 +102,7 @@ export function lessonPlayerReducer(state: PlayerState, action: PlayerAction): P
       const exercises = playableExercises(state.session.exercises, action.canSpeak);
       return {
         ...state,
-        session: { ...state.session, exercises },
+        session: { ...state.session, exercises } as PlayerSession,
         queue: exercises.map((_, i) => i),
         responses: exercises.map(() => undefined),
       };
@@ -114,7 +121,9 @@ export function lessonPlayerReducer(state: PlayerState, action: PlayerAction): P
         case 'feedback': {
           const [current, ...rest] = state.queue;
           // FR-047, FR-168: a miss comes back at the end; nothing ever ends the lesson early.
-          const queue = state.grade?.result === 'wrong' ? [...rest, current!] : rest;
+          // A review's retry is a new exercise the server appends (retryQueued), not this one again.
+          const isReview = 'itemId' in (state.session?.exercises[current!] ?? {});
+          const queue = state.grade?.result === 'wrong' && !isReview ? [...rest, current!] : rest;
           return {
             ...state,
             ...freshExercise,
@@ -154,6 +163,17 @@ export function lessonPlayerReducer(state: PlayerState, action: PlayerAction): P
       const responses = [...state.responses];
       responses[index] ??= { attempts };
       return { ...state, phase: 'feedback', attempts, grade: action.grade, responses };
+    }
+
+    case 'retryQueued': {
+      if (!state.session) return state;
+      const exercises = [...state.session.exercises, action.exercise];
+      return {
+        ...state,
+        session: { ...state.session, exercises } as PlayerSession,
+        queue: [...state.queue, exercises.length - 1],
+        responses: [...state.responses, undefined],
+      };
     }
 
     case 'completed':
