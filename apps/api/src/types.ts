@@ -1,6 +1,6 @@
 import type { FastifySchema, HTTPMethods } from 'fastify';
 import type { Pool } from 'pg';
-import type { Role } from '@manabi/core';
+import type { Role, TtsProvider } from '@manabi/core';
 import type { Config } from './config';
 import type { JobQueue } from './jobs/queue';
 import type { AuthContext } from './modules/auth/service';
@@ -25,6 +25,8 @@ declare module 'fastify' {
     registeredRoutes: RegisteredRoute[];
     /** NFR-12: attempt counters for the sign-in, invite and password routes. */
     attemptLimiter: AttemptLimiter;
+    /** IF-09: the TTS engine, reached only through this provider. */
+    tts: TtsProvider;
   }
 
   interface FastifyRequest {
