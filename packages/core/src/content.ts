@@ -157,3 +157,16 @@ export const storedExerciseSchema = z
     path: ['lessonId'],
   });
 export type StoredExercise = z.infer<typeof storedExerciseSchema>;
+
+/**
+ * FR-077: a character's stroke data in Hanzi Writer's format, as `stroke_data.strokes` stores it
+ * and `GET /media/strokes/:itemKey` serves it: an outline path and a median per stroke, in its
+ * 1024-unit y-up space.
+ */
+export const strokeDataSchema = z.object({
+  strokes: z.array(z.string()).min(1),
+  medians: z.array(z.array(z.tuple([z.number(), z.number()]))).min(1),
+});
+export type StrokeData = z.infer<typeof strokeDataSchema>;
+
+export const strokeItemKeyParamsSchema = z.object({ itemKey: stableKeySchema });

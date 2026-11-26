@@ -1,9 +1,10 @@
+import type { StrokeData } from '@manabi/core';
 import type { Queryable } from '../../db/db';
 import { query, queryOne } from '../../db/db';
 import type { AudioOwnerType } from '../content/rows';
 import type { AudioAssetPathRow, AudioOwnerRow } from './rows';
 
-// Hand-written, parameterized SQL for audio clips (FR-131).
+// Hand-written, parameterized SQL for audio clips (FR-131) and stroke data (FR-077).
 
 const OWNER_SQL: Record<AudioOwnerType, string> = {
   item: `SELECT c.plugin,
@@ -57,4 +58,14 @@ export async function upsertGeneratedAudio(
      DO UPDATE SET path = EXCLUDED.path, text_hash = EXCLUDED.text_hash, created_at = now()`,
     [clip.ownerType, clip.ownerId, clip.voice, clip.path, clip.textHash],
   );
+}
+
+/** FR-077: the stored Hanzi Writer stroke data of the item with this key, or null. */
+export async function findStrokeData(db: Queryable, itemKey: string): Promise<StrokeData | null> {
+  const row = await queryOne<{ strokes: StrokeData }>(
+    db,
+    `SELECT s.strokes FROM stroke_data s JOIN items i ON i.id = s.item_id WHERE i.key = $1`,
+    [itemKey],
+  );
+  return row?.strokes ?? null;
 }

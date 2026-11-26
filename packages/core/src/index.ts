@@ -20,6 +20,7 @@ export * from './exercises/fill_blank';
 export * from './exercises/match_pairs';
 export * from './exercises/reading_in_context';
 export * from './exercises/reorder';
+export * from './exercises/stroke_trace';
 export * from './exercises/typed_answer';
 export * from './exercises/word_bank';
 export * from './http';

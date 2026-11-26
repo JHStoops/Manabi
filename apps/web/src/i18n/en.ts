@@ -357,5 +357,20 @@ export const en = {
       chunk: '{{text}}, {{position}} of {{count}}',
       hint: 'Drag the pieces into order, or move a piece with the arrow keys.',
     },
+    // FR-044: EX-11.
+    strokeTrace: 'Trace {{character}}, one stroke at a time',
+  },
+  // FR-071 to FR-073: the stroke canvas.
+  strokes: {
+    canvas: 'Drawing area for {{character}}',
+    animation: 'Stroke order of {{character}}',
+    play: 'Play',
+    pause: 'Pause',
+    step: 'Next stroke',
+    replay: 'Replay',
+    progress: 'Stroke {{stroke}} of {{count}}',
+    mistake: 'Not that stroke. Try again.',
+    done: 'All strokes done',
+    loadFailed: 'The strokes could not be loaded.',
   },
 };

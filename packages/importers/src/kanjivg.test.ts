@@ -1,7 +1,7 @@
-import { createReadStream, readFileSync } from 'node:fs';
+import { createReadStream } from 'node:fs';
 import { join } from 'node:path';
-import type { HanziWriterCharData, Point } from './hanziWriterData';
 import { toHanziWriterSpace } from './hanziWriterData';
+import { loadHanziWriter } from './hanziWriterHarness';
 import { kanaItems, kanjiVgToHanziWriter, parseKanjiVg } from './kanjivg';
 
 const FIXTURE = join(__dirname, '../fixtures/kanjivg.xml');
@@ -14,36 +14,6 @@ const NEAT_WATER_STROKE_1: Array<[number, number]> = [
   [54.6, 76.3], [54.4, 80.1], [54.3, 83.9], [54.3, 86.8], [54, 90.3], [53.2, 92.1], [50.6, 90.9],
   [49.2, 89.9], [47.6, 88.6], [46.5, 87.7], [45.5, 87.1], [45.8, 86.2], [45.3, 86.5],
 ]; // prettier-ignore
-
-interface HanziWriterInternals {
-  parseCharData: (symbol: string, data: HanziWriterCharData) => unknown;
-  strokeMatches: (
-    userStroke: { points: Point[] },
-    character: unknown,
-    strokeNum: number,
-    options: { leniency: number; isOutlineVisible: boolean },
-  ) => { isMatch: boolean };
-}
-
-/**
- * Hanzi Writer (MIT) in Node: it does not export its matcher, so its CommonJS build is evaluated
- * with the export line widened (the #2 spike's harness).
- */
-function loadHanziWriter(): HanziWriterInternals {
-  const src = readFileSync(require.resolve('hanzi-writer/dist/index.cjs.js'), 'utf8').replace(
-    'module.exports = HanziWriter;',
-    'module.exports = { strokeMatches, parseCharData };',
-  );
-  if (!src.includes('module.exports = { strokeMatches')) throw new Error('hanzi-writer changed');
-  const mod = { exports: {} };
-  new Function('module', 'exports', 'require', 'global', src)(
-    mod,
-    mod.exports,
-    require,
-    globalThis,
-  );
-  return mod.exports as HanziWriterInternals;
-}
 
 describe('parseKanjiVg (FR-226)', () => {
   it('reads the generation date and each standard character, skipping variants', async () => {

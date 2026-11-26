@@ -3,12 +3,12 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { FastifyBaseLogger } from 'fastify';
-import type { TtsProvider } from '@manabi/core';
+import type { StrokeData, TtsProvider } from '@manabi/core';
 import type { Queryable } from '../../db/db';
 import { AppError } from '../../errors';
 import { languagePlugins } from '../../plugins';
 import type { AudioOwnerType } from '../content/rows';
-import { findAudioOwner, listAudioAssets, upsertGeneratedAudio } from './queries';
+import { findAudioOwner, findStrokeData, listAudioAssets, upsertGeneratedAudio } from './queries';
 
 // NFR-07, docs/spikes/tts.md (Setup): trim leading and trailing silence (keeping 50 ms), downmix
 // to mono and encode Ogg Opus at 24 kbps. Constrained VBR keeps a clip under the 32 kbps ceiling;
@@ -98,4 +98,11 @@ export async function audioClip(req: ClipRequest): Promise<Buffer> {
     throw new AppError('service_unavailable', 'Speech engine unavailable');
   }
   return readFile(join(req.mediaDir, path));
+}
+
+/** FR-071, FR-077: a character's stroke data for the stroke canvas; 404 when it has none. */
+export async function getStrokes(db: Queryable, itemKey: string): Promise<StrokeData> {
+  const strokes = await findStrokeData(db, itemKey);
+  if (!strokes) throw new AppError('not_found', 'No stroke data for this item');
+  return strokes;
 }
