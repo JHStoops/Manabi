@@ -3,14 +3,19 @@ import type {
   ExerciseResponse,
   GradeResult,
   LessonCompletion,
+  LessonPreview,
   LessonSession,
   TestOutCompletion,
   TestOutSession,
 } from '@manabi/core';
 
-/** FR-024: the player also plays a unit test-out, which has no teaching cards. */
-export type PlayerSession = LessonSession | TestOutSession;
-export type PlayerCompletion = LessonCompletion | TestOutCompletion;
+/**
+ * FR-024: the player also plays a unit test-out, which has no teaching cards. FR-224: and an
+ * author's preview, which has no session id and whose completion is only its accuracy.
+ */
+export type PlayerSession = LessonSession | TestOutSession | LessonPreview;
+export type PlayerCompletion =
+  LessonCompletion | TestOutCompletion | Pick<LessonCompletion, 'accuracy'>;
 
 const teachingCards = (session: PlayerSession | null) =>
   session && 'teachingCards' in session ? session.teachingCards : [];

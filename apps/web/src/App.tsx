@@ -16,6 +16,7 @@ const SocialPage = lazy(() => import('./features/social/SocialPage'));
 const ProfilePage = lazy(() => import('./features/profile/ProfilePage'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
 const AuthoringPage = lazy(() => import('./features/authoring/AuthoringPage'));
+const LessonEditorPage = lazy(() => import('./features/authoring/LessonEditorPage'));
 // Password reset by emailed link (#23).
 const ForgotPasswordPage = lazy(() => import('./features/auth/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./features/auth/ResetPasswordPage'));
@@ -136,6 +137,13 @@ export function App() {
           {/* Full screen, outside the tab layout (Product Spec section 2). */}
           <Route path="/lesson/:lessonId" element={<LessonPlayerPage />} />
           <Route path="/unit/:unitId/test-out" element={<LessonPlayerPage />} />
+          {/* FR-224: the lesson preview runs the real player, full screen. */}
+          <Route element={<RequireAdmin />}>
+            <Route
+              path="/authoring/lessons/:lessonId/preview"
+              element={<LessonPlayerPage preview />}
+            />
+          </Route>
           <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route element={<Layout />}>
             <Route path="/learn" element={<LearnPage />} />
@@ -146,6 +154,7 @@ export function App() {
             <Route element={<RequireAdmin />}>
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/authoring" element={<AuthoringPage />} />
+              <Route path="/authoring/lessons/:lessonId" element={<LessonEditorPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/learn" replace />} />
           </Route>

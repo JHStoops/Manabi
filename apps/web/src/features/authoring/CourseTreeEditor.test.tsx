@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import type { ApiClient } from '@manabi/api-client';
 import type { CourseTree, TreeLesson } from '@manabi/core';
 import '../../i18n';
@@ -63,7 +64,9 @@ function show() {
   render(
     <ApiContext.Provider value={api as unknown as ApiClient}>
       <AppThemeProvider>
-        <CourseTreeEditor courseId={7} />
+        <MemoryRouter>
+          <CourseTreeEditor courseId={7} />
+        </MemoryRouter>
       </AppThemeProvider>
     </ApiContext.Provider>,
   );

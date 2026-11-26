@@ -2,6 +2,7 @@ import styled from '@emotion/styled';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { lessonTypeSchema } from '@manabi/core';
 import type { CourseTree, LessonType, PublishStatus } from '@manabi/core';
 import { useApi } from '../../state/session';
@@ -250,6 +251,11 @@ function Node(props: {
         >
           {t('authoring.down')}
         </Button>
+        {kind === 'lessons' && (
+          <Link to={`/authoring/lessons/${id}`} aria-label={t('authoring.editLesson', { title })}>
+            {t('authoring.editShort')}
+          </Link>
+        )}
         <Button aria-label={t('authoring.rename', { title })} onClick={() => setRenaming(true)}>
           {t('authoring.renameShort')}
         </Button>

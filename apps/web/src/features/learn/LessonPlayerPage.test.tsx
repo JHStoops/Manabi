@@ -66,6 +66,10 @@ function show(
             <Routes>
               <Route path="/lesson/:lessonId" element={<LessonPlayerPage />} />
               <Route path="/unit/:unitId/test-out" element={<LessonPlayerPage />} />
+              <Route
+                path="/authoring/lessons/:lessonId/preview"
+                element={<LessonPlayerPage preview />}
+              />
             </Routes>
           </MemoryRouter>
         </SessionProvider>
@@ -161,6 +165,33 @@ describe('LessonPlayerPage', () => {
     expect(screen.getByText('Water, please.')).toBeTruthy();
     fireEvent.click(button('Next'));
     expect(screen.queryByText('Example')).toBeNull();
+  });
+
+  it('plays a preview without recording a completion (FR-224)', async () => {
+    const preview: Partial<LessonSession> = { ...session };
+    delete preview.id;
+    delete preview.expiresAt;
+    const post = jest.fn(() => Promise.resolve(preview));
+    show(post, '/authoring/lessons/3/preview');
+    await startExercises();
+    await answer('wrong');
+    await answer('still wrong');
+    fireEvent.click(button('Continue'));
+    for (let i = 1; i < 10; i++) {
+      await answer(`a${i}`);
+      fireEvent.click(button('Continue'));
+    }
+    await answer('a0'); // the retry round
+    fireEvent.click(button('Continue'));
+
+    expect(await screen.findByText('Accuracy 90%')).toBeTruthy();
+    expect(screen.getByText('Preview: nothing is recorded.')).toBeTruthy();
+    expect(post.mock.calls).toEqual([
+      ['/api/v1/authoring/lessons/{id}/preview', { params: { path: { id: '3' } }, body: {} }],
+    ]);
+    expect(screen.getByRole('link', { name: 'Done' }).getAttribute('href')).toBe(
+      '/authoring/lessons/3',
+    );
   });
 
   it('refuses a course whose language plugin this app does not ship', async () => {

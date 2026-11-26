@@ -30,7 +30,7 @@ interface Link {
  * FR-237: every string field in a pack payload, with its object (or array) and field, outside
  * tiles and item keys, and leaving out answer text whose tiles are checked instead.
  */
-function textFields(value: unknown): { at: object; field: string | number; text: string }[] {
+export function textFields(value: unknown): { at: object; field: string | number; text: string }[] {
   if (typeof value !== 'object' || value === null) return [];
   if (!Array.isArray(value) && 'surface' in value) return [];
   const tiled = !Array.isArray(value) && Array.isArray((value as JsonObject).tiles);
