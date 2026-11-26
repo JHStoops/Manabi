@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ApiRequestError } from '@manabi/api-client';
 import type { ApiClient } from '@manabi/api-client';
 import type { Item } from '@manabi/core';
@@ -8,6 +9,7 @@ import { ApiContext } from '../../state/session';
 import { AppThemeProvider } from '../../theme';
 import { ExerciseForm } from './ExerciseForm';
 import { ItemPicker } from './ItemPicker';
+import LessonEditorPage from './LessonEditorPage';
 
 // Component tests for the lesson editor (#43): FR-223, FR-237, FR-238.
 
@@ -188,5 +190,58 @@ describe('ExerciseForm', () => {
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('The payload is not valid for this exercise type');
     expect(alert.textContent).toContain('payload.prompt: Too small');
+  });
+});
+
+describe('LessonEditorPage', () => {
+  it('keeps the blocked-word warning shown after the first save of a new exercise', async () => {
+    const editor = {
+      lesson: {
+        id: 3,
+        unitId: 1,
+        key: 'l',
+        position: 0,
+        type: 'grammar',
+        title: 'Lesson',
+        status: 'draft',
+        courseId: 7,
+        plugin: 'ja',
+        sectionLevel: 'N5',
+      },
+      items: [],
+      exercises: [],
+    };
+    const api = {
+      GET: jest.fn(() => Promise.resolve(editor)),
+      POST: jest.fn((_path: string, { body }: { body: { type: string; payload: object } }) =>
+        Promise.resolve({
+          exercise: {
+            id: 9,
+            type: body.type,
+            origin: 'authored',
+            key: 'ex-9',
+            payload: body.payload,
+          },
+          blockedWords: ['飲む'],
+        }),
+      ),
+    };
+    render(
+      <ApiContext.Provider value={api as unknown as ApiClient}>
+        <AppThemeProvider>
+          <MemoryRouter initialEntries={['/authoring/lessons/3']}>
+            <Routes>
+              <Route path="/authoring/lessons/:lessonId" element={<LessonEditorPage />} />
+            </Routes>
+          </MemoryRouter>
+        </AppThemeProvider>
+      </ApiContext.Provider>,
+    );
+    fireEvent.change(await screen.findByLabelText('Type'), { target: { value: 'typed_answer' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Write exercise' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Saved, but it uses blocked words: 飲む')).toBeTruthy();
+    await waitFor(() => expect(api.GET).toHaveBeenCalledTimes(2));
+    expect(screen.getByText('Saved, but it uses blocked words: 飲む')).toBeTruthy();
   });
 });

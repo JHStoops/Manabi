@@ -141,6 +141,36 @@ describeWithDb('lesson editor API', () => {
     expect(await count('exercises')).toBe(0);
   });
 
+  it('refuses a key clash with a pack exercise and leaves no row behind', async () => {
+    // An archived pack exercise keyed ex-2 takes id 1, so the next id would make ex-2 again.
+    await query(
+      pool(),
+      `INSERT INTO exercises (lesson_id, key, type, origin, payload, archived_at)
+       VALUES ($1, 'ex-2', 'choice', 'authored', '{}', now())`,
+      [lessonId],
+    );
+    const response = await call('POST', '/authoring/exercises', {
+      lessonId,
+      type: 'typed_answer',
+      origin: 'authored',
+      payload: typedAnswer([{ text: '水', tiles: [] }]),
+    });
+    expect(response.statusCode).toBe(409);
+    expect(await count('exercises')).toBe(1);
+  });
+
+  it('does not remove an exercise of an archived lesson', async () => {
+    const { exercise } = await ok<ExerciseWrite>('POST', '/authoring/exercises', {
+      lessonId,
+      type: 'typed_answer',
+      origin: 'authored',
+      payload: typedAnswer([{ text: '水', tiles: [] }]),
+    });
+    await query(pool(), `UPDATE lessons SET archived_at = now() WHERE id = $1`, [lessonId]);
+    expect((await call('DELETE', `/authoring/exercises/${exercise.id}`)).statusCode).toBe(404);
+    expect(await count('exercises')).toBe(1);
+  });
+
   it('stores a pinned exercise with origin pinned and removes it', async () => {
     const payload = {
       prompt: 'water',

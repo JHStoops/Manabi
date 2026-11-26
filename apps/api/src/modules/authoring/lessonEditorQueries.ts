@@ -62,18 +62,17 @@ export async function insertExercise(
   db: Queryable,
   e: { lessonId: number; type: string; origin: 'authored' | 'pinned'; payload: JsonObject },
 ): Promise<ExerciseRow> {
-  const { id } = await insertReturning<{ id: number }>(
-    db,
-    `INSERT INTO exercises (lesson_id, type, origin, payload, position)
-     VALUES ($1, $2, $3, $4,
-             (SELECT coalesce(max(position) + 1, 0) FROM exercises WHERE lesson_id = $1))
-     RETURNING id`,
-    [e.lessonId, e.type, e.origin, e.payload],
-  );
+  // One statement, so a clash never leaves a row without its key.
   return insertReturning<ExerciseRow>(
     db,
-    `UPDATE exercises SET key = 'ex-' || id WHERE id = $1 RETURNING *`,
-    [id],
+    `WITH n AS (SELECT nextval(pg_get_serial_sequence('exercises', 'id')) AS id)
+     INSERT INTO exercises (id, key, lesson_id, type, origin, payload, position)
+     OVERRIDING SYSTEM VALUE
+     SELECT n.id, 'ex-' || n.id, $1, $2, $3, $4,
+            (SELECT coalesce(max(position) + 1, 0) FROM exercises WHERE lesson_id = $1)
+       FROM n
+     RETURNING *`,
+    [e.lessonId, e.type, e.origin, e.payload],
   );
 }
 

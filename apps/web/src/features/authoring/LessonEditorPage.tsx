@@ -36,6 +36,12 @@ export default function LessonEditorPage() {
   const [editor, setEditor] = useState<LessonEditor | null>(null);
   const [generated, setGenerated] = useState<SessionExercise[] | null>(null);
   const [editing, setEditing] = useState<Editing>(null);
+  // Keys the form per opening, so the first save of a new exercise keeps its warnings shown.
+  const [opened, setOpened] = useState(0);
+  const open = (next: Editing) => {
+    setOpened((n) => n + 1);
+    setEditing(next);
+  };
   const [newType, setNewType] = useState(exerciseTypeIds()[0] ?? '');
   const [message, setMessage] = useState('');
   const params = { path: { id: lessonId } };
@@ -105,7 +111,7 @@ export default function LessonEditorPage() {
               <strong>{e.type}</strong> {t(`lessonEditor.origin.${e.origin}`)} {summary(e)}{' '}
               <Button
                 aria-label={t('lessonEditor.editEntry', { title: summary(e) })}
-                onClick={() => setEditing(e)}
+                onClick={() => open(e)}
               >
                 {t('lessonEditor.edit')}
               </Button>
@@ -127,7 +133,7 @@ export default function LessonEditorPage() {
         </ol>
         {editing ? (
           <ExerciseForm
-            key={`${editing.type}-${editing.id ?? 'new'}`}
+            key={opened}
             lessonId={lesson.id}
             type={editing.type}
             origin={editing.origin}
@@ -144,7 +150,7 @@ export default function LessonEditorPage() {
           <Form
             onSubmit={(event) => {
               event.preventDefault();
-              setEditing({ type: newType, origin: 'authored' });
+              open({ type: newType, origin: 'authored' });
             }}
           >
             <label>
@@ -172,7 +178,7 @@ export default function LessonEditorPage() {
                 <strong>{e.type}</strong> {summary(e)}{' '}
                 <Button
                   aria-label={t('lessonEditor.pinEntry', { n: i + 1 })}
-                  onClick={() => setEditing({ type: e.type, origin: 'pinned', payload: e.payload })}
+                  onClick={() => open({ type: e.type, origin: 'pinned', payload: e.payload })}
                 >
                   {t('lessonEditor.pin')}
                 </Button>

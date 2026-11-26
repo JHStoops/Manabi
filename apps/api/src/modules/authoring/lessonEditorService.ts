@@ -200,7 +200,13 @@ export async function createExercise(
 ): Promise<ExerciseWrite> {
   const lesson = await activeLesson(pool, body.lessonId);
   const { payload, blockedWords } = await preparePayload(pool, lesson, body.type, body);
-  const row = await q.insertExercise(pool, { ...body, payload });
+  let row;
+  try {
+    row = await q.insertExercise(pool, { ...body, payload });
+  } catch (err) {
+    if ((err as { code?: string }).code !== '23505') throw err;
+    throw new AppError('conflict', 'A content pack exercise in this lesson already has that key');
+  }
   return { exercise: toEditorExercise(row), blockedWords };
 }
 
@@ -221,6 +227,7 @@ export async function updateExercise(
 export async function deleteExercise(pool: Pool, id: number): Promise<LessonEditor> {
   const lessonId = await withTransaction(pool, async (db) => {
     const row = (await q.findLessonExercise(db, id)) ?? notFound('Exercise');
+    await activeLesson(db, row.lesson_id!);
     await deleteOrArchive(
       db,
       () => q.deleteExercise(db, id),
