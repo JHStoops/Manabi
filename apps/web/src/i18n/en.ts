@@ -69,6 +69,7 @@ export const en = {
     kun: 'Kun readings',
     firstTaught: 'taught first',
     components: 'Radical and components',
+    radical: 'radical',
     words: 'Words',
     sentences: 'Example sentences',
   },

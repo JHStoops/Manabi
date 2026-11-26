@@ -104,7 +104,10 @@ describe('KanjiDetailPage', () => {
     expect((await screen.findByRole('link', { name: '良' })).getAttribute('href')).toBe(
       '/library/kanji/ja:kanji:良',
     );
-    screen.getByText('人');
+    // The imported radical comes first and is labelled; a part without a course item is plain text.
+    expect(screen.getByText('(radical)', { exact: false }).closest('li')!.textContent).toBe(
+      '人 (radical)',
+    );
   });
 
   it('lists words with their stage, started ones first', async () => {

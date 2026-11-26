@@ -182,21 +182,17 @@ export default function KanjiDetailPage() {
         <section aria-labelledby="k-components">
           <h2 id="k-components">{t('library.components')}</h2>
           <ul>
-            {components.map((c) => (
-              <li key={c.key}>
-                <Link to={`/library/kanji/${c.key}`} lang="ja">
-                  {kanjiOf(c).character}
-                </Link>
-              </li>
-            ))}
-            {/* Parts without a course item of their own are shown, not linked. */}
-            {kanji.components
-              .filter((c) => !linkedChars.has(c))
-              .map((c) => (
+            {/* The importer lists the radical first (kanjidic2.ts); parts that are course kanji link. */}
+            {[...new Set([...kanji.components, ...linkedChars])].map((c, i) => {
+              const part = components.find((p) => kanjiOf(p).character === c);
+              const radical = i === 0 && kanji.components[0] === c;
+              return (
                 <li key={c} lang="ja">
-                  {c}
+                  {part ? <Link to={`/library/kanji/${part.key}`}>{c}</Link> : c}
+                  {radical && <span lang="en">{` (${t('library.radical')})`}</span>}
                 </li>
-              ))}
+              );
+            })}
           </ul>
         </section>
       )}
