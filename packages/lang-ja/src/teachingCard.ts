@@ -1,11 +1,11 @@
 import type { Item, TeachingCardFields } from '@manabi/core';
 import { KANA_SECTION_LEVEL, effective } from './generators';
-import { kanaDataSchema, kanjiDataSchema, wordDataSchema } from './itemSchemas';
+import { grammarDataSchema, kanaDataSchema, kanjiDataSchema, wordDataSchema } from './itemSchemas';
 import { kanaToRomaji } from './romaji';
 
 /**
- * Product Spec section 4: a kana, kanji or word as its teaching card shows it, with the author's
- * overrides applied. FR-141: romaji only in the kana section.
+ * Product Spec sections 4 and 6: a kana, kanji, word or grammar point as its teaching card shows
+ * it, with the author's overrides applied. FR-141: romaji only in the kana section.
  */
 export function teachingCard(item: Item, sectionLevel: string): TeachingCardFields {
   const romaji = sectionLevel === KANA_SECTION_LEVEL;
@@ -49,7 +49,18 @@ export function teachingCard(item: Item, sectionLevel: string): TeachingCardFiel
       };
     }
   }
-  // shortcut: other item types (grammar) and invalid data show only the item key; upgrade when
-  // grammar lessons get their explanation-summary card (#59).
+  if (item.type === 'grammar') {
+    const grammar = grammarDataSchema.safeParse(data).data;
+    // A pattern such as "Verb-te + ください" is not speakable; its example sentences are.
+    if (grammar)
+      return {
+        term: grammar.pattern,
+        reading: null,
+        meaning: grammar.meaning ?? null,
+        spoken: '',
+        formation: grammar.formation,
+      };
+  }
+  // Invalid data shows only the item key.
   return { term: item.key, reading: null, meaning: null, spoken: item.key };
 }

@@ -284,12 +284,14 @@ describeWithDb('lesson sessions API', () => {
     await sql(`UPDATE sentences SET text = 'mizu', translation = 'water' WHERE id = $1`, [fits]);
 
     const first = (await start(lesson.l1!, session)).json<LessonSession>();
-    expect(first.teachingCards.map((c) => c.example)).toEqual([undefined, undefined]);
+    expect(first.teachingCards.map((c) => c.examples)).toEqual([[], []]);
 
     await complete(userId, lesson.l1!);
     const second = (await start(lesson.l2!, session)).json<LessonSession>();
-    expect(second.teachingCards[0]!.example).toMatchObject({ text: 'mizu', translation: 'water' });
-    expect(second.teachingCards[0]!.example!.tiles).toHaveLength(2);
+    expect(second.teachingCards[0]!.examples).toMatchObject([
+      { text: 'mizu', translation: 'water' },
+    ]);
+    expect(second.teachingCards[0]!.examples[0]!.tiles).toHaveLength(2);
   });
 
   it('resumes the same session for 24 hours from the last return, then builds a new one (FR-050)', async () => {

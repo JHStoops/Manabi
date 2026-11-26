@@ -2446,7 +2446,8 @@ export interface paths {
                   /** Format: date-time */
                   archivedAt: string | null;
                 };
-                example?: {
+                /** @default [] */
+                examples: {
                   text: string;
                   translation: string;
                   tiles: {
@@ -2455,7 +2456,7 @@ export interface paths {
                     reading: string;
                     itemId?: number | null;
                   }[];
-                };
+                }[];
               }[];
               exercises: {
                 type: string;
@@ -11401,7 +11402,8 @@ export interface paths {
                   /** Format: date-time */
                   archivedAt: string | null;
                 };
-                example?: {
+                /** @default [] */
+                examples: {
                   text: string;
                   translation: string;
                   tiles: {
@@ -11410,7 +11412,7 @@ export interface paths {
                     reading: string;
                     itemId?: number | null;
                   }[];
-                };
+                }[];
               }[];
               exercises: {
                 type: string;

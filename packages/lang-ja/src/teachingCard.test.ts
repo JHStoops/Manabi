@@ -69,9 +69,27 @@ describe('teachingCard', () => {
     expect(card(item('kanji', { ...data, kunReadings: ['-ぐい'] })).spoken).toBe('ぐい');
   });
 
-  it("applies the author's overrides, and falls back to the key for other items", () => {
+  it('shows a grammar point with its pattern, meaning and formation table (Product Spec 6)', () => {
+    const formation = [{ wordType: 'Verb', form: 'te-form + ください', example: '見てください' }];
+    expect(
+      card(item('grammar', { pattern: 'Verb-te + ください', meaning: 'please do', formation })),
+    ).toEqual({
+      term: 'Verb-te + ください',
+      reading: null,
+      meaning: 'please do',
+      spoken: '',
+      formation,
+    });
+    // A stub has only its pattern.
+    expect(card(item('grammar', { pattern: 'はず' }))).toMatchObject({
+      meaning: null,
+      formation: [],
+    });
+  });
+
+  it("applies the author's overrides, and falls back to the key for invalid data", () => {
     expect(card(item('word', word.data, { senses: [{ meanings: ['H2O'] }] })).meaning).toBe('H2O');
-    expect(card(item('grammar', { pattern: 'は' }))).toEqual({
+    expect(card(item('grammar', { pattern: 'は', unknown: 1 }))).toEqual({
       term: 'ja:grammar:x',
       reading: null,
       meaning: null,

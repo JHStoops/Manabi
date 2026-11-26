@@ -125,6 +125,21 @@ const Card = styled.div`
     margin: 0 0 ${({ theme }) => theme.spacing(2)};
     font-size: ${({ theme }) => theme.fontSizes.title};
   }
+  caption {
+    color: ${({ theme }) => theme.colors.textMuted};
+    font-size: ${({ theme }) => theme.fontSizes.small};
+    text-align: start;
+  }
+  table {
+    margin-bottom: ${({ theme }) => theme.spacing(2)};
+    border-collapse: collapse;
+  }
+  th,
+  td {
+    padding: ${({ theme }) => theme.spacing(1)} ${({ theme }) => theme.spacing(3)}
+      ${({ theme }) => theme.spacing(1)} 0;
+    text-align: start;
+  }
 `;
 
 const Speakers = styled.div`
@@ -139,27 +154,27 @@ const Term = styled.p`
   text-align: center;
 `;
 
-/** Product Spec section 4: one new item, as the course's plugin shows it (FR-141). */
+/** Product Spec sections 4 and 6: one new item, as the course's plugin shows it (FR-141). */
 function TeachingCard(props: {
   card: TeachingCardData;
   plugin: LanguagePlugin;
   sectionLevel: string;
 }) {
   const { t } = useTranslation();
-  const { term, reading, meaning, spoken } = props.plugin.teachingCard(
+  const { term, reading, meaning, spoken, formation } = props.plugin.teachingCard(
     props.card.item,
     props.sectionLevel,
   );
-  const { example } = props.card;
+  const lang = props.plugin.code;
   return (
     <Card>
       {/* The session has no targetLang; the plugin code is the language code (ja). */}
-      <Term lang={props.plugin.code}>{term}</Term>
+      <Term lang={lang}>{term}</Term>
       <dl>
         {reading && (
           <div>
             <dt>{t('player.reading')}</dt>
-            <dd lang={props.plugin.code}>{reading}</dd>
+            <dd lang={lang}>{reading}</dd>
           </div>
         )}
         {meaning && (
@@ -168,24 +183,49 @@ function TeachingCard(props: {
             <dd>{meaning}</dd>
           </div>
         )}
-        {example && (
-          <div>
-            <dt>{t('player.example')}</dt>
-            <dd lang={props.plugin.code}>{example.text}</dd>
-            <dd>{example.translation}</dd>
-          </div>
-        )}
       </dl>
-      <Speakers>
-        <SpeakerButton what="word" reading={spoken} />
-        <SpeakerButton what="word" reading={spoken} slow />
-      </Speakers>
-      {example && (
+      {formation && formation.length > 0 && (
+        <table>
+          <caption>{t('player.formation')}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{t('player.wordType')}</th>
+              <th scope="col">{t('player.form')}</th>
+              <th scope="col">{t('player.example')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {formation.map((row, i) => (
+              <tr key={i}>
+                <th scope="row">{row.wordType}</th>
+                <td lang={lang}>{row.form}</td>
+                <td lang={lang}>{row.example}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {spoken && (
         <Speakers>
-          <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} />
-          <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} slow />
+          <SpeakerButton what="word" reading={spoken} />
+          <SpeakerButton what="word" reading={spoken} slow />
         </Speakers>
       )}
+      {props.card.examples.map((example, i) => (
+        <div key={i}>
+          <dl>
+            <div>
+              <dt>{t('player.example')}</dt>
+              <dd lang={lang}>{example.text}</dd>
+              <dd>{example.translation}</dd>
+            </div>
+          </dl>
+          <Speakers>
+            <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} />
+            <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} slow />
+          </Speakers>
+        </div>
+      ))}
     </Card>
   );
 }
