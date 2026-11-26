@@ -72,6 +72,9 @@ export const en = {
     radical: 'radical',
     words: 'Words',
     sentences: 'Example sentences',
+    example: 'Example',
+    notAWord: 'This item is not a word.',
+    partOfSpeech: '({{pos}})',
   },
   // FR-180, FR-181: the weekly leaderboard and top-three badges.
   leaderboard: {
