@@ -1,8 +1,12 @@
 import type { Annotation, Item, ReadingAnnotationMode, Tile } from '@manabi/core';
+import { toHiragana } from './answer';
 import { effective } from './generators';
 import { kanjiDataSchema } from './itemSchemas';
 
-const KANJI = /\p{Script=Han}/u;
+// As in tokenize: Han (with 々 and 〇) plus 〆, which is Common script but reads as a kanji.
+const KANJI = /[\p{Script=Han}〆]/u;
+/** Marks with no kanji item of their own; a word's furigana does not wait on them. */
+const MARKS = new Set(['々', '〆', '〇']);
 
 /**
  * FR-140, Product Spec section 8: furigana for a sentence's stored tiles. Each annotation covers
@@ -29,18 +33,20 @@ export function annotate(
     const show =
       kanji.length > 0 &&
       reading !== surface &&
-      (mode === 'always' || kanji.some((char) => !learned.has(char)));
+      (mode === 'always' || kanji.some((char) => !MARKS.has(char) && !learned.has(char)));
     if (show) {
       let start = 0;
       let end = surface.length;
+      // Readings are hiragana; compare katakana in the surface as hiragana (ドイツ語 → 語: ご).
+      const kana = toHiragana(surface);
       let value = reading;
       // shortcut: kana between two kanji (取り消す) stays under one reading; split per kanji
       // if authors ask for finer furigana.
-      while (start < end && !KANJI.test(surface[start]!) && value[0] === surface[start]) {
+      while (start < end && !KANJI.test(surface[start]!) && value[0] === kana[start]) {
         start++;
         value = value.slice(1);
       }
-      while (end > start && !KANJI.test(surface[end - 1]!) && value.at(-1) === surface[end - 1]) {
+      while (end > start && !KANJI.test(surface[end - 1]!) && value.at(-1) === kana[end - 1]) {
         end--;
         value = value.slice(0, -1);
       }

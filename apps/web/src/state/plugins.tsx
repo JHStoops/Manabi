@@ -14,8 +14,7 @@ export const ActivePluginContext = createContext<LanguagePlugin | null>(null);
 /** Looks up the active course's plugin from GET /courses whenever the active course changes. */
 export function ActivePluginProvider({ children }: { children: ReactNode }) {
   const api = useApi();
-  // shortcut: enrolling does not refresh the session's settings, so after switching courses the
-  // plugin updates on the next load; dispatch the new settings on enroll once a second language lands.
+  // Enrolling dispatches the new active course to the session (LearnPage), so this follows it.
   const { activeCourseId } = useSettings();
   const [plugin, setPlugin] = useState<LanguagePlugin | null>(null);
 

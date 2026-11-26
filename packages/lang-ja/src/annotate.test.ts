@@ -61,4 +61,20 @@ describe('annotate', () => {
       ),
     ).toEqual([furigana(1, 2, 'ちゃ')]);
   });
+
+  it('unlearned: 々 does not keep furigana on a word whose kanji are learned', () => {
+    const hitobito: Tile[] = [{ surface: '人々', base: '人々', reading: 'ひとびと' }];
+    expect(japanese.annotate(hitobito, [kanji('人')], 'unlearned')).toEqual([]);
+    expect(japanese.annotate(hitobito, [], 'unlearned')).toEqual([furigana(0, 2, 'ひとびと')]);
+  });
+
+  it('trims katakana parts of a word against the hiragana reading', () => {
+    expect(
+      japanese.annotate(
+        [{ surface: 'ドイツ語', base: 'ドイツ語', reading: 'どいつご' }],
+        [],
+        'always',
+      ),
+    ).toEqual([furigana(3, 4, 'ご')]);
+  });
 });

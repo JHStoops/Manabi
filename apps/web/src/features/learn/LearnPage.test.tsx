@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ApiClient } from '@manabi/api-client';
-import type { CourseListEntry, CoursePath, UserStats } from '@manabi/core';
+import { learnerSettingsSchema } from '@manabi/core';
+import type { CourseListEntry, CoursePath, User, UserStats } from '@manabi/core';
 import '../../i18n';
-import { ApiContext } from '../../state/session';
+import { ApiContext, SessionProvider, useSettings } from '../../state/session';
 import { AppThemeProvider } from '../../theme';
 import LearnPage, { stateIcons } from './LearnPage';
 
@@ -84,29 +85,39 @@ function fakeApi(courses: CourseListEntry[], userStats = stats) {
   return {
     GET: jest.fn((path: string, init?: { params: { path: { id: string } } }) =>
       Promise.resolve(
-        path === '/api/v1/courses'
-          ? { courses }
-          : path === '/api/v1/me/stats'
-            ? userStats
-            : paths[init!.params.path.id],
+        path === '/api/v1/me'
+          ? ({ id: 1, settings: learnerSettingsSchema.parse({}) } as User)
+          : path === '/api/v1/courses'
+            ? { courses }
+            : path === '/api/v1/me/stats'
+              ? userStats
+              : paths[init!.params.path.id],
       ),
     ),
     POST: jest.fn(() => Promise.resolve({ ...spanish, active: true })),
   };
 }
 
+/** The session's active course, which drives the course plugin's features (FR-241). */
+function ActiveCourse() {
+  return <p>active course {useSettings().activeCourseId ?? 'none'}</p>;
+}
+
 function show(api: ReturnType<typeof fakeApi>) {
   render(
     <ApiContext.Provider value={api as unknown as ApiClient}>
-      <AppThemeProvider>
-        <MemoryRouter initialEntries={['/learn']}>
-          <Routes>
-            <Route path="/learn" element={<LearnPage />} />
-            <Route path="/lesson/:lessonId" element={<p>lesson intro</p>} />
-            <Route path="/unit/:unitId/test-out" element={<p>test-out</p>} />
-          </Routes>
-        </MemoryRouter>
-      </AppThemeProvider>
+      <SessionProvider>
+        <ActiveCourse />
+        <AppThemeProvider>
+          <MemoryRouter initialEntries={['/learn']}>
+            <Routes>
+              <Route path="/learn" element={<LearnPage />} />
+              <Route path="/lesson/:lessonId" element={<p>lesson intro</p>} />
+              <Route path="/unit/:unitId/test-out" element={<p>test-out</p>} />
+            </Routes>
+          </MemoryRouter>
+        </AppThemeProvider>
+      </SessionProvider>
     </ApiContext.Provider>,
   );
 }
@@ -258,6 +269,7 @@ describe('LearnPage', () => {
       body: {},
     });
     expect(screen.queryByRole('button', { name: 'Enroll in Spanish' })).toBeNull();
+    screen.getByText('active course 2');
   });
 
   it('offers no Enroll button for a draft course an admin can see', async () => {
