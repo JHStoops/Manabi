@@ -54,6 +54,7 @@ export const en = {
   },
   library: {
     kanji: 'Kanji',
+    grammar: 'Grammar',
     stage: 'Stage {{stage}}',
     notStarted: 'Not started',
     example: 'Example',
@@ -79,6 +80,32 @@ export const en = {
     strong: 'Strong',
     mastered: 'Mastered',
     retired: 'Retired',
+  },
+  // FR-090, FR-092: the grammar reference and point pages.
+  grammar: {
+    title: 'Grammar',
+    search: 'Search by pattern or meaning',
+    groupBy: { level: 'By level', theme: 'By theme' },
+    noLevel: 'No level',
+    noTheme: 'Other',
+    none: 'No grammar points found.',
+    notYetLearned: 'Not yet learned',
+    notYetLearnedTag: '(not yet learned)',
+    level: 'Level {{level}}. ',
+    stage: {
+      learning: 'Learning',
+      familiar: 'Familiar',
+      strong: 'Strong',
+      mastered: 'Mastered',
+      retired: 'Retired',
+    },
+    formation: 'Formation',
+    wordType: 'Word type',
+    form: 'Form',
+    example: 'Example',
+    explanation: 'Explanation',
+    examples: 'Examples',
+    related: 'Related',
   },
   // FR-180, FR-181: the weekly leaderboard and top-three badges.
   leaderboard: {
