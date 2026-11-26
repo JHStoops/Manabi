@@ -84,4 +84,10 @@ describe('WordPage', () => {
     await screen.findByText('Not started');
     expect(screen.queryByRole('heading', { name: 'Kanji' })).toBeNull();
   });
+
+  it('shows a message for an item that is not a word', async () => {
+    mount({ ...detail([]), type: 'kanji', data: { character: '日' } });
+    await screen.findByRole('alert');
+    screen.getByText('This item is not a word.');
+  });
 });

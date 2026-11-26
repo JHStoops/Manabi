@@ -29,6 +29,8 @@ export default function WordPage() {
 
   if (problem) return <p role="alert">{problem}</p>;
   if (!item || !plugin) return <p>{t('app.loading')}</p>;
+  // A key of another item type (a stale link) has no word data to show.
+  if (item.type !== 'word') return <p role="alert">{t('library.notAWord')}</p>;
 
   const { written, reading, senses } = item.data as {
     written: string;
@@ -44,7 +46,9 @@ export default function WordPage() {
       <p lang={plugin.code}>
         {reading} <SpeakerButton reading={reading} what="word" />
       </p>
-      <p>{item.stage ? t('library.stage', { stage: item.stage }) : t('library.notStarted')}</p>
+      <p>
+        {item.stage !== null ? t('library.stage', { stage: item.stage }) : t('library.notStarted')}
+      </p>
       <ol>
         {senses.map((s, i) => (
           <li key={i}>
