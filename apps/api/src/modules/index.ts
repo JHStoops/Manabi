@@ -4,6 +4,7 @@ import { authRoutes } from './auth/routes';
 import { lessonEditorRoutes } from './authoring/lessonEditorRoutes';
 import { authoringRoutes } from './authoring/routes';
 import { itemsRoutes } from './authoring/itemsRoutes';
+import { sentencesRoutes } from './authoring/sentencesRoutes';
 import { wordListsRoutes } from './authoring/wordListsRoutes';
 import { contentRoutes } from './content/routes';
 import { coursesRoutes } from './courses/routes';
@@ -35,5 +36,6 @@ export const featureModules: readonly FastifyPluginAsyncZod[] = [
   wordListsRoutes,
   lessonEditorRoutes,
   itemsRoutes,
+  sentencesRoutes,
   mediaRoutes,
 ];

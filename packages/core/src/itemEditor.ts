@@ -16,8 +16,14 @@ import {
  * the item is read, so re-running an importer never loses them.
  */
 
-/** How the editor shows a field: one line, a number, one text per line, or JSON for the rest. */
-export const itemFieldKindSchema = z.enum(['text', 'number', 'textList', 'json']);
+/**
+ * How the editor shows a field: one line, several lines (a string schema described as
+ * `LONG_TEXT`, such as Markdown), a number, one text per line, or JSON for the rest.
+ */
+export const itemFieldKindSchema = z.enum(['text', 'longText', 'number', 'textList', 'json']);
+
+/** A plugin marks a string field as multi-line with `.describe(LONG_TEXT)`. */
+export const LONG_TEXT = 'longText';
 export type ItemFieldKind = z.infer<typeof itemFieldKindSchema>;
 
 export const itemFieldSchema = z.object({
@@ -35,13 +41,15 @@ function itemField(name: string, schema: ZodTypeAny): ItemField {
     s = s.unwrap() as ZodTypeAny;
   }
   const kind: ItemFieldKind =
-    s instanceof z.ZodString || s instanceof z.ZodEnum
-      ? 'text'
-      : s instanceof z.ZodNumber
-        ? 'number'
-        : s instanceof z.ZodArray && s.element instanceof z.ZodString
-          ? 'textList'
-          : 'json';
+    s instanceof z.ZodString && s.description === LONG_TEXT
+      ? 'longText'
+      : s instanceof z.ZodString || s instanceof z.ZodEnum
+        ? 'text'
+        : s instanceof z.ZodNumber
+          ? 'number'
+          : s instanceof z.ZodArray && s.element instanceof z.ZodString
+            ? 'textList'
+            : 'json';
   return { name, kind, optional };
 }
 
@@ -87,6 +95,8 @@ export const authoringItemSchema = z.object({
   /** `data` with `overrides` applied: what learners see. */
   effective: jsonObjectSchema,
   fields: z.array(itemFieldSchema),
+  /** Keys of the related items (`item_links` of kind `related`), such as related grammar points. */
+  related: z.array(stableKeySchema),
 });
 export type AuthoringItem = z.infer<typeof authoringItemSchema>;
 
@@ -94,5 +104,23 @@ export type AuthoringItem = z.infer<typeof authoringItemSchema>;
  * `PATCH /authoring/items/:id`: replaces the item's overrides. A field left out has no override
  * (the clear action). The merged data must pass the plugin's item schema (DR-06).
  */
-export const updateItemOverridesRequestSchema = z.object({ overrides: jsonObjectSchema });
+export const updateItemOverridesRequestSchema = z.object({
+  overrides: jsonObjectSchema,
+  /** FR-222: an authored item's level and related keys; an imported item's come from its import. */
+  level: levelCodeSchema.nullable().optional(),
+  related: z.array(stableKeySchema).max(50).optional(),
+});
 export type UpdateItemOverridesRequest = z.infer<typeof updateItemOverridesRequestSchema>;
+
+/**
+ * FR-222: `POST /authoring/items`: a new authored item, such as a grammar point (a stub is just
+ * its pattern). `data` must pass the plugin's item schema for `type` (DR-06).
+ */
+export const createItemRequestSchema = z.object({
+  course: idSchema,
+  type: typeIdSchema,
+  key: stableKeySchema,
+  level: levelCodeSchema.nullable(),
+  data: jsonObjectSchema,
+});
+export type CreateItemRequest = z.infer<typeof createItemRequestSchema>;

@@ -1,4 +1,4 @@
-import { z } from '@manabi/core';
+import { LONG_TEXT, z } from '@manabi/core';
 
 /**
  * DR-06: Japanese item `data` schemas, keyed by item type. The item envelope (key, type, level,
@@ -96,7 +96,7 @@ export const grammarDataSchema = z
     themes: z.array(text).default([]),
     formation: z.array(formationRowSchema).default([]),
     /** Markdown body: explanation paragraphs. */
-    explanation: text.optional(),
+    explanation: text.describe(LONG_TEXT).optional(),
     /** FR-236: the point is detected in a sentence when any one pattern matches. */
     detection: z.array(detectionPatternSchema).default([]),
   })

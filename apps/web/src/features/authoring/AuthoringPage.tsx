@@ -5,6 +5,7 @@ import { useApi } from '../../state/session';
 import { apiErrorMessage } from '../auth/ui';
 import { CourseTreeEditor } from './CourseTreeEditor';
 import { ItemEditor } from './ItemEditor';
+import { SentenceEditor } from './SentenceEditor';
 
 // Product Spec section 11 (Content editor). The course tree comes with #41; the item and lesson
 // editors with #42 and #43.
@@ -44,6 +45,7 @@ export default function AuthoringPage() {
       )}
       {courseId !== null && <CourseTreeEditor courseId={courseId} />}
       {courseId !== null && <ItemEditor key={courseId} courseId={courseId} />}
+      {courseId !== null && <SentenceEditor key={`s${courseId}`} courseId={courseId} />}
     </>
   );
 }

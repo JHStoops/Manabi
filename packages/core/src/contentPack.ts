@@ -118,6 +118,8 @@ export const packTileSchema = z
     base: nonEmptyTextSchema,
     reading: nonEmptyTextSchema,
     item: stableKeySchema.optional(),
+    /** Part of the highlighted grammar pattern (see `tileSchema`). */
+    pattern: z.literal(true).optional(),
   })
   .strict();
 export type PackTile = z.infer<typeof packTileSchema>;

@@ -5,6 +5,7 @@ import {
   authoringItemListSchema,
   authoringItemQuerySchema,
   authoringItemSchema,
+  createItemRequestSchema,
   emptyQuerySchema,
   updateItemOverridesRequestSchema,
 } from '@manabi/core';
@@ -56,7 +57,8 @@ export const itemsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/authoring/items/:id',
     {
       schema: {
-        summary: "Replace an item's overrides; the merged data must pass the language schema",
+        summary:
+          "Replace an item's overrides (and an authored item's level and related items); the merged data must pass the language schema",
         tags,
         querystring: emptyQuerySchema,
         params: authoringItemIdParamsSchema,
@@ -64,7 +66,21 @@ export const itemsRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: authoringItemSchema, ...errors },
       },
     },
-    async (request) =>
-      authoring.updateItemOverrides(app.db, request.params.id, request.body.overrides),
+    async (request) => authoring.updateItemOverrides(app.db, request.params.id, request.body),
+  );
+
+  app.post(
+    '/authoring/items',
+    {
+      schema: {
+        summary: 'Create an authored item, such as a grammar point (FR-222)',
+        tags,
+        querystring: emptyQuerySchema,
+        body: createItemRequestSchema,
+        response: { 201: authoringItemSchema, ...errors },
+      },
+    },
+    async (request, reply) =>
+      reply.status(201).send(await authoring.createItem(app.db, request.body)),
   );
 };

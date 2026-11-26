@@ -11,7 +11,8 @@ import {
  * DR-12: one stored tile. Sentences keep their tiles in `sentences.tokens`, and authored exercise
  * answer text keeps them, in this same shape, inside the exercise payload. `itemId` links the
  * tile to a course item where one is known. Punctuation is not a tile, so every field is
- * non-empty.
+ * non-empty. `pattern`: the tile is part of the grammar pattern a grammar page highlights in
+ * the sentence (FR-222; owner decision on #62: one highlight per sentence, kept on the tiles).
  */
 export const tileSchema = z
   .object({
@@ -19,6 +20,7 @@ export const tileSchema = z
     base: nonEmptyTextSchema,
     reading: nonEmptyTextSchema,
     itemId: idSchema.nullable().optional(),
+    pattern: z.literal(true).optional(),
   })
   .strict();
 export type Tile = z.infer<typeof tileSchema>;

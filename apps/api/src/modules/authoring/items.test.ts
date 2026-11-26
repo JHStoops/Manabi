@@ -1,3 +1,5 @@
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { query, queryOne } from '../../db/db';
@@ -7,8 +9,8 @@ import { describeWithDb, useTestDatabase } from '../../test/db';
 import { seedUser } from '../../test/fixtures';
 import { SESSION_COOKIE } from '../auth/guard';
 import { hashPassword } from '../auth/passwords';
-import { readPack } from '../content/packFiles';
-import { importPack } from '../content/service';
+import { readPack, writePack } from '../content/packFiles';
+import { exportPack, importPack } from '../content/service';
 import { importKanjidic2 } from '../imports/service';
 
 // API tests for /authoring/items (#42): FR-221, DR-06, DR-09, FR-006.
@@ -37,7 +39,7 @@ describeWithDb('item editor API', () => {
       payload: { identifier: role, password: PASSWORD },
     });
     const cookie = login.cookies.find((c) => c.name === SESSION_COOKIE)!.value;
-    return (method: 'GET' | 'PATCH', url: string, payload?: object) =>
+    return (method: 'GET' | 'POST' | 'PATCH', url: string, payload?: object) =>
       app.inject({
         method,
         url: `/api/v1/authoring/items${url}`,
@@ -126,5 +128,92 @@ describeWithDb('item editor API', () => {
       expect.arrayContaining(['overrides.strokeCount', 'overrides.meanings.0', 'overrides']),
     );
     expect((await admin('GET', `/${waterId}`)).json().overrides).toEqual({});
+  });
+
+  it('creates and edits a grammar point, and exports its grammar file (FR-222)', async () => {
+    const { courseId, waterId } = await seed();
+    const admin = await as('admin');
+    const key = 'ja:grammar:mashou';
+
+    const bad = await admin('POST', '', {
+      course: courseId,
+      type: 'grammar',
+      key,
+      level: 'N5',
+      data: {},
+    });
+    expect(bad.statusCode).toBe(400);
+    expect(bad.json().error.details[0].path).toEqual(['data', 'pattern']);
+
+    const created = await admin('POST', '', {
+      course: courseId,
+      type: 'grammar',
+      key,
+      level: 'N5',
+      data: { pattern: 'Verb-masu stem + ましょう' },
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json()).toMatchObject({ key, source: null, levelCode: 'N5', related: [] });
+    expect(created.json().fields).toContainEqual({
+      name: 'explanation',
+      kind: 'longText',
+      optional: true,
+    });
+    const id = created.json().id;
+    const again = { course: courseId, type: 'grammar', key, level: null, data: { pattern: 'x' } };
+    expect((await admin('POST', '', again)).statusCode).toBe(409);
+    const other = { ...again, key: 'ja:grammar:mashouka', data: { pattern: '〜ましょうか' } };
+    expect((await admin('POST', '', other)).statusCode).toBe(201);
+
+    expect((await admin('PATCH', `/${id}`, { overrides: {}, related: [key] })).statusCode).toBe(
+      400,
+    );
+    const twice = await admin('PATCH', `/${id}`, {
+      overrides: {},
+      related: ['ja:grammar:mashouka', 'ja:grammar:mashouka'],
+    });
+    expect(twice.json().related).toEqual(['ja:grammar:mashouka']);
+    const formation = [{ wordType: 'Verb', form: 'masu stem + ましょう', example: '行きましょう' }];
+    const edited = await admin('PATCH', `/${id}`, {
+      overrides: {
+        meaning: "let's ~",
+        formation,
+        explanation: 'Suggests doing something together.',
+      },
+      level: 'N4',
+      related: ['ja:grammar:mashouka'],
+    });
+    expect(edited.statusCode).toBe(200);
+    expect(edited.json()).toMatchObject({
+      levelCode: 'N4',
+      related: ['ja:grammar:mashouka'],
+      effective: { meaning: "let's ~", formation },
+    });
+    const unknown = await admin('PATCH', `/${id}`, { overrides: {}, related: ['ja:grammar:nope'] });
+    expect(unknown.statusCode).toBe(400);
+    // An imported item's level belongs to its import.
+    expect((await admin('PATCH', `/${waterId}`, { overrides: {}, level: 'N4' })).statusCode).toBe(
+      409,
+    );
+
+    const dir = await mkdtemp(join(tmpdir(), 'manabi-grammar-'));
+    try {
+      await writePack(dir, await exportPack(pool(), 'ja-en'));
+      const file = await readFile(join(dir, 'grammar/mashou.md'), 'utf8');
+      expect(file).toContain(`key: ${key}`);
+      expect(file).toContain('level: N4');
+      expect(file).toContain('- ja:grammar:mashouka');
+      expect(file).toContain('Suggests doing something together.');
+      // Re-reading the exported file gives the edited point back.
+      const point = (await readPack(dir)).items.find((i) => i.key === key)!;
+      expect({ ...point.data, ...point.overrides }).toMatchObject({
+        pattern: 'Verb-masu stem + ましょう',
+        meaning: "let's ~",
+        formation,
+        explanation: 'Suggests doing something together.',
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

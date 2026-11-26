@@ -40,6 +40,7 @@ export * from './streak';
 export * from './wordLists';
 export * from './tts';
 export * from './sentence';
+export * from './sentenceEditor';
 export * from './social';
 export * from './settings';
 export * from './xp';
