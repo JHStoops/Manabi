@@ -55,6 +55,26 @@ export const en = {
   library: {
     kanji: 'Kanji',
   },
+  // FR-113, FR-114: the Review tab and the review session.
+  review: {
+    dueNow: 'Due now: {{count}}',
+    nothingDue: 'Nothing is due right now.',
+    start: 'Start review',
+    intro: '{{count}} questions. Leave any time: answers you gave are kept.',
+    forecast: 'Next 7 days',
+    forecastDay: '{{date}}: {{count}} due',
+    done: 'Review complete',
+    loadFailed: 'The review summary could not be loaded.',
+  },
+  // FR-102, NFR-31: an item's stage is always shown as text as well as a ring.
+  stage: {
+    not_started: 'Not started',
+    learning: 'Learning',
+    familiar: 'Familiar',
+    strong: 'Strong',
+    mastered: 'Mastered',
+    retired: 'Retired',
+  },
   // FR-180, FR-181: the weekly leaderboard and top-three badges.
   leaderboard: {
     title: 'This week',
