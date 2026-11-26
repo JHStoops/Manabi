@@ -1,0 +1,138 @@
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import type { ApiClient } from '@manabi/api-client';
+import type { LibraryItem, LibraryItemDetail } from '@manabi/core';
+import { japanese } from '@manabi/lang-ja';
+import '../../i18n';
+import { ActivePluginContext } from '../../state/plugins';
+import { ApiContext } from '../../state/session';
+import { AppThemeProvider } from '../../theme';
+import KanjiDetailPage from './KanjiDetailPage';
+
+// FR-070, FR-071: each block of the kanji detail page, from fixture data.
+
+jest.mock('../strokes/StrokeCanvas', () => ({
+  StrokeCanvas: ({ mode }: { mode: string }) => <div data-testid="canvas">{mode}</div>,
+}));
+
+beforeEach(() => {
+  window.matchMedia = (() => ({
+    matches: false,
+    addEventListener() {},
+    removeEventListener() {},
+  })) as unknown as typeof window.matchMedia;
+});
+afterEach(cleanup);
+
+const base = { id: 1, levelCode: 'N5' as const, stage: 5 as number | null };
+const kanji = (key: string, character: string, data: object = {}): LibraryItem =>
+  ({
+    ...base,
+    key,
+    type: 'kanji',
+    data: {
+      character,
+      meanings: ['eat'],
+      onReadings: ['ショク'],
+      kunReadings: ['た.べる', 'く.う'],
+      strokeCount: 9,
+      components: ['人', '良'],
+      ...data,
+    },
+  }) as LibraryItem;
+const word = (key: string, written: string, stage: number | null): LibraryItem =>
+  ({
+    ...base,
+    key,
+    type: 'word',
+    stage,
+    data: { written, reading: 'たべる', senses: [{ meanings: ['to eat'] }] },
+  }) as LibraryItem;
+
+const detail: LibraryItemDetail = {
+  ...kanji('ja:kanji:食', '食'),
+  facets: [],
+  links: [
+    { kind: 'component', direction: 'outgoing', item: kanji('ja:kanji:良', '良') },
+    { kind: 'contains', direction: 'incoming', item: word('ja:word:a', '食べない', null) },
+    { kind: 'contains', direction: 'incoming', item: word('ja:word:b', '食べる', 4) },
+  ],
+  sentences: [
+    {
+      id: 1,
+      text: '食べる',
+      translation: 'I eat.',
+      tokens: [{ surface: '食べる', base: '食べる', reading: 'たべる' }],
+      attribution: null,
+    },
+  ],
+};
+
+function mount(found: LibraryItemDetail | Error) {
+  const api = {
+    GET: () => (found instanceof Error ? Promise.reject(found) : Promise.resolve(found)),
+  } as unknown as ApiClient;
+  render(
+    <ApiContext.Provider value={api}>
+      <AppThemeProvider>
+        <ActivePluginContext.Provider value={japanese}>
+          <MemoryRouter initialEntries={['/library/kanji/ja:kanji:食']}>
+            <Routes>
+              <Route path="/library/kanji/:key" element={<KanjiDetailPage />} />
+            </Routes>
+          </MemoryRouter>
+        </ActivePluginContext.Provider>
+      </AppThemeProvider>
+    </ApiContext.Provider>,
+  );
+}
+
+describe('KanjiDetailPage', () => {
+  it('shows the header, meanings and readings with okurigana and the first-taught one marked', async () => {
+    mount(detail);
+    await screen.findByRole('heading', { name: 'eat', level: 1 });
+    screen.getByText('N5 · 9 strokes · Stage 5');
+    const on = screen.getByText('ショク', { exact: false });
+    expect(on.textContent).toContain('(taught first)');
+    // た.べる: the okurigana べる is its own element, without the dot.
+    expect(screen.getAllByText('べる')[0]!.tagName).toBe('SPAN');
+    expect(screen.queryByText(/た\.べ/)).toBeNull();
+  });
+
+  it('links components to their kanji pages and shows unlinked parts as text', async () => {
+    mount(detail);
+    expect((await screen.findByRole('link', { name: '良' })).getAttribute('href')).toBe(
+      '/library/kanji/ja:kanji:良',
+    );
+    screen.getByText('人');
+  });
+
+  it('lists words with their stage, started ones first', async () => {
+    mount(detail);
+    const items = await screen.findAllByText(/to eat/);
+    expect(items[0]!.textContent).toContain('Stage 4');
+    expect(items[1]!.textContent).toContain('Not started');
+  });
+
+  it('shows the example sentences', async () => {
+    mount(detail);
+    await screen.findByText('I eat.');
+  });
+
+  it('switches the stroke canvas between animation and trace mode', async () => {
+    mount(detail);
+    expect((await screen.findByTestId('canvas')).textContent).toBe('animate');
+    fireEvent.click(screen.getByRole('button', { name: 'Practice drawing' }));
+    expect(screen.getByTestId('canvas').textContent).toBe('trace');
+    fireEvent.click(screen.getByRole('button', { name: 'Watch stroke order' }));
+    expect(screen.getByTestId('canvas').textContent).toBe('animate');
+  });
+
+  it('says so for an item that is not a kanji, and for a failed load', async () => {
+    mount({ ...detail, type: 'word' });
+    await screen.findByText('This item is not a kanji.');
+    cleanup();
+    mount(new Error('x'));
+    await screen.findByRole('alert');
+  });
+});

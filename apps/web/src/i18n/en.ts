@@ -54,6 +54,23 @@ export const en = {
   },
   library: {
     kanji: 'Kanji',
+    // FR-070: the kanji detail page.
+    notKanji: 'This item is not a kanji.',
+    notStarted: 'Not started',
+    stage: 'Stage {{stage}}',
+    strokeCount_one: '{{count}} stroke',
+    strokeCount_other: '{{count}} strokes',
+    strokeOrder: 'Stroke order',
+    practiceDrawing: 'Practice drawing',
+    watchAnimation: 'Watch stroke order',
+    meanings: 'Meanings',
+    readings: 'Readings',
+    on: 'On readings',
+    kun: 'Kun readings',
+    firstTaught: 'taught first',
+    components: 'Radical and components',
+    words: 'Words',
+    sentences: 'Example sentences',
   },
   // FR-180, FR-181: the weekly leaderboard and top-three badges.
   leaderboard: {
