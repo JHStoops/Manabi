@@ -44,9 +44,9 @@ const session = {
   exercises: [exercise(1), exercise(2)],
 };
 
-function show(answers: jest.Mock) {
+function show(answers: jest.Mock, started: object = session) {
   const post = jest.fn((path: string, opts: { body: { index: number } }) =>
-    path === '/api/v1/reviews/sessions' ? Promise.resolve(session) : answers(opts.body),
+    path === '/api/v1/reviews/sessions' ? Promise.resolve(started) : answers(opts.body),
   );
   const api = { POST: post, GET: jest.fn(() => Promise.resolve({ settings: {} })) };
   render(
@@ -120,5 +120,17 @@ describe('review session', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Leave lesson' }));
     expect(await screen.findByRole('heading', { name: 'Review tab' })).toBeTruthy();
     expect(answers).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips exercises a resumed session already has answers for', async () => {
+    const resumed = { ...session, exercises: [{ ...exercise(1), correct: true }, exercise(2)] };
+    const answers = jest
+      .fn()
+      .mockResolvedValue({ correct: true, stage: null, xpEarned: 0, retryIndex: null });
+    show(answers, resumed);
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+    await answer('a2');
+    await screen.findByRole('button', { name: 'Continue' });
+    expect(answers.mock.calls[0]![0]).toMatchObject({ index: 1 });
   });
 });

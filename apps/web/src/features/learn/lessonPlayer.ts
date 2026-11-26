@@ -88,7 +88,10 @@ export function lessonPlayerReducer(state: PlayerState, action: PlayerAction): P
         ...initialPlayerState,
         phase: 'intro',
         session: action.session,
-        queue: action.session.exercises.map((_, i) => i),
+        // FR-114: a resumed review skips exercises already answered (the server rejects a second answer).
+        queue: action.session.exercises.flatMap((e, i) =>
+          'correct' in e && e.correct !== null ? [] : [i],
+        ),
         responses: action.session.exercises.map(() => undefined),
       };
 

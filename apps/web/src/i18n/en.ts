@@ -60,7 +60,7 @@ export const en = {
     dueNow: 'Due now: {{count}}',
     nothingDue: 'Nothing is due right now.',
     start: 'Start review',
-    intro: '{{count}} questions. Leave any time: answers you gave are kept.',
+    intro: 'Questions: {{count}}. Leave any time: answers you gave are kept.',
     forecast: 'Next 7 days',
     forecastDay: '{{date}}: {{count}} due',
     done: 'Review complete',

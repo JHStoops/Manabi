@@ -327,7 +327,7 @@ export default function LessonPlayerPage({
   // FR-114, FR-117: a review answer is saved as soon as it is final; the server grades it again
   // and says whether the exercise comes back at the end. The ref keeps StrictMode from posting twice.
   const [tally, setTally] = useState({ first: 0, right: 0, xp: 0 });
-  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState(-1); // the step whose answer the server has
   const [saveTry, setSaveTry] = useState(0);
   const savedStep = useRef<string | null>(null);
   useEffect(() => {
@@ -336,7 +336,6 @@ export default function LessonPlayerPage({
     const key = `${state.step}:${saveTry}`;
     if (savedStep.current === key) return;
     savedStep.current = key;
-    setSaving(true);
     api
       .POST('/api/v1/review-sessions/{id}/answers', {
         params: { path: { id: String((session as ReviewSession).id) } },
@@ -344,7 +343,7 @@ export default function LessonPlayerPage({
       })
       .then(
         (result) => {
-          setSaving(false);
+          setSavedAt(state.step);
           const retry = 'retry' in exercise && exercise.retry;
           setTally((t) => ({
             first: t.first + (retry ? 0 : 1),
@@ -359,7 +358,6 @@ export default function LessonPlayerPage({
           }
         },
         (err: unknown) => {
-          setSaving(false);
           dispatch({ type: 'failed', error: err });
         },
       );
@@ -373,7 +371,7 @@ export default function LessonPlayerPage({
   }, [phase, state.step, state.card]);
 
   function act() {
-    if (review && phase === 'feedback' && (saving || error)) {
+    if (review && phase === 'feedback' && (savedAt !== state.step || error)) {
       // Continue waits for the save; after a failed save it tries again.
       if (error) {
         savedStep.current = null;
@@ -450,7 +448,7 @@ export default function LessonPlayerPage({
     content = (
       <>
         <h1>{t('area.review')}</h1>
-        <p>{t('review.intro', { count: session.exercises.length })}</p>
+        <p>{t('review.intro', { count: state.queue.length })}</p>
       </>
     );
     actionLabel = t('player.start');
@@ -519,7 +517,11 @@ export default function LessonPlayerPage({
       <>
         <Confetti />
         <h1>{t('review.done')}</h1>
-        <p>{t('player.accuracy', { accuracy: Math.round((100 * tally.right) / tally.first) })}</p>
+        <p>
+          {t('player.accuracy', {
+            accuracy: Math.round((100 * tally.right) / Math.max(1, tally.first)),
+          })}
+        </p>
         <p>{t('results.xpEarned', { count: tally.xp })}</p>
       </>
     );
@@ -554,7 +556,8 @@ export default function LessonPlayerPage({
     ['intro', 'teaching', 'answering', 'feedback'].includes(phase) ||
     (phase === 'completing' && !review && !!error);
   const actionDisabled =
-    (phase === 'answering' && state.answer === undefined) || (review && saving);
+    (phase === 'answering' && state.answer === undefined) ||
+    (review && phase === 'feedback' && savedAt !== state.step && !error);
 
   // FR-135: hear the answer after feedback; choice exercises have no tiles, so no button yet.
   const answerReading =
