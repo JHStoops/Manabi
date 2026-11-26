@@ -20,6 +20,7 @@ import { segmentText } from '@manabi/importers';
 import type { Queryable } from '../../db/db';
 import { withTransaction } from '../../db/db';
 import { languagePlugins } from '../../plugins';
+import { refreshLibraryFields } from '../library/service';
 import {
   archiveAuthoredExercisesExcept,
   archiveAuthoredItemsExcept,
@@ -336,6 +337,11 @@ export async function importPack(
       db,
       courseId,
       pack.items.filter((i) => i.data).map((i) => i.key),
+    );
+    await refreshLibraryFields(
+      db,
+      courseId,
+      pack.items.map((i) => i.key),
     );
     const itemIds = new Map((await listActiveItemKeys(db, courseId)).map((r) => [r.key, r.id]));
     const idOf = (key: string, where: string) =>

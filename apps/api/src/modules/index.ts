@@ -9,6 +9,7 @@ import { contentRoutes } from './content/routes';
 import { coursesRoutes } from './courses/routes';
 import { healthRoutes } from './health/routes';
 import { lessonsRoutes } from './lessons/routes';
+import { libraryRoutes } from './library/routes';
 import { mediaRoutes } from './media/routes';
 import { reviewsRoutes } from './reviews/routes';
 import { socialRoutes } from './social/routes';
@@ -26,6 +27,7 @@ export const featureModules: readonly FastifyPluginAsyncZod[] = [
   lessonsRoutes,
   statsRoutes,
   reviewsRoutes,
+  libraryRoutes,
   socialRoutes,
   adminRoutes,
   contentRoutes,

@@ -14,12 +14,13 @@ export interface AuthoringItemRow {
   dataset_version: string | null;
   data: JsonObject;
   overrides: JsonObject;
+  course_id: number;
   /** The course's language plugin, whose item schemas validate the data (DR-06). */
   plugin: string;
 }
 
 const ITEM = `SELECT i.id, i.key, i.type, i.level_code, i.source, i.dataset_version, i.data,
-    i.overrides, c.plugin
+    i.overrides, i.course_id, c.plugin
   FROM items i JOIN courses c ON c.id = i.course_id`;
 
 export function findItem(db: Queryable, id: number): Promise<AuthoringItemRow | null> {

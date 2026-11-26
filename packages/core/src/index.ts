@@ -27,6 +27,7 @@ export * from './http';
 export * from './itemEditor';
 export * from './languagePlugin';
 export * from './leaderboard';
+export * from './library';
 export * from './lessonEditor';
 export * from './lessonSession';
 export * from './pagination';

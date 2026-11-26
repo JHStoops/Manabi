@@ -2,12 +2,15 @@ import { buildApp } from './app';
 import { ConfigError, loadConfig } from './config';
 import { runMigrations } from './db/migrate';
 import { createPool } from './db/pool';
+import { backfillLibraryFields } from './modules/library/service';
 
 async function main(): Promise<void> {
   const config = loadConfig();
   // NFR-52: apply pending forward-only migrations before serving (SDD section 12).
   await runMigrations({ databaseUrl: config.databaseUrl, log: console.log });
   const app = await buildApp({ config, pool: createPool(config.databaseUrl) });
+  // Migration 0011 added library search columns; items written before it are filled once here.
+  await backfillLibraryFields(app.db);
 
   const stop = async (): Promise<void> => {
     await app.close();

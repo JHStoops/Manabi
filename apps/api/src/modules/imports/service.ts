@@ -18,6 +18,7 @@ import type { DatasetName, ParsedDataset } from '@manabi/importers';
 import type { Queryable } from '../../db/db';
 import { withTransaction } from '../../db/db';
 import { languagePlugins } from '../../plugins';
+import { refreshLibraryFields } from '../library/service';
 import { findCourseByKey, listBlockedWords } from '../content/queries';
 import {
   archiveBlockedSentences,
@@ -93,6 +94,11 @@ async function importItems(
       datasetVersion: parsed.datasetVersion,
       items,
     });
+    await refreshLibraryFields(
+      db,
+      course.id,
+      items.map((item) => item.key),
+    );
     const skippedOwned = await findKeysOwnedElsewhere(db, {
       courseId: course.id,
       source,
