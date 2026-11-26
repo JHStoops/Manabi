@@ -16,6 +16,7 @@ export * from './contentPack';
 export * from './exerciseRegistry';
 export * from './exercises/choice';
 export * from './exercises/conjugate';
+export * from './exercises/draw_memory';
 export * from './exercises/fill_blank';
 export * from './exercises/match_pairs';
 export * from './exercises/reading_in_context';

@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
 import {
+  CHOICE_TYPE,
+  DRAWING_EXERCISE_TYPES,
   GRAMMAR_EXERCISE_ORDER,
   LESSON_MAX_EXERCISES,
   LESSON_MIN_EXERCISES,
@@ -9,6 +11,7 @@ import {
   TEST_OUT_PASS_ACCURACY,
   exerciseTypeIds,
   gradeResponse,
+  learnerSettingsSchema,
   lessonCompletionSchema,
   lessonRecipes,
   lessonSessionStateSchema,
@@ -98,7 +101,12 @@ export async function startSession(
     await q.lockLessonSessions(client, userId, lessonId);
     return (
       (await q.resumeOpenSession(client, userId, lessonId)) ??
-      q.insertSession(client, userId, lessonId, await buildState(client, lesson))
+      q.insertSession(
+        client,
+        userId,
+        lessonId,
+        await buildState(client, lesson, await drawingOn(client, userId)),
+      )
     );
   });
   return {
@@ -111,6 +119,12 @@ export async function startSession(
     plugin: lesson.plugin,
     ...lessonSessionStateSchema.parse(row.state),
   };
+}
+
+/** FR-074: whether the learner wants drawing exercises (EX-11, EX-12) in new sessions. */
+async function drawingOn(db: Queryable, userId: number): Promise<boolean> {
+  return learnerSettingsSchema.parse((await q.findSettings(db, userId))?.settings ?? {})
+    .drawingExercises;
 }
 
 /** What building a lesson's exercises needs: its plugin, new items and generator context. */
@@ -134,7 +148,11 @@ async function lessonInputs(db: Queryable, lesson: q.LessonContextRow) {
  * SDD section 6: teaching cards for the new items, then the stored exercises, filled up to 10 by
  * the plugin's generators per the lesson type's recipe. Exercises use taught items only (FR-048).
  */
-async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<LessonSessionState> {
+async function buildState(
+  db: Queryable,
+  lesson: q.LessonContextRow,
+  drawing: boolean,
+): Promise<LessonSessionState> {
   const { plugin, newItems, context } = await lessonInputs(db, lesson);
   const stored = await q.listStoredExercises(db, lesson.id);
   const exercises = fillExercises(
@@ -145,6 +163,7 @@ async function buildState(db: Queryable, lesson: q.LessonContextRow): Promise<Le
     lessonRecipes[lesson.type],
     LESSON_MIN_EXERCISES,
     LESSON_MAX_EXERCISES,
+    drawing,
   );
   if (exercises.length < LESSON_MIN_EXERCISES) {
     throw new AppError('conflict', 'This lesson does not have enough exercises yet', {
@@ -209,7 +228,7 @@ export async function previewLesson(db: Queryable, lessonId: number): Promise<Le
     lessonType: lesson.type,
     sectionLevel: lesson.level_code,
     plugin: lesson.plugin,
-    ...(await buildState(db, lesson)),
+    ...(await buildState(db, lesson, true)),
   };
 }
 
@@ -233,6 +252,7 @@ export async function generateExercises(
     recipe,
     LESSON_MAX_EXERCISES,
     LESSON_MAX_EXERCISES,
+    true,
   );
 }
 
@@ -241,7 +261,11 @@ export async function generateExercises(
  * of its lessons taken in turn (each lesson's first, then each one's second, ...), then the
  * generators of every lesson type in the unit over all of its items.
  */
-async function buildTestOutState(db: Queryable, unit: q.UnitContextRow): Promise<TestOutState> {
+async function buildTestOutState(
+  db: Queryable,
+  unit: q.UnitContextRow,
+  drawing: boolean,
+): Promise<TestOutState> {
   const plugin = languagePlugins.get(unit.plugin);
   const lessons = await q.listUnitLessons(db, unit.id);
   const newItems = new Map<number, Item>();
@@ -269,6 +293,7 @@ async function buildTestOutState(db: Queryable, unit: q.UnitContextRow): Promise
     [...new Set(lessons.flatMap((l) => lessonRecipes[l.type]))],
     TEST_OUT_EXERCISES,
     TEST_OUT_EXERCISES,
+    drawing,
   );
   if (exercises.length < TEST_OUT_EXERCISES) {
     throw new AppError('conflict', 'This unit does not have enough exercises for a test-out yet', {
@@ -282,7 +307,8 @@ async function buildTestOutState(db: Queryable, unit: q.UnitContextRow): Promise
 /**
  * SDD section 6: the stored exercises (up to `max`), then the recipe's generators over the new
  * items until there are `target`. Every exercise uses taught items only (FR-048), and no two are
- * identical (same type and deeply equal payload).
+ * identical (same type and deeply equal payload). With `drawing` off, a stored drawing exercise
+ * becomes the plugin's EX-01 for the same item, and the recipe's drawing types are skipped (FR-074).
  */
 function fillExercises(
   plugin: LanguagePlugin,
@@ -292,7 +318,9 @@ function fillExercises(
   recipe: readonly string[],
   target: number,
   max: number,
+  drawing: boolean,
 ): SessionExercise[] {
+  const offDrawing = (type: string) => !drawing && DRAWING_EXERCISE_TYPES.includes(type);
   const taught = new Set(context.taughtItems.map((i) => i.id));
   const usesTaughtOnly = (payload: unknown) =>
     payloadItemIds(payload).every((id) => taught.has(id));
@@ -307,14 +335,29 @@ function fillExercises(
     return true;
   };
   const fits = storedFits(context);
+  const swapped = new Set<number>();
   for (const e of stored) {
-    if (fits(e)) {
+    if (!fits(e)) continue;
+    if (!offDrawing(e.type)) {
       add({ type: e.type, payload: e.payload });
+      continue;
     }
+    // Drawing payloads name their character by item key (EX-11, EX-12). One EX-01 per item, so
+    // an item's EX-11 and EX-12 do not become two near-identical choices.
+    // shortcut: when the plugin makes no EX-01 for the item (too few distractors), the drawing
+    // exercise is dropped and the recipe fill below makes up the count; add another recognition
+    // fallback if drawing-off learners hit "not enough exercises".
+    const item = context.taughtItems.find((i) => i.key === e.payload.itemKey);
+    if (!item || swapped.has(item.id)) continue;
+    swapped.add(item.id);
+    const choice = Object.hasOwn(plugin.generators, CHOICE_TYPE)
+      ? (plugin.generators[CHOICE_TYPE]!(item, context) as SessionExercise[])[0]
+      : undefined;
+    if (choice && usesTaughtOnly(choice.payload)) add(choice);
   }
 
   const generators = recipe.flatMap((type) =>
-    Object.hasOwn(plugin.generators, type) ? [plugin.generators[type]!] : [],
+    Object.hasOwn(plugin.generators, type) && !offDrawing(type) ? [plugin.generators[type]!] : [],
   );
   if (generators.length > 0 && newItems.length > 0 && exercises.length < target) {
     // Step k takes the recipe's types round-robin (each type gets a turn before any gets a second)
@@ -482,7 +525,12 @@ export async function startTestOut(
     await q.lockUnitSessions(client, userId, unitId);
     return (
       (await q.resumeOpenUnitSession(client, userId, unitId)) ??
-      q.insertUnitSession(client, userId, unitId, await buildTestOutState(client, unit))
+      q.insertUnitSession(
+        client,
+        userId,
+        unitId,
+        await buildTestOutState(client, unit, await drawingOn(client, userId)),
+      )
     );
   });
   return {
