@@ -178,7 +178,7 @@ describeWithDb('lesson editor API', () => {
       lessonId,
       type: 'typed_answer',
       origin: 'authored',
-      payload: typedAnswer([{ text: '水を飲む' }]),
+      payload: typedAnswer([{ text: '水を飲む', tiles: [] }]),
     });
     const tiles = (created.exercise.payload.accept as { tiles: { surface: string }[] }[])[0]!.tiles;
     expect(tiles.map((t) => t.surface)).toEqual(['水', 'を', '飲む']);

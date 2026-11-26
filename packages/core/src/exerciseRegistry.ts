@@ -78,6 +78,9 @@ export function getExerciseType(id: string): ExerciseTypeDefinition {
   return definition;
 }
 
+/** Every registered exercise type id, in registration order (the lesson editor's type list). */
+export const exerciseTypeIds = (): string[] => [...exerciseTypes.keys()];
+
 /**
  * Grades a response, on the client after each attempt and on the server when re-grading
  * (FR-053). Validates the payload and every attempt first (throws a ZodError), then returns the

@@ -55,7 +55,7 @@ export const generatedExercisesSchema = z.object({ exercises: z.array(sessionExe
 export type GeneratedExercises = z.infer<typeof generatedExercisesSchema>;
 
 /**
- * FR-238: answer text sent without `tiles` is segmented on save; tiles sent are kept, since the
+ * FR-238: answer text sent without tiles, or with an empty list, is segmented on save; tiles sent are kept, since the
  * author may have edited them. `resegment` re-segments every answer text, replacing its tiles.
  */
 const resegmentSchema = z.boolean().default(false);

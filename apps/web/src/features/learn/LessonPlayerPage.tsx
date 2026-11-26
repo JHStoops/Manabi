@@ -221,7 +221,26 @@ function answerTiles(payload: unknown): Tile[] {
  * FR-046, FR-047, FR-168, Product Spec section 4: the full-screen lesson player. At
  * `/unit/:unitId/test-out` it plays the unit's test-out instead (FR-024).
  */
-export default function LessonPlayerPage() {
+/**
+ * FR-053's accuracy, computed here for a preview (FR-224), which records nothing: the whole
+ * percentage of first-pass responses the shared grader counts right (near-misses count).
+ */
+function previewAccuracy(
+  session: PlayerSession,
+  responses: ExerciseResponse[],
+  plugin: LanguagePlugin,
+) {
+  const right = session.exercises.filter((exercise, i) => {
+    try {
+      return gradeResponse(exercise, responses[i]!, plugin).result !== 'wrong';
+    } catch {
+      return false;
+    }
+  }).length;
+  return Math.round((100 * right) / session.exercises.length);
+}
+
+export default function LessonPlayerPage({ preview = false }: { preview?: boolean }) {
   const { t } = useTranslation();
   const api = useApi();
   const { user } = useSession();
@@ -234,9 +253,12 @@ export default function LessonPlayerPage() {
   // FR-050: starting again within 24 hours resumes the same server session; leaving keeps it.
   useEffect(() => {
     let current = true;
-    const load: Promise<PlayerSession> = unitId
-      ? api.POST('/api/v1/units/{id}/test-out', { params: { path: { id: unitId } }, body: {} })
-      : api.POST('/api/v1/lessons/{id}/sessions', { params: { path: { id: lessonId } }, body: {} });
+    const params = { path: { id: unitId || lessonId } };
+    const load: Promise<PlayerSession> = preview
+      ? api.POST('/api/v1/authoring/lessons/{id}/preview', { params, body: {} })
+      : unitId
+        ? api.POST('/api/v1/units/{id}/test-out', { params, body: {} })
+        : api.POST('/api/v1/lessons/{id}/sessions', { params, body: {} });
     load.then(
       (loaded) =>
         current &&
@@ -250,15 +272,19 @@ export default function LessonPlayerPage() {
     return () => {
       current = false;
     };
-  }, [api, lessonId, unitId]);
+  }, [api, lessonId, unitId, preview]);
 
   // FR-052: one key per session, so a retried or repeated completion is applied once.
   const { responses } = state;
   useEffect(() => {
     if (phase !== 'completing' || error || !session) return;
+    const body = { responses: responses.filter((r): r is ExerciseResponse => r !== undefined) };
+    if (!('id' in session)) {
+      const accuracy = previewAccuracy(session, body.responses, plugins.get(session.plugin));
+      return dispatch({ type: 'completed', completion: { accuracy } });
+    }
     let current = true;
     const params = { path: { id: String(session.id) } };
-    const body = { responses: responses.filter((r): r is ExerciseResponse => r !== undefined) };
     const done: Promise<PlayerCompletion> =
       'unitId' in session
         ? api.POST('/api/v1/test-out-sessions/{id}/complete', {
@@ -428,12 +454,17 @@ export default function LessonPlayerPage() {
             : t('area.lesson')}
         </h1>
         <p>{t('player.accuracy', { accuracy: completion.accuracy })}</p>
-        <LessonResults xpEarned={completion.xpEarned} totalXp={completion.totalXp} />
+        {'xpEarned' in completion ? (
+          <LessonResults xpEarned={completion.xpEarned} totalXp={completion.totalXp} />
+        ) : (
+          <p>{t('lessonEditor.previewNote')}</p>
+        )}
       </>
     );
   }
 
   const total = session?.exercises.length ?? 0;
+  const exit = preview ? `/authoring/lessons/${lessonId}` : '/learn';
   const showAction =
     ['intro', 'teaching', 'answering', 'feedback'].includes(phase) ||
     (phase === 'completing' && !!error);
@@ -450,7 +481,7 @@ export default function LessonPlayerPage() {
       <Screen onKeyDown={onKeyDown}>
         {session && <SkipListening dispatch={dispatch} />}
         <Top>
-          <Close to="/learn" aria-label={t('player.close')}>
+          <Close to={exit} aria-label={t('player.close')}>
             <span aria-hidden="true">{icons.close}</span>
           </Close>
           {session && (
@@ -491,7 +522,7 @@ export default function LessonPlayerPage() {
             {actionLabel}
           </Action>
         )}
-        {phase === 'results' && <DoneLink to="/learn">{t('player.done')}</DoneLink>}
+        {phase === 'results' && <DoneLink to={exit}>{t('player.done')}</DoneLink>}
       </Screen>
     </SpeechProvider>
   );

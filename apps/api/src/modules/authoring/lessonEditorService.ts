@@ -123,6 +123,9 @@ export async function getPreview(db: Queryable, lessonId: number): Promise<Lesso
   return previewLesson(db, lessonId);
 }
 
+/** Answer text sent without tiles, or with none, is segmented. */
+const untiled = (answer: JsonObject) => !Array.isArray(answer.tiles) || answer.tiles.length === 0;
+
 const segment = async (plugin: LanguagePlugin, text: string): Promise<Tile[]> =>
   (await segmentText(plugin, text)).map(({ counted: _, ...tile }) => tile);
 
@@ -140,12 +143,12 @@ async function fillTiles(
 ): Promise<void> {
   const accept: unknown[] = Array.isArray(payload.accept) ? payload.accept : [];
   for (const answer of accept) {
-    if (isObject(answer) && typeof answer.text === 'string' && (resegment || !answer.tiles))
+    if (isObject(answer) && typeof answer.text === 'string' && (resegment || untiled(answer)))
       answer.tiles = await segment(plugin, answer.text);
   }
   const { answer } = payload;
   if (type === WORD_BANK_TYPE && isObject(answer) && typeof answer.text === 'string') {
-    if (resegment || !answer.tiles) {
+    if (resegment || untiled(answer)) {
       const tiles = await segment(plugin, answer.text);
       if (JSON.stringify(tiles) !== JSON.stringify(answer.tiles)) {
         answer.tiles = tiles;
