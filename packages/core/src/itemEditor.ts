@@ -16,8 +16,14 @@ import {
  * the item is read, so re-running an importer never loses them.
  */
 
-/** How the editor shows a field: one line, a number, one text per line, or JSON for the rest. */
-export const itemFieldKindSchema = z.enum(['text', 'number', 'textList', 'json']);
+/**
+ * How the editor shows a field: one line, several lines (a string schema described as
+ * `LONG_TEXT`, such as Markdown), a number, one text per line, or JSON for the rest.
+ */
+export const itemFieldKindSchema = z.enum(['text', 'longText', 'number', 'textList', 'json']);
+
+/** A plugin marks a string field as multi-line with `.describe(LONG_TEXT)`. */
+export const LONG_TEXT = 'longText';
 export type ItemFieldKind = z.infer<typeof itemFieldKindSchema>;
 
 export const itemFieldSchema = z.object({
@@ -35,13 +41,15 @@ function itemField(name: string, schema: ZodTypeAny): ItemField {
     s = s.unwrap() as ZodTypeAny;
   }
   const kind: ItemFieldKind =
-    s instanceof z.ZodString || s instanceof z.ZodEnum
-      ? 'text'
-      : s instanceof z.ZodNumber
-        ? 'number'
-        : s instanceof z.ZodArray && s.element instanceof z.ZodString
-          ? 'textList'
-          : 'json';
+    s instanceof z.ZodString && s.description === LONG_TEXT
+      ? 'longText'
+      : s instanceof z.ZodString || s instanceof z.ZodEnum
+        ? 'text'
+        : s instanceof z.ZodNumber
+          ? 'number'
+          : s instanceof z.ZodArray && s.element instanceof z.ZodString
+            ? 'textList'
+            : 'json';
   return { name, kind, optional };
 }
 

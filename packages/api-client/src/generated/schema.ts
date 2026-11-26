@@ -12422,7 +12422,7 @@ export interface paths {
               fields: {
                 name: string;
                 /** @enum {string} */
-                kind: 'text' | 'number' | 'textList' | 'json';
+                kind: 'text' | 'longText' | 'number' | 'textList' | 'json';
                 optional: boolean;
               }[];
               related: string[];
@@ -12621,7 +12621,7 @@ export interface paths {
               fields: {
                 name: string;
                 /** @enum {string} */
-                kind: 'text' | 'number' | 'textList' | 'json';
+                kind: 'text' | 'longText' | 'number' | 'textList' | 'json';
                 optional: boolean;
               }[];
               related: string[];
@@ -12822,7 +12822,7 @@ export interface paths {
               fields: {
                 name: string;
                 /** @enum {string} */
-                kind: 'text' | 'number' | 'textList' | 'json';
+                kind: 'text' | 'longText' | 'number' | 'textList' | 'json';
                 optional: boolean;
               }[];
               related: string[];

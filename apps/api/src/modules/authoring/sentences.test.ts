@@ -12,6 +12,7 @@ import { readPack } from '../content/packFiles';
 import { exportPack, importPack } from '../content/service';
 import { upsertLevelListWords } from '../imports/queries';
 import { importTatoeba } from '../imports/service';
+import { updateItemOverrides } from './itemsService';
 
 // API tests for /authoring/sentences (#62): FR-059, FR-236, FR-237, FR-238, DR-11, FR-006.
 
@@ -129,6 +130,18 @@ describeWithDb('sentence editor API', () => {
       sentence: { challengeOverride: false },
     });
 
+    // FR-236: moving the point to N5 makes its sentences' grammar level N5, so not challenging.
+    const point = await queryOne<{ id: number }>(
+      pool(),
+      `SELECT id FROM items WHERE key = 'ja:grammar:te-oku'`,
+    );
+    await updateItemOverrides(pool(), point!.id, { overrides: {}, level: 'N5' });
+    expect((await admin('GET', `/${house}`)).json()).toMatchObject({
+      challenging: false,
+      sentence: { grammarLevelCode: 'N5' },
+    });
+    await updateItemOverrides(pool(), point!.id, { overrides: {}, level: 'N4' });
+
     const cleared = await admin('PATCH', `/${house}`, { challengeOverride: null });
     expect(cleared.json()).toMatchObject({
       challenging: true,
@@ -162,6 +175,15 @@ describeWithDb('sentence editor API', () => {
     expect(unknownItem.statusCode).toBe(400);
     const both = await admin('PATCH', `/${cat}`, { tiles: tokens, resegment: true });
     expect(both.statusCode).toBe(400);
+    // Tiles must cover every word; only punctuation may be left between or after them.
+    const short = await admin('PATCH', `/${cat}`, { tiles: tokens.slice(0, 5) });
+    expect(short.statusCode).toBe(400);
+    const gap = await admin('PATCH', `/${cat}`, { tiles: [tokens[0], ...tokens.slice(2)] });
+    expect(gap.statusCode).toBe(400);
+
+    // Saving the stored tiles unchanged (the editor always sends them) is not a tile edit.
+    const same = await admin('PATCH', `/${cat}`, { tiles: tokens, reviewStatus: 'flagged' });
+    expect(same.json().sentence).toMatchObject({ tokensEdited: false, reviewStatus: 'flagged' });
 
     // Merge これ + は, mark です as the pattern, correct a reading.
     const tiles = [
@@ -192,8 +214,9 @@ describeWithDb('sentence editor API', () => {
     const linkedTiles = tiles.map((t, i) => (i === 3 ? { ...t, itemId: catItem } : t));
     const linked = await admin('PATCH', `/${cat}`, { tiles: linkedTiles });
     expect(linked.json().sentence).toMatchObject({ vocabLevelCode: 'N4', grammarLevelCode: null });
+    // With no linked item left the level stays: imported tiles carry no links at all.
     const restored = await admin('PATCH', `/${cat}`, { tiles });
-    expect(restored.json().sentence.vocabLevelCode).toBeNull();
+    expect(restored.json().sentence.vocabLevelCode).toBe('N4');
 
     // Re-import keeps the author's tiles; export carries the pattern mark.
     await importSentences();

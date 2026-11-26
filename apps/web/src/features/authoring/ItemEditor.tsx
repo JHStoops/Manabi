@@ -30,7 +30,8 @@ const Fields = styled.form`
 /** A field's value as form text. */
 function toText(field: ItemField, value: unknown): string {
   if (value === undefined) return '';
-  if (field.kind === 'text' || field.kind === 'number') return String(value);
+  if (field.kind === 'text' || field.kind === 'longText' || field.kind === 'number')
+    return String(value);
   if (field.kind === 'textList') return (value as string[]).join('\n');
   return JSON.stringify(value, null, 2);
 }
@@ -38,7 +39,7 @@ function toText(field: ItemField, value: unknown): string {
 /** Form text back to a value; undefined for an empty field. Throws on malformed JSON. */
 function fromText(field: ItemField, text: string): unknown {
   if (text.trim() === '') return field.kind === 'textList' ? [] : undefined;
-  if (field.kind === 'text') return text;
+  if (field.kind === 'text' || field.kind === 'longText') return text;
   if (field.kind === 'number') return Number(text);
   if (field.kind === 'textList') return text.split('\n').filter((line) => line.trim() !== '');
   return JSON.parse(text) as unknown;
@@ -234,7 +235,7 @@ function ItemForm({
       {item.fields.map((field) => {
         const id = `item-field-${field.name}`;
         const overridden = Object.hasOwn(item.overrides, field.name);
-        const multiline = field.kind === 'textList' || field.kind === 'json';
+        const multiline = field.kind !== 'text' && field.kind !== 'number';
         const input = {
           id,
           value: values[field.name] ?? '',
@@ -251,7 +252,7 @@ function ItemForm({
               {field.kind === 'json' && ' (JSON)'}
             </label>
             {multiline ? (
-              <textarea {...input} rows={field.kind === 'json' ? 6 : 3} />
+              <textarea {...input} rows={field.kind === 'textList' ? 3 : 6} />
             ) : (
               <input {...input} type={field.kind === 'number' ? 'number' : 'text'} />
             )}

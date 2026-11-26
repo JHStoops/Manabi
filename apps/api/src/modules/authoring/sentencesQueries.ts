@@ -20,6 +20,13 @@ const RANK = (level: string) => `(SELECT min(sc.position) FROM sections sc
 const CHALLENGING = `coalesce(s.challenge_override,
     ${RANK('s.grammar_level_code')} > coalesce(${RANK('s.vocab_level_code')}, -1), false)`;
 
+// The highest-ranked of a set of levels.
+const highest = (levels: string) => `(SELECT lv FROM (${levels}) AS l (lv)
+    ORDER BY ${RANK('l.lv')} DESC NULLS LAST LIMIT 1)`;
+
+const HIGHEST_GRAMMAR = highest(`SELECT i.level_code FROM items i
+    WHERE i.course_id = s.course_id AND i.type = 'grammar' AND s.grammar ? i.key`);
+
 const SENTENCE = `SELECT s.*, c.plugin, c.target_lang, ${CHALLENGING} AS challenging
   FROM sentences s JOIN courses c ON c.id = s.course_id`;
 
@@ -106,25 +113,33 @@ export async function updateSentence(
 /**
  * FR-236: recomputes a level whose inputs changed: the vocabulary level is the highest level
  * among the items the tiles link to (`sentence_items`), the grammar level the highest among the
- * detected points; null when there are none.
+ * detected points (null when there are none). With no linked item the vocabulary level stays as
+ * it was: imported tiles carry no item links, and the import's level-list level must not be lost.
  */
 export async function refreshSentenceLevels(
   db: Queryable,
   id: number,
   changed: { vocab: boolean; grammar: boolean },
 ): Promise<void> {
-  const highest = (levels: string) => `(SELECT lv FROM (${levels}) AS l (lv)
-      ORDER BY ${RANK('l.lv')} DESC NULLS LAST LIMIT 1)`;
   await query(
     db,
     `UPDATE sentences s SET
-       vocab_level_code = CASE WHEN $2 THEN ${highest(`SELECT i.level_code FROM sentence_items si
-           JOIN items i ON i.id = si.item_id WHERE si.sentence_id = s.id`)}
+       vocab_level_code = CASE WHEN $2 THEN coalesce(${highest(`SELECT i.level_code
+           FROM sentence_items si JOIN items i ON i.id = si.item_id WHERE si.sentence_id = s.id`)},
+           s.vocab_level_code)
          ELSE s.vocab_level_code END,
-       grammar_level_code = CASE WHEN $3 THEN ${highest(`SELECT i.level_code FROM items i
-           WHERE i.course_id = s.course_id AND i.type = 'grammar' AND s.grammar ? i.key`)}
-         ELSE s.grammar_level_code END
+       grammar_level_code = CASE WHEN $3 THEN ${HIGHEST_GRAMMAR} ELSE s.grammar_level_code END
      WHERE s.id = $1`,
     [id, changed.vocab, changed.grammar],
+  );
+}
+
+/** FR-236: after a grammar point's level changes, the grammar level of the sentences it is in. */
+export async function refreshGrammarLevelsOf(db: Queryable, courseId: number, key: string) {
+  await query(
+    db,
+    `UPDATE sentences s SET grammar_level_code = ${HIGHEST_GRAMMAR}
+     WHERE s.course_id = $1 AND s.grammar ? $2`,
+    [courseId, key],
   );
 }

@@ -18707,7 +18707,7 @@
                           "name": { "type": "string" },
                           "kind": {
                             "type": "string",
-                            "enum": ["text", "number", "textList", "json"]
+                            "enum": ["text", "longText", "number", "textList", "json"]
                           },
                           "optional": { "type": "boolean" }
                         },
@@ -18987,7 +18987,7 @@
                           "name": { "type": "string" },
                           "kind": {
                             "type": "string",
-                            "enum": ["text", "number", "textList", "json"]
+                            "enum": ["text", "longText", "number", "textList", "json"]
                           },
                           "optional": { "type": "boolean" }
                         },
@@ -19289,7 +19289,7 @@
                           "name": { "type": "string" },
                           "kind": {
                             "type": "string",
-                            "enum": ["text", "number", "textList", "json"]
+                            "enum": ["text", "longText", "number", "textList", "json"]
                           },
                           "optional": { "type": "boolean" }
                         },

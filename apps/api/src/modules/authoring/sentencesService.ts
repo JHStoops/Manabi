@@ -63,23 +63,35 @@ async function segment(db: Queryable, plugin: string, courseId: number, text: st
   return { tiles: tiles.map(({ counted: _, ...tile }): Tile => tile), grammar };
 }
 
-/** FR-238: each tile's surface appears in the text, in order. Gaps are spaces and punctuation. */
+// Text no tile covers: punctuation, symbols and spaces, which are never tiles (DR-12).
+const GAP = /^[\p{P}\p{S}\p{Z}\s]*$/u;
+
+/** FR-238: the tiles cover the text in order; what lies between them is only GAP text. */
 function checkTiles(text: string, tiles: readonly Tile[]): void {
+  const fail = (path: (string | number)[], message: string): never => {
+    throw new AppError('validation_failed', 'The tiles do not match the text', [
+      { location: 'body', path, message },
+    ]);
+  };
   let at = 0;
   for (const [i, tile] of tiles.entries()) {
     const found = text.indexOf(tile.surface, at);
-    if (found < 0) {
-      throw new AppError('validation_failed', 'The tiles do not match the text', [
-        {
-          location: 'body',
-          path: ['tiles', i, 'surface'],
-          message: 'Not found in the text in order',
-        },
-      ]);
+    if (found < 0 || !GAP.test(text.slice(at, found))) {
+      fail(['tiles', i, 'surface'], 'Not the next word of the text');
     }
     at = found + tile.surface.length;
   }
+  if (!GAP.test(text.slice(at))) fail(['tiles'], 'The tiles leave out part of the text');
 }
+
+/** Tiles in one key order, since jsonb reorders object keys (compare stored with sent). */
+const sameTiles = (a: readonly Tile[], b: readonly Tile[]) =>
+  JSON.stringify(
+    a.map((t) => [t.surface, t.base, t.reading, t.itemId ?? null, t.pattern ?? false]),
+  ) ===
+  JSON.stringify(
+    b.map((t) => [t.surface, t.base, t.reading, t.itemId ?? null, t.pattern ?? false]),
+  );
 
 const linkedIds = (tiles: readonly Tile[]) => [
   ...new Set(tiles.flatMap((t) => (t.itemId ? [t.itemId] : []))),
@@ -152,6 +164,8 @@ export async function updateSentence(
     const translation = body.translation ?? row.translation;
     let tiles = body.tiles ?? row.tokens;
     let grammar = row.grammar;
+    // shortcut: a detection or level change on a grammar point re-detects only sentences whose
+    // text is saved or that re-import refreshes; re-detect the course if authors tune patterns often.
     if (body.resegment || text !== row.text) {
       const segmented = await segment(db, row.plugin, row.course_id, text);
       grammar = segmented.grammar;
@@ -178,7 +192,7 @@ export async function updateSentence(
       ]);
     }
     const imported = row.source !== null;
-    const tilesChanged = JSON.stringify(tiles) !== JSON.stringify(row.tokens);
+    const tilesChanged = !sameTiles(tiles, row.tokens);
     await q.updateSentence(db, id, {
       text,
       translation,

@@ -15,6 +15,7 @@ import type { ValidationIssue } from '../../errors';
 import { languagePlugins } from '../../plugins';
 import { insertItem, replaceRelatedLinks, setItemOverrides } from '../content/queries';
 import { findItemIds } from '../imports/queries';
+import { refreshGrammarLevelsOf } from './sentencesQueries';
 import { refreshLibraryFields } from '../library/service';
 import * as q from './itemsQueries';
 
@@ -79,7 +80,18 @@ function validate(plugin: string, type: string, data: JsonObject, path: string):
 }
 
 /** FR-222: `related` keys to item ids in the course; an unknown key is a validation error. */
-async function relatedIds(db: Queryable, courseId: number, keys: string[]): Promise<number[]> {
+async function relatedIds(
+  db: Queryable,
+  courseId: number,
+  self: string,
+  related: string[],
+): Promise<number[]> {
+  const keys = [...new Set(related)];
+  if (keys.includes(self)) {
+    throw new AppError('validation_failed', 'An item cannot be related to itself', [
+      { location: 'body', path: ['related'], message: `${self} is this item` },
+    ]);
+  }
   const found = new Map((await findItemIds(db, { courseId, keys })).map((r) => [r.key, r.id]));
   const missing = keys.filter((k) => !found.has(k));
   if (missing.length > 0) {
@@ -114,9 +126,12 @@ export async function updateItemOverrides(
     }
     validate(row.plugin, row.type, { ...row.data, ...overrides }, 'overrides');
     await setItemOverrides(db, row.key, overrides);
-    if (level !== undefined) await q.setItemLevel(db, id, level);
+    if (level !== undefined && level !== row.level_code) {
+      await q.setItemLevel(db, id, level);
+      await refreshGrammarLevelsOf(db, row.course_id, row.key);
+    }
     if (related !== undefined) {
-      await replaceRelatedLinks(db, id, await relatedIds(db, row.course_id, related));
+      await replaceRelatedLinks(db, id, await relatedIds(db, row.course_id, row.key, related));
     }
     await refreshLibraryFields(db, row.course_id, [row.key]);
     return view((await q.findItem(db, id))!);

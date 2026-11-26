@@ -154,12 +154,25 @@ describeWithDb('item editor API', () => {
     });
     expect(created.statusCode).toBe(201);
     expect(created.json()).toMatchObject({ key, source: null, levelCode: 'N5', related: [] });
+    expect(created.json().fields).toContainEqual({
+      name: 'explanation',
+      kind: 'longText',
+      optional: true,
+    });
     const id = created.json().id;
     const again = { course: courseId, type: 'grammar', key, level: null, data: { pattern: 'x' } };
     expect((await admin('POST', '', again)).statusCode).toBe(409);
     const other = { ...again, key: 'ja:grammar:mashouka', data: { pattern: '〜ましょうか' } };
     expect((await admin('POST', '', other)).statusCode).toBe(201);
 
+    expect((await admin('PATCH', `/${id}`, { overrides: {}, related: [key] })).statusCode).toBe(
+      400,
+    );
+    const twice = await admin('PATCH', `/${id}`, {
+      overrides: {},
+      related: ['ja:grammar:mashouka', 'ja:grammar:mashouka'],
+    });
+    expect(twice.json().related).toEqual(['ja:grammar:mashouka']);
     const formation = [{ wordType: 'Verb', form: 'masu stem + ましょう', example: '行きましょう' }];
     const edited = await admin('PATCH', `/${id}`, {
       overrides: {

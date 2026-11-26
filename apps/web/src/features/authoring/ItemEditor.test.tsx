@@ -155,6 +155,7 @@ describe('ItemEditor', () => {
       fields: [
         { name: 'pattern', kind: 'text', optional: false },
         { name: 'meaning', kind: 'text', optional: true },
+        { name: 'explanation', kind: 'longText', optional: true },
       ],
       related: [],
     };
