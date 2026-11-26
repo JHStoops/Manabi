@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router-dom';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import type { ApiClient } from '@manabi/api-client';
 import { learnerSettingsSchema } from '@manabi/core';
@@ -29,7 +30,9 @@ function mount(courses: CourseListEntry[]) {
     <ApiContext.Provider value={api}>
       <SessionProvider>
         <ActivePluginProvider>
-          <LibraryPage />
+          <MemoryRouter>
+            <LibraryPage />
+          </MemoryRouter>
         </ActivePluginProvider>
       </SessionProvider>
     </ApiContext.Provider>,
@@ -54,7 +57,9 @@ describe('LibraryPage', () => {
       <ActivePluginContext.Provider
         value={{ ...japanese, features: { ...japanese.features, characterStudy: false } }}
       >
-        <LibraryPage />
+        <MemoryRouter>
+          <LibraryPage />
+        </MemoryRouter>
       </ActivePluginContext.Provider>,
     );
     screen.getByRole('heading', { name: 'Library' });
