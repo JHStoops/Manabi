@@ -97,14 +97,16 @@ describeWithDb('library API', () => {
       `INSERT INTO item_links (from_item_id, to_item_id, kind) VALUES ($1, $2, 'contains')`,
       [id['ja:word:水:みず'], id['ja:kanji:水']],
     );
-    // Four sentences with the word 水: reviewed, unreviewed and short, flagged, and challenging.
+    // Five sentences with the word 水: reviewed, unreviewed and short, flagged, and two challenging
+    // (grammar above vocabulary, and grammar with no counted words).
     const sentences = await sql(
       `INSERT INTO sentences (course_id, text, translation, review_status, vocab_level_code,
                               grammar_level_code, grammar)
        VALUES ($1, '水を飲みたいです。', 'I want to drink water.', 'reviewed', 'N5', 'N5', '[]'),
               ($1, '水です。', 'It is water.', 'unreviewed', 'N5', NULL, '["ja:grammar:te-kudasai"]'),
               ($1, '水だ。', 'Water.', 'flagged', 'N5', NULL, '[]'),
-              ($1, '水をください。', 'Water, please.', 'reviewed', 'N5', 'N4', '[]')
+              ($1, '水をください。', 'Water, please.', 'reviewed', 'N5', 'N4', '[]'),
+              ($1, 'みずをください。', 'Water, please.', 'reviewed', NULL, 'N4', '[]')
        RETURNING id`,
       [courseId],
     );
@@ -183,6 +185,7 @@ describeWithDb('library API', () => {
     ['grammar pattern', 'ください', ['ja:grammar:te-kudasai']],
     ['grammar meaning', 'please', ['ja:grammar:te-kudasai']],
     ['LIKE wildcards literally', '%', []],
+    ['a query that folds to nothing', '-', []],
   ])('searches by %s', async (_name, q, expected) => {
     const { courseId } = await seed();
     const { session } = await signIn('ann');

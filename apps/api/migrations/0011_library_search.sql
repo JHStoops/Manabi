@@ -5,7 +5,10 @@
 -- NFR-52: forward-only. This file has no Down Migration section on purpose.
 
 -- Trigram index for substring search; a trusted extension shipped with the PostgreSQL image.
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- shortcut: 1- and 2-character queries (水, みず) have no trigrams and scan the course's items,
+-- fine at a few thousand items; add an exact-term index if single-kanji search gets slow.
+-- Pinned to public and named in full, so the index also builds when migrating another schema.
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
 
 ALTER TABLE items
   -- The plugin's folded search terms, one per line.
@@ -13,7 +16,7 @@ ALTER TABLE items
   ADD COLUMN stroke_count smallint CHECK (stroke_count > 0),
   ADD COLUMN radical      text CHECK (radical <> '');
 
-CREATE INDEX items_search_trgm_idx ON items USING gin (search_text gin_trgm_ops);
+CREATE INDEX items_search_trgm_idx ON items USING gin (search_text public.gin_trgm_ops);
 CREATE INDEX items_course_stroke_count_idx ON items (course_id, stroke_count)
   WHERE stroke_count IS NOT NULL;
 CREATE INDEX items_course_radical_idx ON items (course_id, radical) WHERE radical IS NOT NULL;

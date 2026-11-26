@@ -42,6 +42,10 @@ describeWithDb('importKanjidic2 (FR-226, DR-09, NFR-62)', () => {
       dataset_version: '2026-11-12',
       overrides: {},
       data: { character: '水', meanings: ['water'], strokeCount: 4, components: ['水'] },
+      // #54: library fields stored with the import.
+      search_text: expect.stringContaining('すい'),
+      stroke_count: 4,
+      radical: '水',
     });
   });
 

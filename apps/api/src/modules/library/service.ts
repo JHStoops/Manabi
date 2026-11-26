@@ -49,6 +49,8 @@ export async function listItems(
   const course = await visibleCourse(db, auth, query.courseId);
   const plugin = languagePlugins.forCourse(course);
   const term = query.q === undefined ? '' : plugin.searchKey(query.q);
+  // A query that folds to nothing ("-") matches nothing, rather than lifting the search.
+  if (query.q !== undefined && term === '') return { items: [], nextCursor: null };
   const band = query.stage === undefined ? undefined : STAGE_BANDS[query.stage];
   const rows = await q.listItems(db, {
     courseId: course.id,

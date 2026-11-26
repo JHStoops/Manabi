@@ -127,8 +127,11 @@ export interface ExampleSentenceRow {
 /**
  * Up to 5 sentences using the item, a word containing it (a kanji's words) or, for a grammar
  * point, detecting it. Flagged and challenging sentences are left out; reviewed ones come first,
- * then the shortest. "Challenging" is derived as in lesson sentence selection: the grammar level
- * ranks above the vocabulary level by section order, unless the author overrode it.
+ * then the shortest. "Challenging" is derived as the Tatoeba importer does (FR-236): the grammar
+ * level ranks above the vocabulary level by section order, a sentence with no counted words
+ * ranking below every level, unless the author overrode it.
+ * shortcut: the OR over grammar and sentence_items filters all the course's sentences; split it
+ * into two indexed branches if item detail nears NFR-01's 300 ms.
  */
 export function listExampleSentences(
   db: Queryable,
@@ -142,7 +145,8 @@ export function listExampleSentences(
         GROUP BY level_code
      ), uses AS (
        SELECT $2::bigint AS item_id
-       UNION SELECT from_item_id FROM item_links WHERE to_item_id = $2 AND kind = 'contains'
+       UNION SELECT l.from_item_id FROM item_links l JOIN items w ON w.id = l.from_item_id
+              WHERE l.to_item_id = $2 AND l.kind = 'contains' AND w.archived_at IS NULL
      )
      SELECT s.id, s.text, s.translation, s.tokens, s.attribution
        FROM sentences s
@@ -152,7 +156,7 @@ export function listExampleSentences(
                          WHERE si.sentence_id = s.id))
         AND NOT coalesce(s.challenge_override,
               (SELECT rank FROM levels WHERE level_code = s.grammar_level_code)
-              > (SELECT rank FROM levels WHERE level_code = s.vocab_level_code),
+              > coalesce((SELECT rank FROM levels WHERE level_code = s.vocab_level_code), -1),
               false)
       ORDER BY s.review_status = 'reviewed' DESC, char_length(s.text), s.id
       LIMIT 5`,
