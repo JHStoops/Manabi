@@ -2454,6 +2454,8 @@ export interface paths {
                     base: string;
                     reading: string;
                     itemId?: number | null;
+                    /** @enum {boolean} */
+                    pattern?: true;
                   }[];
                 };
               }[];
@@ -4175,6 +4177,8 @@ export interface paths {
                   base: string;
                   reading: string;
                   itemId?: number | null;
+                  /** @enum {boolean} */
+                  pattern?: true;
                 }[];
                 attribution: {
                   sentence: {
@@ -11409,6 +11413,8 @@ export interface paths {
                     base: string;
                     reading: string;
                     itemId?: number | null;
+                    /** @enum {boolean} */
+                    pattern?: true;
                   }[];
                 };
               }[];
@@ -12369,7 +12375,202 @@ export interface paths {
       };
     };
     put?: never;
-    post?: never;
+    /** Create an authored item, such as a grammar point (FR-222) */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            course: number;
+            type: string;
+            key: string;
+            level: string | null;
+            data: {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              id: number;
+              key: string;
+              type: string;
+              levelCode: string | null;
+              source: string | null;
+              datasetVersion: string | null;
+              data: {
+                [key: string]: unknown;
+              };
+              overrides: {
+                [key: string]: unknown;
+              };
+              effective: {
+                [key: string]: unknown;
+              };
+              fields: {
+                name: string;
+                /** @enum {string} */
+                kind: 'text' | 'number' | 'textList' | 'json';
+                optional: boolean;
+              }[];
+              related: string[];
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+      };
+    };
     delete?: never;
     options?: never;
     head?: never;
@@ -12423,6 +12624,7 @@ export interface paths {
                 kind: 'text' | 'number' | 'textList' | 'json';
                 optional: boolean;
               }[];
+              related: string[];
             };
           };
         };
@@ -12573,7 +12775,7 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    /** Replace an item's overrides; the merged data must pass the language schema */
+    /** Replace an item's overrides (and an authored item's level and related items); the merged data must pass the language schema */
     patch: {
       parameters: {
         query?: never;
@@ -12589,6 +12791,8 @@ export interface paths {
             overrides: {
               [key: string]: unknown;
             };
+            level?: string | null;
+            related?: string[];
           };
         };
       };
@@ -12621,6 +12825,7 @@ export interface paths {
                 kind: 'text' | 'number' | 'textList' | 'json';
                 optional: boolean;
               }[];
+              related: string[];
             };
           };
         };
@@ -12738,6 +12943,759 @@ export interface paths {
         };
         /** @description Default Response */
         409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+      };
+    };
+    trace?: never;
+  };
+  '/api/v1/authoring/sentences': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** A course's active sentences by review status, grammar point or text, first 50 */
+    get: {
+      parameters: {
+        query: {
+          course: string;
+          status?: 'unreviewed' | 'flagged' | 'reviewed';
+          grammar?: string;
+          q?: string;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              sentences: {
+                id: number;
+                text: string;
+                translation: string;
+                /** @enum {string} */
+                reviewStatus: 'unreviewed' | 'flagged' | 'reviewed';
+                grammarLevelCode: string | null;
+                challenging: boolean;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    /** Create an authored sentence, segmented and with its grammar detected */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            course: number;
+            text: string;
+            translation: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              sentence: {
+                id: number;
+                courseId: number;
+                text: string;
+                tokens: {
+                  surface: string;
+                  base: string;
+                  reading: string;
+                  itemId?: number | null;
+                  /** @enum {boolean} */
+                  pattern?: true;
+                }[];
+                translation: string;
+                source: string | null;
+                sourceId: string | null;
+                attribution: {
+                  sentence: {
+                    sourceId: string;
+                    owner: string | null;
+                    /** Format: uri */
+                    url: string;
+                    licence: string;
+                    datasetVersion: string;
+                  };
+                  translation: {
+                    sourceId: string;
+                    owner: string | null;
+                    /** Format: uri */
+                    url: string;
+                    licence: string;
+                    datasetVersion: string;
+                  };
+                  otherTranslationIds?: string[];
+                } | null;
+                /** @enum {string} */
+                reviewStatus: 'unreviewed' | 'flagged' | 'reviewed';
+                grammar: string[];
+                vocabLevelCode: string | null;
+                grammarLevelCode: string | null;
+                challengeOverride: boolean | null;
+                edited: boolean;
+                translationEdited: boolean;
+                tokensEdited: boolean;
+                /** Format: date-time */
+                archivedAt: string | null;
+              };
+              challenging: boolean;
+              blockedWords: string[];
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/authoring/sentences/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** A sentence with its challenge status and blocklist warnings */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              sentence: {
+                id: number;
+                courseId: number;
+                text: string;
+                tokens: {
+                  surface: string;
+                  base: string;
+                  reading: string;
+                  itemId?: number | null;
+                  /** @enum {boolean} */
+                  pattern?: true;
+                }[];
+                translation: string;
+                source: string | null;
+                sourceId: string | null;
+                attribution: {
+                  sentence: {
+                    sourceId: string;
+                    owner: string | null;
+                    /** Format: uri */
+                    url: string;
+                    licence: string;
+                    datasetVersion: string;
+                  };
+                  translation: {
+                    sourceId: string;
+                    owner: string | null;
+                    /** Format: uri */
+                    url: string;
+                    licence: string;
+                    datasetVersion: string;
+                  };
+                  otherTranslationIds?: string[];
+                } | null;
+                /** @enum {string} */
+                reviewStatus: 'unreviewed' | 'flagged' | 'reviewed';
+                grammar: string[];
+                vocabLevelCode: string | null;
+                grammarLevelCode: string | null;
+                challengeOverride: boolean | null;
+                edited: boolean;
+                translationEdited: boolean;
+                tokensEdited: boolean;
+                /** Format: date-time */
+                archivedAt: string | null;
+              };
+              challenging: boolean;
+              blockedWords: string[];
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Edit a sentence's text, translation, tiles, review status or challenge status */
+    patch: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            text?: string;
+            translation?: string;
+            tiles?: {
+              surface: string;
+              base: string;
+              reading: string;
+              itemId?: number | null;
+              /** @enum {boolean} */
+              pattern?: true;
+            }[];
+            resegment?: boolean;
+            /** @enum {string} */
+            reviewStatus?: 'unreviewed' | 'flagged' | 'reviewed';
+            challengeOverride?: boolean | null;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              sentence: {
+                id: number;
+                courseId: number;
+                text: string;
+                tokens: {
+                  surface: string;
+                  base: string;
+                  reading: string;
+                  itemId?: number | null;
+                  /** @enum {boolean} */
+                  pattern?: true;
+                }[];
+                translation: string;
+                source: string | null;
+                sourceId: string | null;
+                attribution: {
+                  sentence: {
+                    sourceId: string;
+                    owner: string | null;
+                    /** Format: uri */
+                    url: string;
+                    licence: string;
+                    datasetVersion: string;
+                  };
+                  translation: {
+                    sourceId: string;
+                    owner: string | null;
+                    /** Format: uri */
+                    url: string;
+                    licence: string;
+                    datasetVersion: string;
+                  };
+                  otherTranslationIds?: string[];
+                } | null;
+                /** @enum {string} */
+                reviewStatus: 'unreviewed' | 'flagged' | 'reviewed';
+                grammar: string[];
+                vocabLevelCode: string | null;
+                grammarLevelCode: string | null;
+                challengeOverride: boolean | null;
+                edited: boolean;
+                translationEdited: boolean;
+                tokensEdited: boolean;
+                /** Format: date-time */
+                archivedAt: string | null;
+              };
+              challenging: boolean;
+              blockedWords: string[];
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
           headers: {
             [name: string]: unknown;
           };

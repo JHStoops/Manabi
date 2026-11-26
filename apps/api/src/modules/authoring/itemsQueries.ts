@@ -17,10 +17,13 @@ export interface AuthoringItemRow {
   course_id: number;
   /** The course's language plugin, whose item schemas validate the data (DR-06). */
   plugin: string;
+  related: string[];
 }
 
 const ITEM = `SELECT i.id, i.key, i.type, i.level_code, i.source, i.dataset_version, i.data,
-    i.overrides, i.course_id, c.plugin
+    i.overrides, i.course_id, c.plugin,
+    array(SELECT t.key FROM item_links l JOIN items t ON t.id = l.to_item_id
+          WHERE l.from_item_id = i.id AND l.kind = 'related' ORDER BY t.key)::text[] AS related
   FROM items i JOIN courses c ON c.id = i.course_id`;
 
 export function findItem(db: Queryable, id: number): Promise<AuthoringItemRow | null> {
@@ -30,6 +33,22 @@ export function findItem(db: Queryable, id: number): Promise<AuthoringItemRow | 
 /** As findItem, locked until the transaction ends so an import cannot change `data` meanwhile. */
 export function lockItem(db: Queryable, id: number): Promise<AuthoringItemRow | null> {
   return queryOne(db, `${ITEM} WHERE i.id = $1 FOR UPDATE OF i`, [id]);
+}
+
+/** FR-222: an authored item's level. */
+export async function setItemLevel(db: Queryable, id: number, level: string | null): Promise<void> {
+  await query(db, `UPDATE items SET level_code = $2, updated_at = now() WHERE id = $1`, [
+    id,
+    level,
+  ]);
+}
+
+/** The course's language plugin, or null when there is no such course. */
+export async function findCoursePlugin(db: Queryable, courseId: number): Promise<string | null> {
+  const row = await queryOne<{ plugin: string }>(db, `SELECT plugin FROM courses WHERE id = $1`, [
+    courseId,
+  ]);
+  return row?.plugin ?? null;
 }
 
 export interface AuthoringItemListRow {

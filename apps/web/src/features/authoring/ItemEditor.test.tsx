@@ -37,6 +37,7 @@ function water(overrides: Record<string, unknown> = {}): AuthoringItem {
       { name: 'strokeCount', kind: 'number', optional: false },
       { name: 'components', kind: 'textList', optional: true },
     ],
+    related: [],
   };
 }
 
@@ -138,5 +139,68 @@ describe('ItemEditor', () => {
       params: { path: { id: '3' } },
       body: { overrides: { strokeCount: 0 } },
     });
+  });
+
+  it('creates a grammar point and saves its level and related points (FR-222)', async () => {
+    const point: AuthoringItem = {
+      id: 8,
+      key: 'ja:grammar:mashou',
+      type: 'grammar',
+      levelCode: 'N5',
+      source: null,
+      datasetVersion: null,
+      data: { pattern: '〜ましょう' },
+      overrides: {},
+      effective: { pattern: '〜ましょう' },
+      fields: [
+        { name: 'pattern', kind: 'text', optional: false },
+        { name: 'meaning', kind: 'text', optional: true },
+      ],
+      related: [],
+    };
+    const api = { GET: jest.fn(), POST: jest.fn().mockResolvedValue(point), PATCH: jest.fn() };
+    render(
+      <ApiContext.Provider value={api as unknown as ApiClient}>
+        <AppThemeProvider>
+          <ItemEditor courseId={7} />
+        </AppThemeProvider>
+      </ApiContext.Provider>,
+    );
+    fireEvent.change(screen.getByLabelText('Grammar point key'), { target: { value: point.key } });
+    fireEvent.change(screen.getByLabelText('Grammar point level'), { target: { value: 'N5' } });
+    fireEvent.change(screen.getByLabelText('Pattern'), { target: { value: '〜ましょう' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create grammar point' }));
+    await screen.findByRole('heading', { name: point.key });
+    expect(api.POST).toHaveBeenCalledWith('/api/v1/authoring/items', {
+      body: {
+        course: 7,
+        type: 'grammar',
+        key: point.key,
+        level: 'N5',
+        data: { pattern: '〜ましょう' },
+      },
+    });
+
+    api.PATCH.mockResolvedValueOnce({
+      ...point,
+      levelCode: 'N4',
+      related: ['ja:grammar:te-kudasai'],
+    });
+    fireEvent.change(screen.getByLabelText('Level'), { target: { value: 'N4' } });
+    fireEvent.change(screen.getByLabelText(/^Related item keys/), {
+      target: { value: 'ja:grammar:te-kudasai\n' },
+    });
+    fireEvent.change(screen.getByLabelText(/^meaning/), { target: { value: "let's ~" } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(api.PATCH).toHaveBeenCalledWith('/api/v1/authoring/items/{id}', {
+        params: { path: { id: '8' } },
+        body: {
+          overrides: { meaning: "let's ~" },
+          level: 'N4',
+          related: ['ja:grammar:te-kudasai'],
+        },
+      }),
+    );
   });
 });

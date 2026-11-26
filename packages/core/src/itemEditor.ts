@@ -87,6 +87,8 @@ export const authoringItemSchema = z.object({
   /** `data` with `overrides` applied: what learners see. */
   effective: jsonObjectSchema,
   fields: z.array(itemFieldSchema),
+  /** Keys of the related items (`item_links` of kind `related`), such as related grammar points. */
+  related: z.array(stableKeySchema),
 });
 export type AuthoringItem = z.infer<typeof authoringItemSchema>;
 
@@ -94,5 +96,23 @@ export type AuthoringItem = z.infer<typeof authoringItemSchema>;
  * `PATCH /authoring/items/:id`: replaces the item's overrides. A field left out has no override
  * (the clear action). The merged data must pass the plugin's item schema (DR-06).
  */
-export const updateItemOverridesRequestSchema = z.object({ overrides: jsonObjectSchema });
+export const updateItemOverridesRequestSchema = z.object({
+  overrides: jsonObjectSchema,
+  /** FR-222: an authored item's level and related keys; an imported item's come from its import. */
+  level: levelCodeSchema.nullable().optional(),
+  related: z.array(stableKeySchema).max(50).optional(),
+});
 export type UpdateItemOverridesRequest = z.infer<typeof updateItemOverridesRequestSchema>;
+
+/**
+ * FR-222: `POST /authoring/items`: a new authored item, such as a grammar point (a stub is just
+ * its pattern). `data` must pass the plugin's item schema for `type` (DR-06).
+ */
+export const createItemRequestSchema = z.object({
+  course: idSchema,
+  type: typeIdSchema,
+  key: stableKeySchema,
+  level: levelCodeSchema.nullable(),
+  data: jsonObjectSchema,
+});
+export type CreateItemRequest = z.infer<typeof createItemRequestSchema>;

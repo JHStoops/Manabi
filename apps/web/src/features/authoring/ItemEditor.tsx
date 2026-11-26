@@ -53,6 +53,7 @@ export function ItemEditor({ courseId }: { courseId: number }) {
   const [found, setFound] = useState<AuthoringItemSummary[] | null>(null);
   const [item, setItem] = useState<AuthoringItem | null>(null);
   const [message, setMessage] = useState('');
+  const [draft, setDraft] = useState({ key: '', level: '', pattern: '' });
 
   async function run<T>(request: Promise<T>, then: (value: T) => void) {
     setMessage('');
@@ -71,6 +72,22 @@ export function ItemEditor({ courseId }: { courseId: number }) {
     );
   }
 
+  // FR-222: a new grammar point starts as a stub: its key, level and pattern.
+  function create(event: FormEvent) {
+    event.preventDefault();
+    const body = {
+      course: courseId,
+      type: 'grammar',
+      key: draft.key,
+      level: draft.level || null,
+      data: { pattern: draft.pattern },
+    };
+    void run(api.POST('/api/v1/authoring/items', { body }), (created) => {
+      setItem(created);
+      setDraft({ key: '', level: '', pattern: '' });
+    });
+  }
+
   const open = (id: number) =>
     void run(
       api.GET('/api/v1/authoring/items/{id}', { params: { path: { id: String(id) } } }),
@@ -86,6 +103,19 @@ export function ItemEditor({ courseId }: { courseId: number }) {
           <input value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
         <Button type="submit">{t('authoring.items.find')}</Button>
+      </Form>
+      <Form onSubmit={create} aria-label={t('authoring.items.newGrammar')}>
+        {(['key', 'level', 'pattern'] as const).map((name) => (
+          <label key={name}>
+            {t(`authoring.items.grammar.${name}`)}
+            <input
+              value={draft[name]}
+              required={name !== 'level'}
+              onChange={(e) => setDraft((d) => ({ ...d, [name]: e.target.value }))}
+            />
+          </label>
+        ))}
+        <Button type="submit">{t('authoring.items.create')}</Button>
       </Form>
       {message && <p role="alert">{message}</p>}
       {found && found.length === 0 && <p>{t('authoring.items.none')}</p>}
@@ -126,15 +156,23 @@ function ItemForm({
   );
   const [message, setMessage] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // FR-222: an authored item's level and related items; an imported item's come from its import.
+  const authored = item.source === null;
+  const [level, setLevel] = useState(item.levelCode ?? '');
+  const [related, setRelated] = useState(item.related.join('\n'));
 
-  async function save(overrides: JsonObject) {
+  async function save(overrides: JsonObject, withLinks = false) {
     setMessage('');
     setFieldErrors({});
+    const links = {
+      level: level.trim() || null,
+      related: related.split('\n').flatMap((line) => line.trim() || []),
+    };
     try {
       onSaved(
         await api.PATCH('/api/v1/authoring/items/{id}', {
           params: { path: { id: String(item.id) } },
-          body: { overrides },
+          body: withLinks ? { overrides, ...links } : { overrides },
         }),
       );
     } catch (err) {
@@ -162,7 +200,7 @@ function ItemForm({
       const imported = item.data[field.name] ?? (field.kind === 'textList' ? [] : undefined);
       if (value !== undefined && !same(value, imported)) overrides[field.name] = value;
     }
-    void save(overrides);
+    void save(overrides, authored);
   }
 
   function clear(name: string) {
@@ -181,6 +219,18 @@ function ItemForm({
           : t('authoring.items.authored')}
       </p>
       {message && <p role="alert">{message}</p>}
+      {authored && (
+        <>
+          <label>
+            {t('authoring.level')}
+            <input value={level} onChange={(e) => setLevel(e.target.value)} />
+          </label>
+          <label>
+            {t('authoring.items.related')}
+            <textarea rows={2} value={related} onChange={(e) => setRelated(e.target.value)} />
+          </label>
+        </>
+      )}
       {item.fields.map((field) => {
         const id = `item-field-${field.name}`;
         const overridden = Object.hasOwn(item.overrides, field.name);

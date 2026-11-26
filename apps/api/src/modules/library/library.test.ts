@@ -292,7 +292,7 @@ describeWithDb('library API', () => {
   it('searches the merged data after an author override', async () => {
     const { courseId, id } = await seed();
     const { session } = await signIn('ann');
-    await updateItemOverrides(pool(), id['ja:kanji:火']!, { meanings: ['flame'] });
+    await updateItemOverrides(pool(), id['ja:kanji:火']!, { overrides: { meanings: ['flame'] } });
     expect(await keys(session, courseId, 'q=flame')).toEqual(['ja:kanji:火']);
     expect(await keys(session, courseId, 'q=fire')).toEqual([]);
   });
