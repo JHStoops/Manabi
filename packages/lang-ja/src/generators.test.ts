@@ -139,6 +139,11 @@ describe('EX-10 conjugate', () => {
       word: '行く',
       accept: [{ text: '行って' }, { text: 'いって' }],
     });
+    const tiles = (e!.payload as { accept: { tiles: unknown[] }[] }).accept.map((a) => a.tiles);
+    expect(tiles).toEqual([
+      [{ surface: '行って', base: '行く', reading: 'いって', itemId: conjugable[1]!.id }],
+      [{ surface: 'いって', base: '行く', reading: 'いって', itemId: conjugable[1]!.id }],
+    ]);
     expect(gradeResponse(e!, { attempts: ['いって'] }, japanese)).toEqual({ result: 'correct' });
     expect(gradeResponse(e!, { attempts: ['いいて'] }, japanese).result).toBe('wrong');
   });

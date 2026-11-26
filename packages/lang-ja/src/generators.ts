@@ -313,11 +313,13 @@ const conjugateGenerator: ExerciseGenerator = (item) => {
   const form = shuffled(formsFor(pos))[0]!;
   const [written, reading] = [word.written, word.reading].map((text) => conjugate(text, pos, form));
   if (!written || !reading) return [];
-  const tile = { surface: written, base: word.written, reading, itemId: item.id };
   const payload: ConjugatePayload = {
     prompt: FORM_LABELS[form],
     word: word.written,
-    accept: [...new Set([written, reading])].map((text) => ({ text, tiles: [tile] })),
+    accept: [...new Set([written, reading])].map((text) => ({
+      text,
+      tiles: [{ surface: text, base: word.written, reading, itemId: item.id }],
+    })),
   };
   return [{ type: CONJUGATE_TYPE, payload }];
 };
