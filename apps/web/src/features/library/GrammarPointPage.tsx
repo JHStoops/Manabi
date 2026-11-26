@@ -60,7 +60,13 @@ function GrammarPoint() {
   if (!item) return <p>{t('app.loading')}</p>;
 
   const { pattern, meaning, formation, explanation } = grammarOf(item);
-  const related = item.links.filter((l) => l.kind === 'related' && l.item.type === 'grammar');
+  const related = [
+    ...new Map(
+      item.links
+        .filter((l) => l.kind === 'related' && l.item.type === 'grammar')
+        .map((l) => [l.item.key, l.item]),
+    ).values(),
+  ];
   return (
     <>
       <p>
@@ -129,7 +135,7 @@ function GrammarPoint() {
         <section>
           <h2>{t('grammar.related')}</h2>
           <ul>
-            {related.map(({ item: point }) => (
+            {related.map((point) => (
               <li key={point.key}>
                 <Link to={`/library/grammar/${encodeURIComponent(point.key)}`}>
                   {grammarOf(point).pattern}

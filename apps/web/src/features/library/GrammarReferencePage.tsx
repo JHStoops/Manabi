@@ -51,6 +51,7 @@ export default function GrammarReferencePage() {
   useEffect(() => {
     if (activeCourseId === null) return;
     let current = true;
+    setProblem(null);
     // shortcut: no debounce and every page fetched in turn; fine for a few hundred points.
     (async () => {
       const all: LibraryItem[] = [];
@@ -68,7 +69,11 @@ export default function GrammarReferencePage() {
         cursor = page.nextCursor ?? undefined;
       } while (cursor);
       if (current) setItems(all);
-    })().catch((err: unknown) => current && setProblem(apiErrorMessage(t, err)));
+    })().catch((err: unknown) => {
+      if (!current) return;
+      setItems(null);
+      setProblem(apiErrorMessage(t, err));
+    });
     return () => {
       current = false;
     };
@@ -84,6 +89,11 @@ export default function GrammarReferencePage() {
           : [t('grammar.noTheme')];
     for (const key of keys) groups.set(key, [...(groups.get(key) ?? []), item]);
   }
+
+  // Levels keep the course's item order (it follows the section order); themes sort by name.
+  // shortcut: an item reordered out of section order can misplace a level; sort by section position if so.
+  const ordered =
+    grouping === 'theme' ? [...groups].sort(([a], [b]) => a.localeCompare(b)) : [...groups];
 
   return (
     <>
@@ -109,7 +119,7 @@ export default function GrammarReferencePage() {
       </Controls>
       {problem && <p role="alert">{problem}</p>}
       {items?.length === 0 && <p>{t('grammar.none')}</p>}
-      {[...groups].map(([group, points]) => (
+      {ordered.map(([group, points]) => (
         <section key={group}>
           <h2>{group}</h2>
           <List>

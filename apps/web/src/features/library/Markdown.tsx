@@ -5,11 +5,11 @@ import type { ReactNode } from 'react';
 // shortcut: paragraphs, "- " lists, **bold** and *italic* only; use a Markdown library if authors
 // need headings, links or tables.
 const stripTags = (md: string) =>
-  md.replace(/<script\b[\s\S]*?<\/script\s*>/gi, '').replace(/<[^>]*>/g, '');
+  md.replace(/<script\b[\s\S]*?(<\/script\s*>|$)/gi, '').replace(/<\/?[a-z][^>]*>/gi, '');
 
 function inline(text: string): ReactNode[] {
   return text
-    .split(/(\*\*[^*]+\*\*|\*[^*]+\*)/)
+    .split(/(\*\*[^*\s][^*]*\*\*|\*[^*\s][^*]*\*)/)
     .map((part, i) =>
       part.startsWith('**') && part.length > 4 ? (
         <strong key={i}>{part.slice(2, -2)}</strong>

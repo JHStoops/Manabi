@@ -143,7 +143,25 @@ describe('GrammarPointPage', () => {
   });
 });
 
+const detail0 = () => ({ ...point('k', 'N4', null, {}), facets: [], links: [], sentences: [] });
+
+describe('GrammarPointPage states', () => {
+  it('shows a not-yet-learned stub without optional blocks', async () => {
+    const stub = { ...detail0(), stage: null, data: { pattern: 'Verb + はず' } };
+    mount(<GrammarPointPage />, () => stub, '/library/grammar/ja:grammar:hazu');
+    await screen.findByRole('heading', { name: 'Verb + はず' });
+    screen.getByText('Not yet learned');
+    expect(screen.queryByRole('heading', { name: 'Formation' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Related' })).toBeNull();
+  });
+});
+
 describe('Markdown', () => {
+  it('keeps text that merely contains angle brackets', () => {
+    const { container } = render(<Markdown source="A < B and <script>alert(1)" />);
+    expect(container.textContent).toBe('A < B and');
+  });
+
   it('drops script tags and their bodies', () => {
     const { container } = render(
       <Markdown source={'Hi <script>alert(1)</script> *there*\n\n- a\n- b'} />,
