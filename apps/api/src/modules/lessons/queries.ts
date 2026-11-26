@@ -136,6 +136,11 @@ export function insertUnitSession(
 }
 
 /** FR-023: whether the learner is enrolled in the course. */
+/** FR-074: the learner's settings, which say whether sessions include drawing exercises. */
+export function findSettings(db: Queryable, userId: number) {
+  return queryOne<{ settings: unknown }>(db, `SELECT settings FROM users WHERE id = $1`, [userId]);
+}
+
 export async function isEnrolled(db: Queryable, userId: number, courseId: number) {
   const row = await queryOne(
     db,

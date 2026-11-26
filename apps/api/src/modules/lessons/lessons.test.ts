@@ -218,6 +218,38 @@ describeWithDb('lesson sessions API', () => {
     expect(prompts).not.toContain('archived');
   });
 
+  it('swaps drawing exercises for EX-01 when the learner turns drawing off (FR-074)', async () => {
+    const { lesson, item } = await seed();
+    await sql(
+      `INSERT INTO exercises (lesson_id, item_id, position, type, payload, origin)
+       VALUES ($1, $2, 0, 'stroke_trace', $3, 'authored'), ($1, $2, 1, 'draw_memory', $4, 'authored')`,
+      [
+        lesson.l1,
+        item.w1,
+        { itemKey: 'w1', character: '一' },
+        { itemKey: 'w1', character: '一', prompt: 'Draw "one"' },
+      ],
+    );
+    const types = async (username: string, drawing: boolean) => {
+      const { userId, session } = await signIn(username);
+      await sql(`UPDATE users SET settings = settings || $2::jsonb WHERE id = $1`, [
+        userId,
+        { drawingExercises: drawing },
+      ]);
+      const body = (await start(lesson.l1!, session)).json<LessonSession>();
+      return body.exercises.map((e) => `${e.type}:${String(e.payload.prompt)}`);
+    };
+
+    const on = await types('aiko', true);
+    expect(on.slice(0, 2)).toEqual(['stroke_trace:undefined', 'draw_memory:Draw "one"']);
+    const off = await types('bento', false);
+    expect(off.some((t) => t.startsWith('stroke_trace') || t.startsWith('draw_memory'))).toBe(
+      false,
+    );
+    // The test plugin's EX-01 for w1 (its prompt is the item key) takes the first place.
+    expect(off[0]).toBe('choice:w1');
+  });
+
   it('uses only sentences at or below the section level and not challenging (FR-056)', async () => {
     const { courseId, lesson, item } = await seed();
     const { userId, session } = await signIn('aiko');

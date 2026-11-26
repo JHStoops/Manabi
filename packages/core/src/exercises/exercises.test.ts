@@ -8,6 +8,7 @@ import {
   READING_IN_CONTEXT_TYPE,
   REORDER_TYPE,
   STROKE_TRACE_TYPE,
+  DRAW_MEMORY_TYPE,
   TYPED_ANSWER_TYPE,
   WORD_BANK_TYPE,
 } from '../index';
@@ -321,5 +322,19 @@ describe('EX-11 stroke trace grader', () => {
     expect(() => grade(STROKE_TRACE_TYPE, { ...payload, itemKey: '' }, { mistakes: 0 })).toThrow();
     expect(() => grade(STROKE_TRACE_TYPE, payload, { mistakes: -1 })).toThrow();
     expect(() => grade(STROKE_TRACE_TYPE, payload, 'done')).toThrow();
+  });
+});
+
+describe('EX-12 draw from memory grader', () => {
+  const payload = { itemKey: 'ja:kanji:水', character: '水', prompt: 'Draw "water"' };
+
+  it('grades a finished drawing correct, whatever the missed strokes', () => {
+    expect(grade(DRAW_MEMORY_TYPE, payload, { mistakes: 0 })).toEqual({ result: 'correct' });
+    expect(grade(DRAW_MEMORY_TYPE, payload, { mistakes: 4 })).toEqual({ result: 'correct' });
+  });
+
+  it('rejects a payload without a prompt and a malformed answer', () => {
+    expect(() => grade(DRAW_MEMORY_TYPE, { ...payload, prompt: '' }, { mistakes: 0 })).toThrow();
+    expect(() => grade(DRAW_MEMORY_TYPE, payload, { mistakes: -1 })).toThrow();
   });
 });

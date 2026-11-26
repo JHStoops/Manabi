@@ -10,7 +10,8 @@ import { ChoiceButton } from '../exercises/ui';
 // The stroke canvas (SDD section 9; Product Spec section 5): Hanzi Writer (MIT, bundled) fed our
 // KanjiVG-derived data from GET /media/strokes/:itemKey, never its CDN or bundled data (FR-077).
 // `animate` plays the stroke order (FR-071); `trace` judges drawn strokes with Hanzi Writer's
-// matcher, flashing the next stroke as a guide and shaking off wrong ones (FR-072, FR-073).
+// matcher, flashing the next stroke as a guide and shaking off wrong ones (FR-072, FR-073);
+// `memory` judges the same way with no outline or guide, flashing a stroke once after 2 misses.
 // Hanzi Writer listens to mouse and touch events; a stylus arrives as touch (IF-11).
 
 const SIZE = 300;
@@ -61,8 +62,8 @@ const Status = styled.p`
 export interface StrokeCanvasProps {
   itemKey: string;
   character: string;
-  mode: 'animate' | 'trace';
-  /** Trace mode: called once every stroke is drawn, with the number of discarded strokes. */
+  mode: 'animate' | 'trace' | 'memory';
+  /** Trace and memory modes: called once every stroke is drawn, with the number of discarded strokes. */
   onComplete?(mistakes: number): void;
 }
 
@@ -88,7 +89,7 @@ export function StrokeCanvas({ itemKey, character, mode, onComplete }: StrokeCan
       height: SIZE,
       padding: 16,
       showCharacter: mode === 'animate',
-      showOutline: true,
+      showOutline: mode !== 'memory',
       strokeColor: theme.colors.text,
       outlineColor: theme.colors.border,
       highlightColor: theme.colors.primary,
@@ -105,26 +106,29 @@ export function StrokeCanvas({ itemKey, character, mode, onComplete }: StrokeCan
       onLoadCharDataError: () => setStatus(t('strokes.loadFailed')),
     });
     writer.current = created;
-    if (mode === 'trace') {
+    if (mode !== 'animate') {
+      const trace = mode === 'trace';
       void created.quiz({
         leniency: STROKE_LENIENCY,
-        // A miss flashes the stroke again; the guide also flashes before each stroke (below).
-        showHintAfterMisses: 1,
-        onMistake: () => {
+        // Trace: a miss flashes the stroke again; the guide also flashes before each stroke
+        // (below). Memory: the stroke flashes once, at its second miss (FR-073).
+        showHintAfterMisses: trace ? 1 : false,
+        onMistake: ({ strokeNum, mistakesOnStroke }) => {
           setShaking(true);
           setStatus(t('strokes.mistake'));
+          if (!trace && mistakesOnStroke === 2) void created.highlightStroke(strokeNum);
         },
         onCorrectStroke: ({ strokeNum, strokesRemaining }) => {
           setStroke(strokeNum + 1);
           setStatus('');
-          if (strokesRemaining > 0) void created.highlightStroke(strokeNum + 1);
+          if (trace && strokesRemaining > 0) void created.highlightStroke(strokeNum + 1);
         },
         onComplete: ({ totalMistakes }) => {
           setStatus(t('strokes.done'));
           onCompleteRef.current?.(totalMistakes);
         },
       });
-      void created.highlightStroke(0);
+      if (trace) void created.highlightStroke(0);
     }
     return () => {
       created.cancelQuiz();
@@ -170,7 +174,16 @@ export function StrokeCanvas({ itemKey, character, mode, onComplete }: StrokeCan
       <Board
         ref={board}
         role="img"
-        aria-label={t(mode === 'trace' ? 'strokes.canvas' : 'strokes.animation', { character })}
+        aria-label={t(
+          (
+            {
+              animate: 'strokes.animation',
+              trace: 'strokes.canvas',
+              memory: 'strokes.memoryCanvas',
+            } as const
+          )[mode],
+          { character },
+        )}
         data-shake={shaking}
         onAnimationEnd={() => setShaking(false)}
       />
@@ -189,7 +202,8 @@ export function StrokeCanvas({ itemKey, character, mode, onComplete }: StrokeCan
       )}
       <Status role="status">
         {status ||
-          (strokeCount > 0 && stroke > 0
+          // Memory mode keeps the stroke count to itself: it is part of what is tested.
+          (mode !== 'memory' && strokeCount > 0 && stroke > 0
             ? t('strokes.progress', { stroke, count: strokeCount })
             : '')}
       </Status>
