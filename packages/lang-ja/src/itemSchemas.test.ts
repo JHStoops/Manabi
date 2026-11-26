@@ -1,4 +1,4 @@
-import { parseItemData } from '@manabi/core';
+import { itemFields, parseItemData } from '@manabi/core';
 import type { z } from '@manabi/core';
 import japanese from './index';
 import { grammarDataSchema, kanaDataSchema, kanjiDataSchema, wordDataSchema } from './itemSchemas';
@@ -124,5 +124,30 @@ describe('japanese.itemSchemas', () => {
       senses: [{ partsOfSpeech: [], meanings: ['water'] }],
     });
     expect(() => parseItemData(japanese, 'sentence', {})).toThrow('no item type "sentence"');
+  });
+});
+
+describe('itemFields (FR-221: the item editor form)', () => {
+  it('describes each top-level field of the Japanese item schemas', () => {
+    expect(itemFields(kanaDataSchema).map((f) => [f.name, f.kind])).toEqual([
+      ['character', 'text'],
+      ['script', 'text'],
+      ['romaji', 'text'],
+    ]);
+    expect(itemFields(kanjiDataSchema)).toContainEqual({
+      name: 'components',
+      kind: 'textList',
+      optional: true,
+    });
+    expect(itemFields(kanjiDataSchema)).toContainEqual({
+      name: 'strokeCount',
+      kind: 'number',
+      optional: false,
+    });
+    expect(itemFields(wordDataSchema)).toContainEqual({
+      name: 'senses',
+      kind: 'json',
+      optional: false,
+    });
   });
 });
