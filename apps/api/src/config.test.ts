@@ -14,6 +14,7 @@ describe('loadConfig', () => {
       databaseUrl: '',
       sessionSecret: '',
       mediaDir: './media',
+      ttsUrl: 'http://localhost:8880',
       webDistDir: '',
       logLevel: 'silent',
       trustProxy: 1,

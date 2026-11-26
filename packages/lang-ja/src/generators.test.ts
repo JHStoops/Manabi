@@ -39,6 +39,15 @@ const words = [
   word('川', 'かわ', 'river'),
   word('食べる', 'たべる', 'to eat', 'to dine'),
 ];
+const verb = (written: string, reading: string, pos: string) =>
+  item('word', 'N5', { written, reading, senses: [{ partsOfSpeech: [pos], meanings: ['m'] }] });
+const conjugable = [
+  verb('食べる', 'たべる', 'v1'),
+  verb('行く', 'いく', 'v5k-s'),
+  verb('来る', 'くる', 'vk'),
+  verb('高い', 'たかい', 'adj-i'),
+  verb('静か', 'しずか', 'adj-na'),
+];
 const sentence: GeneratorSentence = {
   id: 9,
   text: '犬を見る。',
@@ -68,6 +77,7 @@ const eat = kanjiData('食', ['ショク', 'ジキ'], ['く.う', 'た.べる'])
 const kanji = [study, eat, kanjiData('火', ['カ'], ['ひ'])].map((k) => item('kanji', 'N5', k));
 const kanjiWords = [word('学生', 'がくせい', 'student'), word('学校', 'がっこう', 'school')];
 const kanjiContext = context('N5', [...words, ...kanji, ...kanjiWords]);
+const conjugateContext = context('N5', [...words, ...conjugable]);
 const kanaContext = context(KANA_SECTION_LEVEL, [...kana, ...words]);
 const n5Context = context('N5', [...kana, ...words]);
 
@@ -84,7 +94,7 @@ const rightAnswer = (e: Exercise): unknown => {
   return (p.accept as { text: string }[])[0]!.text;
 };
 
-describe.each([
+describe.each<[string, Item, GeneratorContext]>([
   ['choice', kana[5]!, kanaContext],
   ['choice', words[0]!, kanaContext],
   ['choice', words[5]!, n5Context],
@@ -95,6 +105,7 @@ describe.each([
   ['word_bank', words[0]!, n5Context],
   ['reading_in_context', kanji[0]!, kanjiContext],
   ['reading_in_context', kanji[1]!, kanjiContext],
+  ...conjugable.map((w): [string, Item, GeneratorContext] => ['conjugate', w, conjugateContext]),
 ])('%s generator for %j', (type, target, ctx) => {
   const exercises = runs(type, target, ctx);
 
@@ -116,6 +127,35 @@ describe.each([
       expect(ids.every((id) => taught.has(id))).toBe(true);
       if (type !== 'typed_answer') expect(ids).toContain(target.id);
     }
+  });
+});
+
+describe('EX-10 conjugate', () => {
+  it('accepts the kanji and the kana spelling of the form', () => {
+    const [e] = runs('conjugate', conjugable[1]!, conjugateContext).filter(
+      (x) => (x.payload as { prompt: string }).prompt === 'Te-form',
+    );
+    expect(e!.payload).toMatchObject({
+      word: '行く',
+      accept: [{ text: '行って' }, { text: 'いって' }],
+    });
+    const tiles = (e!.payload as { accept: { tiles: unknown[] }[] }).accept.map((a) => a.tiles);
+    expect(tiles).toEqual([
+      [{ surface: '行って', base: '行く', reading: 'いって', itemId: conjugable[1]!.id }],
+      [{ surface: 'いって', base: '行く', reading: 'いって', itemId: conjugable[1]!.id }],
+    ]);
+    expect(gradeResponse(e!, { attempts: ['いって'] }, japanese)).toEqual({ result: 'correct' });
+    expect(gradeResponse(e!, { attempts: ['いいて'] }, japanese).result).toBe('wrong');
+  });
+
+  it('builds no exercise for words without a supported part-of-speech code', () => {
+    const odd = [
+      word('犬', 'いぬ', 'dog'),
+      verb('今', 'いま', 'adv'),
+      verb('勉強', 'べんきょう', 'vs'),
+    ];
+    for (const w of odd) expect(generators.conjugate!(w, conjugateContext)).toEqual([]);
+    expect(generators.conjugate!(kana[0]!, conjugateContext)).toEqual([]);
   });
 });
 

@@ -1,6 +1,15 @@
 import { learnerSettingsSchema } from '@manabi/core';
-import type { FriendList, NudgeList, NudgeKind, PublicProfile } from '@manabi/core';
+import type {
+  FriendList,
+  Leaderboard,
+  NudgeList,
+  NudgeKind,
+  PublicProfile,
+  WeeklyBadges,
+} from '@manabi/core';
+import type { Pool } from 'pg';
 import type { Queryable } from '../../db/db';
+import { withTransaction } from '../../db/db';
 import { AppError } from '../../errors';
 import type { AuthContext, ScopedUserId } from '../auth/service';
 import * as q from './queries';
@@ -78,3 +87,64 @@ export async function listNudges(db: Queryable, userId: ScopedUserId): Promise<N
 }
 
 export const markNudgesSeen = q.markNudgesSeen;
+
+/** FR-181: weeks run in the server's time zone (the deployment's TZ, also used for cron). */
+export const serverTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+const CACHE_MS = 30_000;
+// shortcut: per-process cache, so each API instance may differ for up to 30 s; fine for one server.
+let cache: { at: number; weekStart: string; board: Leaderboard } | null = null;
+
+/** Tests only: forgets the cached board. */
+export const clearLeaderboardCache = () => {
+  cache = null;
+};
+
+/**
+ * FR-180: XP earned this week across all courses by opted-in learners, cached for 30 seconds.
+ * Everyone sees the same board, so opted-out learners can look but are not listed.
+ */
+export async function getLeaderboard(
+  db: Queryable,
+  now: Date = new Date(),
+  timeZone = serverTimeZone(),
+): Promise<Leaderboard> {
+  if (cache && now.getTime() - cache.at < CACHE_MS && now.getTime() >= cache.at) {
+    return cache.board;
+  }
+  const weekStart = await q.weekStartOf(db, now, timeZone);
+  const rows = await q.weekBoard(db, weekStart, timeZone);
+  const board = {
+    weekStart,
+    entries: rows.map((r) => ({
+      rank: r.rank,
+      userId: r.user_id,
+      displayName: r.display_name,
+      xp: r.xp,
+    })),
+  };
+  cache = { at: now.getTime(), weekStart, board };
+  return board;
+}
+
+/**
+ * FR-181: stores the final ranks of the week before the one containing `now`. Run at Monday 00:00,
+ * the end of Sunday 23:59; a late or repeated run writes the same week once. Returns rows written.
+ */
+export async function closeLastWeek(
+  db: Pool,
+  now: Date = new Date(),
+  timeZone = serverTimeZone(),
+): Promise<number> {
+  return withTransaction(db, async (client) =>
+    q.insertWeeklyResults(client, await q.weekStartOf(client, now, timeZone, -7), timeZone),
+  );
+}
+
+/** FR-181: the caller's top-three finishes. */
+export async function getBadges(db: Queryable, userId: number): Promise<WeeklyBadges> {
+  const rows = await q.listBadges(db, userId);
+  return {
+    badges: rows.map((r) => ({ weekStart: r.week_start, rank: r.rank, xp: r.xp })),
+  };
+}

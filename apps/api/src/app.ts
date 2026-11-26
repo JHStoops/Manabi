@@ -15,6 +15,7 @@ import {
 import type { FastifyPluginAsyncZod, ZodTypeProvider } from 'fastify-type-provider-zod';
 import type { Pool } from 'pg';
 import { emptyQuerySchema } from '@manabi/core';
+import type { TtsProvider } from '@manabi/core';
 import type { Config, TrustProxy } from './config';
 import { apiNotFound, errorHandler } from './errors';
 import { allJobs } from './jobs';
@@ -22,6 +23,7 @@ import { createJobQueue } from './jobs/queue';
 import { REDACT_PATHS } from './logger';
 import { featureModules } from './modules';
 import { authGuard } from './modules/auth/guard';
+import { kokoroProvider } from './modules/media/kokoro';
 import { AttemptLimiter } from './rateLimit';
 import { API_PREFIX, missingRequestSchemas } from './routeSchemas';
 import type { RegisteredRoute } from './types';
@@ -33,6 +35,8 @@ export interface AppOptions {
   pool: Pool;
   /** Where JSON logs go instead of stdout (tests). */
   logStream?: Writable;
+  /** The TTS engine; Kokoro at `config.ttsUrl` unless given (tests pass a fake). */
+  tts?: TtsProvider;
 }
 
 /**
@@ -121,7 +125,12 @@ const openApiRoute: FastifyPluginAsyncZod = async (app) => {
  * Builds the Fastify app. Does not listen. Every route under /api/v1 must declare its request
  * schemas (NFR-13); registering one without them fails here, at start-up.
  */
-export async function buildApp({ config, pool, logStream }: AppOptions): Promise<FastifyInstance> {
+export async function buildApp({
+  config,
+  pool,
+  logStream,
+  tts,
+}: AppOptions): Promise<FastifyInstance> {
   const app = Fastify({
     logger: config.logLevel === 'silent' && !logStream ? false : loggerOptions(config, logStream),
     // IF-08: Nginx Proxy Manager terminates HTTPS and sets X-Forwarded-For/-Proto/-Host, so
@@ -133,6 +142,7 @@ export async function buildApp({ config, pool, logStream }: AppOptions): Promise
   app.setSerializerCompiler(serializerCompiler);
   app.decorate('config', config);
   app.decorate('db', pool);
+  app.decorate('tts', tts ?? kokoroProvider(config.ttsUrl));
   // NFR-23: jobs go into the pg-boss tables; the API never works them, so it keeps serving
   // whether or not the worker runs. The queue connects on first use and closes with the app.
   const jobs = createJobQueue({

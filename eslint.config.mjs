@@ -43,6 +43,9 @@ export default tseslint.config(
       '**/playwright-report/**',
       // Jest config and setup files (CommonJS, run by Jest itself).
       '**/jest.*.{js,cjs}',
+      // Service worker (worker globals) and the Node build-check script, plain JS served or run as is.
+      'apps/web/public/sw.js',
+      'apps/web/scripts/*.cjs',
       // Throwaway spike code (own package.json, not workspaces) stays out of all checks.
       'spikes/**',
     ],

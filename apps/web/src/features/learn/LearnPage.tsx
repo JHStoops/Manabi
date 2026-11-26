@@ -4,7 +4,7 @@ import type { Theme } from '@emotion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { CoursePath, LessonState, LessonType } from '@manabi/core';
-import { useApi } from '../../state/session';
+import { useApi, useSession, useSessionDispatch } from '../../state/session';
 import { readableOn, tapTarget } from '../../theme';
 import { apiErrorMessage } from '../auth/ui';
 import { CoursePathProvider, useCoursePath, useCoursePathDispatch } from './coursePath';
@@ -204,6 +204,8 @@ function CourseHeader() {
   const { t } = useTranslation();
   const api = useApi();
   const dispatch = useCoursePathDispatch();
+  const { user } = useSession();
+  const sessionDispatch = useSessionDispatch();
   const { courses, activeId, path } = useCoursePath();
   const enrolled = courses?.filter((c) => c.enrolled) ?? [];
   const available = courses?.filter((c) => !c.enrolled && c.status === 'published') ?? [];
@@ -216,6 +218,13 @@ function CourseHeader() {
         body: {},
       });
       dispatch({ type: 'activated', courseId });
+      // The server set settings.activeCourseId; the session copy drives the course's features.
+      if (user) {
+        sessionDispatch({
+          type: 'signedIn',
+          user: { ...user, settings: { ...user.settings, activeCourseId: courseId } },
+        });
+      }
     } catch (error) {
       dispatch({ type: 'failed', error });
     }
