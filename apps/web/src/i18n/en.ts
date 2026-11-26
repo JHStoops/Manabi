@@ -56,6 +56,7 @@ export const en = {
     kanji: 'Kanji',
     // FR-070: the kanji detail page.
     notKanji: 'This item is not a kanji.',
+    grammar: 'Grammar',
     notStarted: 'Not started',
     stage: 'Stage {{stage}}',
     strokeCount_one: '{{count}} stroke',
@@ -75,6 +76,32 @@ export const en = {
     example: 'Example',
     notAWord: 'This item is not a word.',
     partOfSpeech: '({{pos}})',
+  },
+  // FR-090, FR-092: the grammar reference and point pages.
+  grammar: {
+    title: 'Grammar',
+    search: 'Search by pattern or meaning',
+    groupBy: { level: 'By level', theme: 'By theme' },
+    noLevel: 'No level',
+    noTheme: 'Other',
+    none: 'No grammar points found.',
+    notYetLearned: 'Not yet learned',
+    notYetLearnedTag: '(not yet learned)',
+    level: 'Level {{level}}. ',
+    stage: {
+      learning: 'Learning',
+      familiar: 'Familiar',
+      strong: 'Strong',
+      mastered: 'Mastered',
+      retired: 'Retired',
+    },
+    formation: 'Formation',
+    wordType: 'Word type',
+    form: 'Form',
+    example: 'Example',
+    explanation: 'Explanation',
+    examples: 'Examples',
+    related: 'Related',
   },
   // FR-180, FR-181: the weekly leaderboard and top-three badges.
   leaderboard: {
