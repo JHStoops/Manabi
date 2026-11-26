@@ -54,6 +54,11 @@ export const en = {
   },
   library: {
     kanji: 'Kanji',
+    stage: 'Stage {{stage}}',
+    notStarted: 'Not started',
+    example: 'Example',
+    notAWord: 'This item is not a word.',
+    partOfSpeech: '({{pos}})',
   },
   // FR-113, FR-114: the Review tab and the review session.
   review: {

@@ -12,6 +12,7 @@ const LearnPage = lazy(() => import('./features/learn/LearnPage'));
 const LessonPlayerPage = lazy(() => import('./features/learn/LessonPlayerPage'));
 const ReviewPage = lazy(() => import('./features/review/ReviewPage'));
 const LibraryPage = lazy(() => import('./features/library/LibraryPage'));
+const WordPage = lazy(() => import('./features/library/WordPage'));
 const SocialPage = lazy(() => import('./features/social/SocialPage'));
 const ProfilePage = lazy(() => import('./features/profile/ProfilePage'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
@@ -151,6 +152,7 @@ export function App() {
             <Route path="/learn" element={<LearnPage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/library" element={<LibraryPage />} />
+            <Route path="/library/words/:key" element={<WordPage />} />
             <Route path="/social" element={<SocialPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route element={<RequireAdmin />}>
