@@ -3701,6 +3701,7 @@ export interface paths {
                 facet: string;
                 plugin: string;
                 correct: boolean | null;
+                retry: boolean;
               }[];
             };
           };
@@ -3808,7 +3809,7 @@ export interface paths {
     put?: never;
     /**
      * Answer one review exercise
-     * @description Re-grades the response (both attempts) on the server and saves it in one transaction. Once all of an item's facets in the session are answered, the item moves up a stage if all were right, or down if any was wrong.
+     * @description Re-grades the response (both attempts) on the server and saves it in one transaction. A wrong answer queues the exercise again at the end until it is right; only the first answer counts. Once all of an item's facets in the session are answered, the item moves up a stage if all were right, or down if any was wrong.
      */
     post: {
       parameters: {
@@ -3840,6 +3841,7 @@ export interface paths {
               correct: boolean;
               stage: number | null;
               xpEarned: number;
+              retryIndex: number | null;
             };
           };
         };

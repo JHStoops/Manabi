@@ -241,7 +241,12 @@ describeWithDb('reviews API', () => {
         [id, 'reading'],
       ]),
     );
-    expect(exercises[0]).toMatchObject({ type: 'test_echo', plugin: 'test', correct: null });
+    expect(exercises[0]).toMatchObject({
+      type: 'test_echo',
+      plugin: 'test',
+      correct: null,
+      retry: false,
+    });
     expect(exercises[0]).not.toHaveProperty('courseId');
     // Starting again resumes the same session.
     expect((await startReviews(session)).json<ReviewSession>().id).toBe(
@@ -278,12 +283,22 @@ describeWithDb('reviews API', () => {
       index: index(item.kanji!, 'meaning'),
       response: RIGHT,
     });
-    expect(res.json<ReviewAnswerResult>()).toEqual({ correct: true, stage: null, xpEarned: 0 });
+    expect(res.json<ReviewAnswerResult>()).toEqual({
+      correct: true,
+      stage: null,
+      xpEarned: 0,
+      retryIndex: null,
+    });
     res = await answer(started.id, session, {
       index: index(item.kanji!, 'reading'),
       response: WRONG,
     });
-    expect(res.json<ReviewAnswerResult>()).toEqual({ correct: false, stage: 3, xpEarned: 0 });
+    expect(res.json<ReviewAnswerResult>()).toEqual({
+      correct: false,
+      stage: 3,
+      xpEarned: 0,
+      retryIndex: 4,
+    });
 
     // The word: right on the second try and a near-miss count as right; it moves up with XP.
     await answer(started.id, session, {
@@ -294,7 +309,12 @@ describeWithDb('reviews API', () => {
       index: index(item.word!, 'reading'),
       response: { attempts: ['water'] },
     });
-    expect(res.json<ReviewAnswerResult>()).toEqual({ correct: true, stage: 6, xpEarned: 1 });
+    expect(res.json<ReviewAnswerResult>()).toEqual({
+      correct: true,
+      stage: 6,
+      xpEarned: 1,
+      retryIndex: null,
+    });
 
     const rows = await progress(userId);
     expect(rows.map((r) => [r.item_id, r.facet, r.stage])).toEqual([
@@ -318,6 +338,26 @@ describeWithDb('reviews API', () => {
     expect(
       await sql(`SELECT reason, amount, ref_id FROM xp_events ORDER BY id OFFSET $1`, [xpBefore]),
     ).toEqual([{ reason: 'review_correct', amount: 1, ref_id: item.word }]);
+    // The missed kanji reading is asked again at the end until it is right; retries change no
+    // progress and are not logged.
+    const retry = (await startReviews(session)).json<ReviewSession>().exercises[4];
+    expect(retry).toMatchObject({
+      itemId: item.kanji,
+      facet: 'reading',
+      retry: true,
+      correct: null,
+    });
+    res = await answer(started.id, session, { index: 4, response: WRONG });
+    expect(res.json<ReviewAnswerResult>()).toEqual({
+      correct: false,
+      stage: null,
+      xpEarned: 0,
+      retryIndex: 5,
+    });
+    res = await answer(started.id, session, { index: 5, response: RIGHT });
+    expect(res.json<ReviewAnswerResult>()).toMatchObject({ correct: true, retryIndex: null });
+    expect((await progress(userId)).map((r) => r.stage)).toEqual(rows.map((r) => r.stage));
+    expect(await sql(`SELECT id FROM review_log`)).toHaveLength(4);
     // A finished session is gone.
     expect(await sql(`SELECT id FROM review_sessions`)).toEqual([]);
     expect((await answer(started.id, session, { index: 0, response: RIGHT })).statusCode).toBe(404);

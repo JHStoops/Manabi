@@ -35,6 +35,11 @@ export const reviewExerciseSchema = sessionExerciseSchema.extend({
   plugin: pluginIdSchema,
   /** As the server graded the answer; null until answered. */
   correct: z.boolean().nullable(),
+  /**
+   * A wrong answer's exercise asked again at the end until it is right. Retries never change
+   * progress: only the first answer counts (FR-112).
+   */
+  retry: z.boolean(),
 });
 export type ReviewExercise = z.infer<typeof reviewExerciseSchema>;
 
@@ -74,5 +79,7 @@ export const reviewAnswerResultSchema = z.object({
   stage: stageSchema.nullable(),
   /** Review XP earned by this answer: 1 when it settles the item as right (FR-160). */
   xpEarned: z.number().int().min(0),
+  /** Where a wrong answer's exercise was queued again at the end; null when right. */
+  retryIndex: z.number().int().min(0).nullable(),
 });
 export type ReviewAnswerResult = z.infer<typeof reviewAnswerResultSchema>;

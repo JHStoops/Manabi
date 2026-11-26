@@ -57,6 +57,8 @@ export const reviewsRoutes: FastifyPluginAsyncZod = async (app) => {
         summary: 'Answer one review exercise',
         description:
           'Re-grades the response (both attempts) on the server and saves it in one transaction. ' +
+          'A wrong answer queues the exercise again at the end until it is right; only the first ' +
+          'answer counts. ' +
           "Once all of an item's facets in the session are answered, the item moves up a stage " +
           'if all were right, or down if any was wrong.',
         tags: ['reviews'],

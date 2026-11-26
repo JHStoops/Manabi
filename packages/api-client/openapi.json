@@ -5384,9 +5384,18 @@
                           },
                           "facet": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
                           "plugin": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
-                          "correct": { "nullable": true, "type": "boolean" }
+                          "correct": { "nullable": true, "type": "boolean" },
+                          "retry": { "type": "boolean" }
                         },
-                        "required": ["type", "payload", "itemId", "facet", "plugin", "correct"],
+                        "required": [
+                          "type",
+                          "payload",
+                          "itemId",
+                          "facet",
+                          "plugin",
+                          "correct",
+                          "retry"
+                        ],
                         "additionalProperties": false
                       }
                     }
@@ -5524,7 +5533,7 @@
       "post": {
         "summary": "Answer one review exercise",
         "tags": ["reviews"],
-        "description": "Re-grades the response (both attempts) on the server and saves it in one transaction. Once all of an item's facets in the session are answered, the item moves up a stage if all were right, or down if any was wrong.",
+        "description": "Re-grades the response (both attempts) on the server and saves it in one transaction. A wrong answer queues the exercise again at the end until it is right; only the first answer counts. Once all of an item's facets in the session are answered, the item moves up a stage if all were right, or down if any was wrong.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5564,9 +5573,15 @@
                   "properties": {
                     "correct": { "type": "boolean" },
                     "stage": { "nullable": true, "type": "integer", "minimum": 1, "maximum": 8 },
-                    "xpEarned": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+                    "xpEarned": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "retryIndex": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
                   },
-                  "required": ["correct", "stage", "xpEarned"],
+                  "required": ["correct", "stage", "xpEarned", "retryIndex"],
                   "additionalProperties": false
                 }
               }

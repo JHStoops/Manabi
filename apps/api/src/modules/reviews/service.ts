@@ -155,6 +155,7 @@ async function buildState(db: Queryable, userId: number, now: Date): Promise<Rev
         plugin: pluginCode,
         courseId,
         correct: null,
+        retry: false,
       }),
     );
     items++;
@@ -177,10 +178,11 @@ function isRight(exercise: SessionExercise, body: ReviewAnswerRequest, plugin: L
 
 /**
  * FR-112, FR-114, FR-117, NFR-20: grades one answer on the server and saves it in one
- * transaction. Every answer appends a review_log row. Once all of an item's facets in the session
- * are answered, the whole item moves: up one stage when every facet was right (plus review XP),
- * down when any was wrong. The log row of that last answer shows the move; earlier ones show
- * none. Stopping mid-session keeps every settled item.
+ * transaction. A wrong answer queues its exercise again at the end of the session until it is
+ * right; only the first answer of each exercise counts, and only it appends a review_log row.
+ * Once all of an item's facets in the session are answered, the whole item moves: up one stage
+ * when every facet was right (plus review XP), down when any was wrong. The log row of that last
+ * answer shows the move; earlier ones show none. Stopping mid-session keeps every settled item.
  */
 export async function answer(
   db: Pool,
@@ -207,11 +209,23 @@ export async function answer(
     const correct = isRight(exercise, body, languagePlugins.get(exercise.plugin));
     exercise.correct = correct;
     exercise.response = body.response;
+    const retryIndex = correct
+      ? null
+      : state.exercises.push({ ...exercise, response: undefined, correct: null, retry: true }) - 1;
+    const save = () =>
+      state.exercises.every((e) => e.correct !== null)
+        ? q.deleteReviewSession(client, session.id)
+        : q.saveReviewSessionState(client, session.id, state);
+    if (exercise.retry) {
+      await save();
+      return { correct, stage: null, xpEarned: 0, retryIndex };
+    }
+
     const { itemId, facet } = exercise;
     const row = await q.recordFacetAnswer(client, userId, itemId, facet, correct);
     if (!row) throw new AppError('conflict', 'This item is no longer in reviews');
 
-    const siblings = state.exercises.filter((e) => e.itemId === itemId);
+    const siblings = state.exercises.filter((e) => e.itemId === itemId && !e.retry);
     let stage: Stage | null = null;
     let xpEarned = 0;
     if (siblings.every((e) => e.correct !== null)) {
@@ -242,11 +256,7 @@ export async function answer(
       stageAfter: stage ?? row.stage,
     });
 
-    if (state.exercises.every((e) => e.correct !== null)) {
-      await q.deleteReviewSession(client, session.id);
-    } else {
-      await q.saveReviewSessionState(client, session.id, state);
-    }
-    return { correct, stage, xpEarned };
+    await save();
+    return { correct, stage, xpEarned, retryIndex };
   });
 }
