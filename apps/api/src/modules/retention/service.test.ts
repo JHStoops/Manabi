@@ -79,7 +79,13 @@ describeWithDb('purgeExpired', () => {
 
     const deleted = await purgeExpired(pool(), now);
 
-    expect(deleted).toEqual({ sessions: 1, invites: 3, passwordResets: 2, lessonSessions: 1 });
+    expect(deleted).toEqual({
+      sessions: 1,
+      invites: 3,
+      passwordResets: 2,
+      lessonSessions: 1,
+      reviewSessions: 0,
+    });
     const live = now.getTime() + HOUR;
     expect(await remainingExpiries(pool(), 'sessions')).toEqual([live]);
     expect(await remainingExpiries(pool(), 'invites')).toEqual([live, live, live]);
@@ -93,7 +99,13 @@ describeWithDb('purgeExpired', () => {
 
     const deleted = await purgeExpired(pool(), now);
 
-    expect(deleted).toEqual({ sessions: 1, invites: 3, passwordResets: 2, lessonSessions: 1 });
+    expect(deleted).toEqual({
+      sessions: 1,
+      invites: 3,
+      passwordResets: 2,
+      lessonSessions: 1,
+      reviewSessions: 0,
+    });
   });
 
   it('uses the database clock by default and leaves users and progress alone', async () => {
@@ -101,7 +113,13 @@ describeWithDb('purgeExpired', () => {
 
     const deleted = await purgeExpired(pool());
 
-    expect(deleted).toEqual({ sessions: 1, invites: 3, passwordResets: 2, lessonSessions: 1 });
+    expect(deleted).toEqual({
+      sessions: 1,
+      invites: 3,
+      passwordResets: 2,
+      lessonSessions: 1,
+      reviewSessions: 0,
+    });
     const [users] = await query<{ count: number }>(pool(), 'SELECT count(*) AS count FROM users');
     expect(users!.count).toBe(1);
   });
@@ -112,6 +130,7 @@ describeWithDb('purgeExpired', () => {
       invites: 0,
       passwordResets: 0,
       lessonSessions: 0,
+      reviewSessions: 0,
     });
   });
 });

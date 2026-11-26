@@ -3557,6 +3557,412 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/reviews/summary': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Items due now and a 7-day forecast */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              dueNow: number;
+              forecast: {
+                /** Format: date */
+                date: string;
+                count: number;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/reviews/sessions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Start a review session, or resume the unexpired one
+     * @description Up to 20 due items, oldest due first, with one exercise per due facet. A session is kept for 24 hours; starting again within that time returns it. 409 when nothing is due.
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': Record<string, never> | null;
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              id: number;
+              /** Format: date-time */
+              expiresAt: string;
+              exercises: {
+                type: string;
+                payload: {
+                  [key: string]: unknown;
+                };
+                itemId: number;
+                facet: string;
+                plugin: string;
+                correct: boolean | null;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/review-sessions/{id}/answers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Answer one review exercise
+     * @description Re-grades the response (both attempts) on the server and saves it in one transaction. Once all of an item's facets in the session are answered, the item moves up a stage if all were right, or down if any was wrong.
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            index: number;
+            response: {
+              attempts: unknown[];
+            };
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              correct: boolean;
+              stage: number | null;
+              xpEarned: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/follows/{userId}': {
     parameters: {
       query?: never;

@@ -4,6 +4,7 @@ import { convertInput } from './convertInput';
 import { detectGrammar } from './grammar';
 import { generators } from './generators';
 import { itemSchemas } from './itemSchemas';
+import { reviewFacets } from './reviewFacets';
 import { segment } from './segment';
 import { teachingCard } from './teachingCard';
 import { readingOf, tokenize } from './tokenize';
@@ -13,6 +14,7 @@ export { convertInput } from './convertInput';
 export { detectGrammar } from './grammar';
 export * from './itemSchemas';
 export { courseKana } from './kana';
+export { reviewFacets } from './reviewFacets';
 export { segment } from './segment';
 export { readingOf, splitByScript, tokenize } from './tokenize';
 
@@ -57,7 +59,7 @@ export const japanese: LanguagePlugin = {
   teachingCard,
   // Kana and vocabulary generators (#30) and EX-09 (#50); the other kanji ones join with #53.
   generators,
-  reviewFacets: () => notImplemented('reviewFacets', 48),
+  reviewFacets,
   // FR-136, TTS spike: Kokoro misreads kanji, so it is always sent the kana reading.
   ttsVoice: {
     provider: 'kokoro',
