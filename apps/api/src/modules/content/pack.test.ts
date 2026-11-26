@@ -182,10 +182,12 @@ describeWithDb('content packs', () => {
     );
     expect(related).toEqual([{ from: 'ja:grammar:wo-kudasai', to: 'ja:grammar:te-kudasai' }]);
 
-    const water = await queryOne<{ id: number; overrides: unknown }>(
+    const water = await queryOne<{ id: number; overrides: unknown; search_text: string }>(
       pool(),
-      `SELECT id, overrides FROM items WHERE key = 'ja:word:水:みず'`,
+      `SELECT id, overrides, search_text FROM items WHERE key = 'ja:word:水:みず'`,
     );
+    // #54: the library search terms come from the data with the pack's overrides applied.
+    expect(water!.search_text).toContain('cold water');
     expect(water!.overrides).toEqual({
       senses: [{ partsOfSpeech: ['n'], meanings: ['water', 'cold water'] }],
     });

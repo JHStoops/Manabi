@@ -156,6 +156,13 @@ export interface TokenizeInput {
   tiles?: readonly Tile[] | null;
 }
 
+/** FR-075, FR-092: an item's library search terms (each passed through `searchKey`) and filters. */
+export interface LibraryFields {
+  terms: string[];
+  strokeCount: number | null;
+  radical: string | null;
+}
+
 /**
  * Everything language-specific lives behind this interface (FR-240, FR-242, SDD section 4).
  * Plugins are pure TypeScript: no Node or browser APIs, so they run unchanged on the server and
@@ -202,6 +209,13 @@ export interface LanguagePlugin {
    * order of preference) that review it. An item type with no facets never enters reviews.
    */
   reviewFacets(itemType: string): Record<ReviewFacet, readonly string[]>;
+  /**
+   * FR-075, FR-092: what the library searches and filters an item by, from its merged data. The
+   * API stores the result on the item at every write. Invalid data gives no terms.
+   */
+  libraryFields(item: { type: string; data: unknown }): LibraryFields;
+  /** Folds search text so a query compares equal to the terms `libraryFields` returns. */
+  searchKey(text: string): string;
   /** Text-to-speech provider, voice and which text to send (FR-136). */
   ttsVoice: TtsVoice;
   /** FR-136: the reading sent to TTS for these tiles (Japanese: readings joined, no spaces). */

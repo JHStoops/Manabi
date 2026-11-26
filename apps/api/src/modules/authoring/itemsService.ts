@@ -8,6 +8,7 @@ import { AppError } from '../../errors';
 import type { ValidationIssue } from '../../errors';
 import { languagePlugins } from '../../plugins';
 import { setItemOverrides } from '../content/queries';
+import { refreshLibraryFields } from '../library/service';
 import * as q from './itemsQueries';
 
 // FR-221, DR-06, DR-09: the item editor. Author edits go to `items.overrides` only, so the
@@ -75,6 +76,7 @@ export async function updateItemOverrides(
       throw new AppError('validation_failed', 'The item data fails its language schema', issues);
     }
     await setItemOverrides(db, row.key, overrides);
+    await refreshLibraryFields(db, row.course_id, [row.key]);
     return view({ ...row, overrides });
   });
 }
