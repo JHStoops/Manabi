@@ -11,6 +11,14 @@ export const lessonColors = {
   listening: '#e8822a',
   review: '#d4a017',
 };
+// Mid-tones: at least 3:1 against every theme's surface, light and dark (WCAG 1.4.11).
+export const stageColors = {
+  learning: '#e0245e',
+  familiar: '#ab47bc',
+  strong: '#2a7fd4',
+  mastered: '#388e3c',
+  retired: '#7a7a7a',
+};
 // Dark enough for white band titles (WCAG AA).
 export const sectionColors = ['#b0306a', '#00796b', '#5e35b1', '#1565c0', '#bf360c'];
 
@@ -30,6 +38,7 @@ export const sakuraLight: ManabiTheme = {
     wrong: '#c62828',
   },
   lessonColors,
+  stageColors,
   sectionColors,
   spacing,
   radii,
@@ -52,6 +61,7 @@ export const sakuraDark: ManabiTheme = {
     wrong: '#ef5350',
   },
   lessonColors,
+  stageColors,
   sectionColors,
   spacing,
   radii,

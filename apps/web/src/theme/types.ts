@@ -23,6 +23,17 @@ export interface ManabiTheme {
     listening: string;
     review: string;
   };
+  /**
+   * FR-102: the stage ring's color per stage band, the same in every theme. NFR-31: the ring's fill
+   * and the stage name in text carry the stage too, so color is never the only cue.
+   */
+  stageColors: {
+    learning: string;
+    familiar: string;
+    strong: string;
+    mastered: string;
+    retired: string;
+  };
   /** Path section color bands, cycled in section order; kana lessons take their section's color. */
   sectionColors: string[];
   spacing: (units: number) => string;

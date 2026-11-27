@@ -77,6 +77,20 @@ export const en = {
     notAWord: 'This item is not a word.',
     partOfSpeech: '({{pos}})',
   },
+  // FR-075: the kanji and kana grid.
+  characters: {
+    title: { kanji: 'Kanji', kana: 'Kana' },
+    kind: { kanji: 'Kanji', kana: 'Kana' },
+    search: 'Search',
+    searchHint: { kanji: 'Kanji, meaning or reading', kana: 'Kana or romaji' },
+    level: 'Level',
+    allLevels: 'All levels',
+    strokeCount: 'Strokes',
+    radical: 'Radical',
+    stage: 'Stage',
+    allStages: 'All stages',
+    none: 'No characters match.',
+  },
   // FR-113, FR-114: the Review tab and the review session.
   review: {
     dueNow: 'Due now: {{count}}',
