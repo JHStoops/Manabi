@@ -141,7 +141,7 @@ export function ItemEditor({ courseId }: { courseId: number }) {
           onSaved={setItem}
         />
       )}
-      {item && <ItemExercises itemId={item.id} itemKey={item.key} />}
+      {item && <ItemExercises key={item.id} itemId={item.id} itemKey={item.key} />}
     </Section>
   );
 }

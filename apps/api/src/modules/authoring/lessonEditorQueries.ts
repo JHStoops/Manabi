@@ -73,13 +73,21 @@ export function findEditorItem(db: Queryable, id: number): Promise<EditorItemRow
   );
 }
 
-/** An active item-level exercise (one of no lesson), such as a review pin (FR-229). */
-export function findItemExercise(db: Queryable, id: number): Promise<ExerciseRow | null> {
+/**
+ * An active item-level exercise (one of no lesson), such as a review pin (FR-229); with `lock`,
+ * locked until the transaction ends.
+ */
+export function findItemExercise(
+  db: Queryable,
+  id: number,
+  lock = false,
+): Promise<ExerciseRow | null> {
   return queryOne<ExerciseRow>(
     db,
     `SELECT * FROM exercises
       WHERE id = $1 AND lesson_id IS NULL AND item_id IS NOT NULL AND archived_at IS NULL
-        AND origin IN ('authored', 'pinned')`,
+        AND origin IN ('authored', 'pinned')
+      ${lock ? 'FOR UPDATE' : ''}`,
     [id],
   );
 }

@@ -109,10 +109,17 @@ describeWithDb('item-level pins in reviews (#241)', () => {
       payload,
     ]);
 
-  /** The exercise a fresh review session serves, with Math.random fixed at `random`. */
-  async function served(random: number) {
+  /**
+   * The exercise a fresh review session serves when Math.random picks the type slot with `slot`,
+   * then the exercise within it with `within` (and 0 after that).
+   */
+  async function served(slot: number, within = 0) {
     await sql(`DELETE FROM review_sessions`);
-    jest.spyOn(Math, 'random').mockReturnValue(random);
+    jest
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(slot)
+      .mockReturnValueOnce(within)
+      .mockReturnValue(0);
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/reviews/sessions',
@@ -128,7 +135,7 @@ describeWithDb('item-level pins in reviews (#241)', () => {
   it('still serves the other exercise types for the facet after a pin', async () => {
     await pin(typedPayload('ja:word:mizu', ['water', 'aqua']));
 
-    // Candidates in facet type order: the generated choice, then the pin for the typed answer.
+    // Slots in facet type order: the generated choice, then the pin for the typed answer.
     expect(await served(0)).toEqual({
       type: 'choice',
       payload: { prompt: 'ja:word:mizu', options: ['a', 'b'] },
@@ -142,7 +149,8 @@ describeWithDb('item-level pins in reviews (#241)', () => {
   it('serves the pin in place of its own original, never both', async () => {
     await pin(typedPayload('ja:word:mizu', ['water', 'aqua']));
     const seen = [];
-    for (const random of [0, 0.25, 0.5, 0.75, 0.99]) seen.push(await served(random));
+    for (const slot of [0, 0.5, 0.99])
+      for (const within of [0, 0.99]) seen.push(await served(slot, within));
     const typed = seen.filter((e) => e.type === 'typed_answer');
     expect(typed.length).toBeGreaterThan(0);
     // The original's accept list (only 'water') is never served while the pin exists.
@@ -157,17 +165,32 @@ describeWithDb('item-level pins in reviews (#241)', () => {
     });
   });
 
-  it('serves a pin whose original the generators no longer make as a candidate of its own', async () => {
+  it("serves a pin whose original is no longer generated within its type's slot", async () => {
     const stale = { ...typedPayload('ja:word:mizu', ['water', 'aqua']), prompt: 'Old prompt' };
     await pin(stale);
 
-    // Candidates: the choice, the generated typed answer (not this pin's original), the pin.
-    expect((await served(0)).type).toBe('choice');
-    expect(await served(0.5)).toEqual({
+    // Slots: [choice], [the generated typed answer (not this pin's original), the pin].
+    expect((await served(0, 0.99)).type).toBe('choice');
+    expect(await served(0.5, 0)).toEqual({
       type: 'typed_answer',
       payload: typedPayload('ja:word:mizu', ['water']),
     });
-    expect(await served(0.99)).toEqual({ type: 'typed_answer', payload: stale });
+    expect(await served(0.5, 0.99)).toEqual({ type: 'typed_answer', payload: stale });
+  });
+
+  it('keeps one slot per type however many pins a type has', async () => {
+    await pin(typedPayload('ja:word:mizu', ['water', 'aqua']));
+    for (const prompt of ['Old prompt 1', 'Old prompt 2', 'Old prompt 3'])
+      await pin({ ...typedPayload('ja:word:mizu', ['water', 'aqua']), prompt });
+
+    // The choice keeps half the slots: any `within` in the first half of the slot draw.
+    for (const within of [0, 0.5, 0.99]) expect((await served(0.49, within)).type).toBe('choice');
+    // The typed slot holds the matched pin first, then the three stale pins.
+    expect(await served(0.5, 0)).toEqual({
+      type: 'typed_answer',
+      payload: typedPayload('ja:word:mizu', ['water', 'aqua']),
+    });
+    expect((await served(0.5, 0.99)).payload).toMatchObject({ prompt: 'Old prompt 3' });
   });
 
   it('still prefers an authored stored exercise over generated ones and pins', async () => {

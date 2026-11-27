@@ -295,6 +295,7 @@ export const en = {
       exercisesHint:
         'Reviews use these alongside generated ones; a pinned one replaces its generated original.',
       noExercises: 'No item-level exercises.',
+      removed: 'Removed {{title}}.',
     },
     // FR-059, FR-236, FR-238, DR-11: the sentence editor.
     sentences: {

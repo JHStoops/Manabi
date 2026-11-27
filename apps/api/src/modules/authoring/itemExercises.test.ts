@@ -132,6 +132,14 @@ describeWithDb('item-level exercises in authoring API', () => {
     expect(bad.statusCode).toBe(400);
   });
 
+  it('leaves base-language answers unsegmented on edit, as accepting a report does', async () => {
+    const id = await pin(itemIds[0]!);
+    const { exercise } = await ok<ExerciseWrite>('PATCH', `/authoring/exercises/${id}`, {
+      payload: typed(['water', 'aqua', 'drinking water']),
+    });
+    expect(exercise.payload).toEqual(typed(['water', 'aqua', 'drinking water']));
+  });
+
   it('removes an item-level exercise, or archives it when a report refers to it', async () => {
     const kept = await pin(itemIds[0]!, typed(['water']));
     const removed = await pin(itemIds[0]!);

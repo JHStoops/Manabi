@@ -242,7 +242,9 @@ describe('ItemEditor', () => {
 
     it('edits an item-level exercise through the exercise form', async () => {
       const api = await open(water(), [pinned(11, ['water', 'aqua'])]);
-      fireEvent.click(await screen.findByRole('button', { name: 'Edit Meaning of 水 11' }));
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Edit typed_answer 11: Meaning of 水 11' }),
+      );
       const form = screen.getByRole('form', { name: 'typed_answer exercise' });
       fireEvent.change(within(form).getByLabelText('prompt'), { target: { value: 'Meaning?' } });
       api.PATCH.mockResolvedValueOnce({
@@ -275,7 +277,9 @@ describe('ItemEditor', () => {
     it('removes an item-level exercise after confirming', async () => {
       const api = await open(water(), [pinned(11, ['water', 'aqua']), pinned(12, ['water'])]);
       const confirm = jest.spyOn(window, 'confirm');
-      const remove = await screen.findByRole('button', { name: 'Delete Meaning of 水 11' });
+      const remove = await screen.findByRole('button', {
+        name: 'Remove typed_answer 11: Meaning of 水 11',
+      });
 
       confirm.mockReturnValueOnce(false);
       fireEvent.click(remove);
@@ -285,13 +289,24 @@ describe('ItemEditor', () => {
       api.DELETE.mockResolvedValueOnce({ exercises: [pinned(12, ['water'])] });
       fireEvent.click(remove);
       await waitFor(() =>
-        expect(screen.queryByRole('button', { name: 'Edit Meaning of 水 11' })).toBeNull(),
+        expect(
+          screen.queryByRole('button', { name: 'Edit typed_answer 11: Meaning of 水 11' }),
+        ).toBeNull(),
       );
       expect(api.DELETE).toHaveBeenCalledWith(
         '/api/v1/authoring/items/{id}/exercises/{exerciseId}',
         { params: { path: { id: '3', exerciseId: '11' } } },
       );
-      expect(screen.getByRole('button', { name: 'Edit Meaning of 水 12' })).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: 'Edit typed_answer 12: Meaning of 水 12' }),
+      ).toBeTruthy();
+      // Focus stays in the section and the removal is announced.
+      expect(document.activeElement).toBe(
+        screen.getByRole('heading', { name: 'Item-level exercises of ja:kanji:水' }),
+      );
+      expect(screen.getByRole('status').textContent).toBe(
+        'Removed typed_answer 11: Meaning of 水 11.',
+      );
       confirm.mockRestore();
     });
   });

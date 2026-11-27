@@ -121,7 +121,8 @@ export const segment = async (plugin: LanguagePlugin, text: string): Promise<Til
 
 /**
  * FR-238, DR-12: fills in the tiles of the payload's answer text (accept-list answers, and a word
- * bank's answer) that come without tiles, or all of them on `resegment`. Tiles sent are kept, as
+ * bank's answer) that come without tiles, or all of them on `resegment`; base-language answers
+ * get none. Tiles sent are kept, as
  * the author may have edited them. A word bank whose tiles change gets their order as its only
  * accepted order, since accepted orders index the tiles.
  */
@@ -131,7 +132,10 @@ async function fillTiles(
   payload: JsonObject,
   resegment: boolean,
 ): Promise<void> {
-  const accept: unknown[] = Array.isArray(payload.accept) ? payload.accept : [];
+  // Answers in the base language (an English meaning) are not segmented, as accepting an answer
+  // report leaves them (FR-229).
+  const accept: unknown[] =
+    Array.isArray(payload.accept) && payload.answerLanguage !== 'base' ? payload.accept : [];
   for (const answer of accept) {
     if (isObject(answer) && typeof answer.text === 'string' && (resegment || untiled(answer)))
       answer.tiles = await segment(plugin, answer.text);
@@ -263,7 +267,8 @@ export async function deleteItemExercise(
 ): Promise<ItemExercises> {
   await withTransaction(pool, async (db) => {
     await activeItem(db, itemId);
-    const row = await q.findItemExercise(db, id);
+    // Locked, as accepting an answer report locks the exercise it extends.
+    const row = await q.findItemExercise(db, id, true);
     if (row?.item_id !== itemId) notFound('Exercise');
     await deleteOrArchive(
       db,

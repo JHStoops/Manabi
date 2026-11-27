@@ -165,7 +165,8 @@ async function buildState(db: Queryable, userId: number, now: Date): Promise<Rev
         // #241: an item-level pin is a generated exercise kept with a longer accept list (FR-229),
         // so it competes with the generated ones instead of always winning, like authored ones do.
         const isPin = (e: ExerciseRow) => e.origin === 'pinned' && e.lesson_id === null;
-        const storedPick = pickRandom(own.filter((e) => !isPin(e)));
+        const authored = own.filter((e) => !isPin(e));
+        const storedPick = authored.length > 0 ? pickRandom(authored) : undefined;
         if (storedPick) return { type: storedPick.type, payload: storedPick.payload };
         const usesTaughtOnly = (e: SessionExercise) =>
           payloadItemIds(e.payload).every((id) => taught.has(id));
@@ -178,9 +179,10 @@ async function buildState(db: Queryable, userId: number, now: Date): Promise<Rev
             ])
             .filter(([, e]) => usesTaughtOnly(e)),
         );
-        // FR-048: generated exercises use the learner's items only. One candidate per type; a
-        // generated question that is a pin's original is replaced by that pin.
-        const candidates: SessionExercise[] = [];
+        // FR-048: generated exercises use the learner's items only. Each type is one slot, so pins
+        // never crowd out the other types: its generated exercise (replaced by the pin it is the
+        // original of), or one of the type's pins whose original was not generated this time.
+        const slots: SessionExercise[][] = [];
         for (const type of types) {
           const generate = Object.hasOwn(plugin.generators, type) ? plugin.generators[type] : null;
           const made = (generate?.(item, {
@@ -191,12 +193,17 @@ async function buildState(db: Queryable, userId: number, now: Date): Promise<Rev
           }) ?? []) as SessionExercise[];
           const fit = made.filter(usesTaughtOnly).map((e) => pins.get(questionKey(e)) ?? e);
           const pick = fit.find((e) => pins.has(questionKey(e))) ?? fit[0];
-          if (pick) candidates.push(pick);
+          const pickKey = pick && questionKey(pick);
+          const slot = [
+            ...(pick ? [pick] : []),
+            ...[...pins].flatMap(([key, pin]) =>
+              pin.type === type && key !== pickKey ? [pin] : [],
+            ),
+          ];
+          if (slot.length > 0) slots.push(slot);
         }
-        // Pins whose original the generators no longer make are candidates of their own.
-        const served = new Set(candidates.map(questionKey));
-        for (const [key, pin] of pins) if (!served.has(key)) candidates.push(pin);
-        return pickRandom(candidates);
+        const slot = pickRandom(slots);
+        return slot && pickRandom(slot);
       });
       // FR-112: an item is reviewed on all its due facets or not at all.
       if (picked.some((e) => e === undefined)) continue;
