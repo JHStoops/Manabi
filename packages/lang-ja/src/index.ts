@@ -6,7 +6,7 @@ import { detectGrammar } from './grammar';
 import { generators } from './generators';
 import { itemSchemas } from './itemSchemas';
 import { libraryFields, searchKey } from './library';
-import { reviewFacets } from './reviewFacets';
+import { reviewFacets, testsFacet } from './reviewFacets';
 import { segment } from './segment';
 import { teachingCard } from './teachingCard';
 import { readingOf, tokenize } from './tokenize';
@@ -18,7 +18,7 @@ export { detectGrammar } from './grammar';
 export * from './itemSchemas';
 export { courseKana } from './kana';
 export { libraryFields, searchKey } from './library';
-export { reviewFacets } from './reviewFacets';
+export { reviewFacets, testsFacet } from './reviewFacets';
 export { segment } from './segment';
 export { readingOf, splitByScript, tokenize } from './tokenize';
 
@@ -45,9 +45,10 @@ export const japanese: LanguagePlugin = {
   tokenize,
   annotate,
   teachingCard,
-  // Kana and vocabulary generators (#30), EX-09 (#50) and EX-10 (#219); the other kanji ones join with #53.
+  // Kana and vocabulary generators (#30), EX-09 (#50), EX-10 (#219) and the kanji ones (#53).
   generators,
   reviewFacets,
+  testsFacet,
   libraryFields,
   searchKey,
   // FR-136, TTS spike: Kokoro misreads kanji, so it is always sent the kana reading.

@@ -220,6 +220,7 @@ describeWithDb('lesson sessions API', () => {
 
   it('swaps drawing exercises for EX-01 when the learner turns drawing off (FR-074)', async () => {
     const { lesson, item } = await seed();
+    await sql(`INSERT INTO stroke_data (item_id, strokes) VALUES ($1, '{}')`, [item.w1]);
     await sql(
       `INSERT INTO exercises (lesson_id, item_id, position, type, payload, origin)
        VALUES ($1, $2, 0, 'stroke_trace', $3, 'authored'), ($1, $2, 1, 'draw_memory', $4, 'authored')`,

@@ -24,6 +24,12 @@ export interface GeneratorContext {
   taughtItems: readonly Item[];
   /** FR-056: sentences at or below the section's level, not challenging, of taught items only. */
   sentences: readonly GeneratorSentence[];
+  /**
+   * The review facet (see `reviewFacets`) the exercise should test, when the caller needs one:
+   * a review of that facet, or a lesson step (Product Spec section 5: a kanji's meaning, then its
+   * reading). Absent: the generator picks.
+   */
+  facet?: ReviewFacet;
 }
 
 /** An exercise generator: builds exercises of one type for an item (FR-049). */
@@ -211,6 +217,12 @@ export interface LanguagePlugin {
    * order of preference) that review it. An item type with no facets never enters reviews.
    */
   reviewFacets(itemType: string): Record<ReviewFacet, readonly string[]>;
+  /**
+   * FR-112: whether a stored exercise of one of the facet's types tests that facet of an item of
+   * this type, for a review to use it (a typed answer can ask a kanji's meaning or its reading).
+   * Absent: every stored exercise of the facet's types does.
+   */
+  testsFacet?(exercise: Exercise, itemType: string, facet: ReviewFacet): boolean;
   /**
    * FR-075, FR-092: what the library searches and filters an item by, from its merged data. The
    * API stores the result on the item at every write. Invalid data gives no terms.

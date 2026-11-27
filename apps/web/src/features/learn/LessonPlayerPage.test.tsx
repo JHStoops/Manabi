@@ -22,6 +22,13 @@ jest.mock('@manabi/lang-ja', () => {
   return { japanese: { ...actual.japanese, checkAnswer: testPlugin.checkAnswer } };
 });
 
+// FR-071: Hanzi Writer needs a real canvas; the stub names what it would animate.
+jest.mock('../strokes/StrokeCanvas', () => ({
+  StrokeCanvas: (props: { itemKey: string; character: string; mode: string }) => (
+    <div data-testid="strokes">{`${props.mode} ${props.character} ${props.itemKey}`}</div>
+  ),
+}));
+
 registerExerciseRenderer(TEST_EXERCISE_TYPE, () => import('../exercises/TestEchoRenderer'));
 
 beforeEach(() => {
@@ -43,7 +50,7 @@ const session: LessonSession = {
   lessonType: 'kana',
   sectionLevel: 'kana',
   plugin: 'ja',
-  teachingCards: [{ item: kana, examples: [] }],
+  teachingCards: [{ item: kana, examples: [], words: [], strokeAnimation: false }],
   exercises: Array.from({ length: 10 }, (_, i) => ({
     type: TEST_EXERCISE_TYPE,
     payload: { prompt: `Type a${i}`, answer: `a${i}` },
@@ -99,10 +106,12 @@ describe('LessonPlayerPage', () => {
     const twoKana = {
       ...session,
       teachingCards: [
-        { item: kana, examples: [] },
+        { item: kana, examples: [], words: [], strokeAnimation: false },
         {
           item: item(2, 'kana', { character: 'い', script: 'hiragana', romaji: 'i' }),
           examples: [],
+          words: [],
+          strokeAnimation: false,
         },
       ],
     };
@@ -130,7 +139,7 @@ describe('LessonPlayerPage', () => {
           ...session,
           lessonType: 'vocabulary',
           sectionLevel: 'N5',
-          teachingCards: [{ item: water, examples: [] }],
+          teachingCards: [{ item: water, examples: [], words: [], strokeAnimation: false }],
         }),
       ),
     );
@@ -139,6 +148,46 @@ describe('LessonPlayerPage', () => {
     expect(screen.getByText('Reading').nextSibling?.textContent).toBe('みず');
     expect(screen.getByText('みず').getAttribute('lang')).toBe('ja');
     expect(screen.getByText('Meaning').nextSibling?.textContent).toBe('water');
+  });
+
+  it("animates a kanji's strokes and lists the words that use it (Product Spec section 5)", async () => {
+    const rest = item(5, 'kanji', {
+      character: '休',
+      meanings: ['rest'],
+      onReadings: ['キュウ'],
+      kunReadings: ['やす.む'],
+      strokeCount: 6,
+      components: [],
+    });
+    const holiday = item(6, 'word', {
+      written: '休み',
+      reading: 'やすみ',
+      senses: [{ partsOfSpeech: ['n'], meanings: ['holiday'] }],
+    });
+    show(
+      jest.fn(() =>
+        Promise.resolve({
+          ...session,
+          lessonType: 'kanji',
+          sectionLevel: 'N5',
+          teachingCards: [
+            { item: rest, examples: [], words: [holiday], strokeAnimation: true },
+            { item: rest, examples: [], words: [], strokeAnimation: false },
+          ],
+        }),
+      ),
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+    expect((await screen.findByTestId('strokes')).textContent).toBe('animate 休 k5');
+    const words = screen.getByRole('region', { name: 'Words with 休' });
+    expect(words.textContent).toContain('休み');
+    expect(words.textContent).toContain('やすみ');
+    expect(words.textContent).toContain('holiday');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByRole('heading', { name: 'New item 2 of 2' })).toBeTruthy();
+    expect(screen.queryByTestId('strokes')).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Words with 休' })).toBeNull();
   });
 
   it('shows the example sentence and its translation on a card that has one, and none otherwise (FR-041)', async () => {
@@ -159,8 +208,8 @@ describe('LessonPlayerPage', () => {
           lessonType: 'vocabulary',
           sectionLevel: 'N5',
           teachingCards: [
-            { item: water, examples: [example] },
-            { item: water, examples: [] },
+            { item: water, examples: [example], words: [], strokeAnimation: false },
+            { item: water, examples: [], words: [], strokeAnimation: false },
           ],
         }),
       ),
@@ -187,7 +236,12 @@ describe('LessonPlayerPage', () => {
           lessonType: 'grammar',
           sectionLevel: 'N5',
           teachingCards: [
-            { item: point, examples: [example('見てください。'), example('来てください。')] },
+            {
+              item: point,
+              examples: [example('見てください。'), example('来てください。')],
+              words: [],
+              strokeAnimation: false,
+            },
           ],
         }),
       ),
@@ -394,7 +448,7 @@ describe('LessonPlayerPage', () => {
             ...session,
             lessonType: 'vocabulary',
             sectionLevel: 'N5',
-            teachingCards: [{ item: water, examples: [] }],
+            teachingCards: [{ item: water, examples: [], words: [], strokeAnimation: false }],
             exercises: [typed],
           }),
         ),

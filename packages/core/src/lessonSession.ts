@@ -28,11 +28,60 @@ export const LESSON_MAX_EXERCISES = 15;
 export const lessonRecipes: Readonly<Record<LessonType, readonly string[]>> = {
   kana: ['choice', 'typed_answer', 'match_pairs'],
   vocabulary: ['choice', 'word_bank', 'typed_answer', 'match_pairs'],
-  kanji: ['choice', 'typed_answer'],
+  kanji: [
+    'stroke_trace',
+    'choice',
+    'typed_answer',
+    'reading_in_context',
+    'match_pairs',
+    'draw_memory',
+  ],
   listening: ['choice', 'typed_answer'],
   grammar: [],
   unit_review: [],
 };
+
+/**
+ * One step of a lesson flow: an exercise type, the facet it tests (passed to the generator as
+ * `GeneratorContext.facet`) and what it is made for: the lesson's new items, or the taught items
+ * that contain them (item links of kind `contains`, such as words that use a kanji). `everyItem`
+ * steps are made for every new item.
+ */
+export interface LessonFlowStep {
+  type: string;
+  facet?: string;
+  targets?: 'new' | 'containing';
+  everyItem?: boolean;
+  /** An `everyItem` step that comes after one exercise of each facet when the session is short. */
+  optional?: boolean;
+}
+
+/**
+ * Product Spec section 5 (Kanji lesson flow), FR-040, FR-049: a kanji lesson's exercises in this
+ * order: stroke trace (EX-11); meaning (EX-01, EX-04); reading (EX-09, EX-04); words that use the
+ * kanji (EX-01, EX-02); and draw from memory (EX-12) for every kanji before the lesson ends.
+ * A session holds at most 15, so when there are too many kanji the trace and the word exercises
+ * give way first: every kanji keeps its draw from memory and one meaning and one reading exercise
+ * (owner decision on #53).
+ */
+export const KANJI_LESSON_FLOW: readonly LessonFlowStep[] = [
+  { type: 'stroke_trace', everyItem: true, optional: true },
+  { type: 'choice', facet: 'meaning' },
+  { type: 'typed_answer', facet: 'meaning' },
+  { type: 'reading_in_context', facet: 'reading' },
+  { type: 'typed_answer', facet: 'reading' },
+  { type: 'choice', targets: 'containing' },
+  { type: 'match_pairs', targets: 'containing' },
+  { type: 'draw_memory', everyItem: true },
+];
+
+/** Lesson types whose sessions follow a flow, step by step, instead of the round-robin recipe. */
+export const lessonFlows: Readonly<Partial<Record<LessonType, readonly LessonFlowStep[]>>> = {
+  kanji: KANJI_LESSON_FLOW,
+};
+
+/** Product Spec section 5: a kanji's reading card shows 1 to 3 words that use it. */
+export const TEACHING_CARD_MAX_WORDS = 3;
 
 /**
  * FR-091, Product Spec section 6: a grammar lesson's authored exercises in this order:
@@ -69,6 +118,13 @@ export const teachingCardSchema = z.object({
     .max(2)
     // Sessions saved before #59 have none; they still resume and complete.
     .default([]),
+  /**
+   * Product Spec section 5: taught items that contain this one (a kanji's words), shown with its
+   * reading. Empty for other items, and in sessions saved before #53.
+   */
+  words: z.array(itemSchema).max(TEACHING_CARD_MAX_WORDS).default([]),
+  /** FR-071: play the item's stroke-order animation (it has stroke data and the course draws). */
+  strokeAnimation: z.boolean().default(false),
 });
 export type TeachingCard = z.infer<typeof teachingCardSchema>;
 

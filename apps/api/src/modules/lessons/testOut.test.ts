@@ -154,10 +154,21 @@ describeWithDb('unit test-out API', () => {
 
   it('leaves drawing exercises out for a learner who turned drawing off (FR-074)', async () => {
     const { courseId, unit, lesson } = await seed();
+    // A taught character with stroke data: drawing exercises need one (FR-072).
+    const [kanji] = await sql(
+      `INSERT INTO items (course_id, key, type, level_code) VALUES ($1, 'one', 'kanji', 'N5')
+       RETURNING id`,
+      [courseId],
+    );
+    await sql(`INSERT INTO lesson_items (lesson_id, item_id, position) VALUES ($1, $2, 0)`, [
+      lesson.a,
+      kanji!.id,
+    ]);
+    await sql(`INSERT INTO stroke_data (item_id, strokes) VALUES ($1, '{}')`, [kanji!.id]);
     await sql(
       `INSERT INTO exercises (lesson_id, position, type, payload, origin)
        VALUES ($1, 0, 'stroke_trace', $2, 'pinned')`,
-      [lesson.a, { itemKey: 'none', character: '一' }],
+      [lesson.a, { itemKey: 'one', character: '一' }],
     );
     const { userId, session } = await learner('aiko', courseId);
     await sql(

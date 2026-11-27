@@ -3490,9 +3490,66 @@
                               "required": ["text", "translation", "tiles"],
                               "additionalProperties": false
                             }
-                          }
+                          },
+                          "words": {
+                            "default": [],
+                            "maxItems": 3,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991
+                                },
+                                "courseId": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991
+                                },
+                                "key": { "type": "string", "maxLength": 200, "pattern": "^\\S+$" },
+                                "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+                                "levelCode": {
+                                  "nullable": true,
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$"
+                                },
+                                "data": { "type": "object", "additionalProperties": {} },
+                                "overrides": { "type": "object", "additionalProperties": {} },
+                                "source": { "nullable": true, "type": "string", "minLength": 1 },
+                                "datasetVersion": {
+                                  "nullable": true,
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "archivedAt": {
+                                  "nullable": true,
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "courseId",
+                                "key",
+                                "type",
+                                "levelCode",
+                                "data",
+                                "overrides",
+                                "source",
+                                "datasetVersion",
+                                "archivedAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "strokeAnimation": { "default": false, "type": "boolean" }
                         },
-                        "required": ["item", "examples"],
+                        "required": ["item", "examples", "words", "strokeAnimation"],
                         "additionalProperties": false
                       }
                     },
@@ -17247,9 +17304,66 @@
                               "required": ["text", "translation", "tiles"],
                               "additionalProperties": false
                             }
-                          }
+                          },
+                          "words": {
+                            "default": [],
+                            "maxItems": 3,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991
+                                },
+                                "courseId": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991
+                                },
+                                "key": { "type": "string", "maxLength": 200, "pattern": "^\\S+$" },
+                                "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+                                "levelCode": {
+                                  "nullable": true,
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$"
+                                },
+                                "data": { "type": "object", "additionalProperties": {} },
+                                "overrides": { "type": "object", "additionalProperties": {} },
+                                "source": { "nullable": true, "type": "string", "minLength": 1 },
+                                "datasetVersion": {
+                                  "nullable": true,
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "archivedAt": {
+                                  "nullable": true,
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "courseId",
+                                "key",
+                                "type",
+                                "levelCode",
+                                "data",
+                                "overrides",
+                                "source",
+                                "datasetVersion",
+                                "archivedAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "strokeAnimation": { "default": false, "type": "boolean" }
                         },
-                        "required": ["item", "examples"],
+                        "required": ["item", "examples", "words", "strokeAnimation"],
                         "additionalProperties": false
                       }
                     },

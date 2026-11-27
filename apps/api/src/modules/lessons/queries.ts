@@ -177,6 +177,34 @@ export function listLessonItems(db: Queryable, lessonId: number): Promise<ItemRo
   );
 }
 
+/** FR-072, FR-077: the keys of these items that have stroke data, so they can be drawn. */
+export async function listStrokeItemKeys(db: Queryable, itemIds: readonly number[]) {
+  const rows = await query<{ key: string }>(
+    db,
+    `SELECT i.key FROM stroke_data s JOIN items i ON i.id = s.item_id WHERE i.id = ANY($1::bigint[])`,
+    [itemIds],
+  );
+  return new Set(rows.map((r) => r.key));
+}
+
+/**
+ * Product Spec section 5: pairs of an item and an item that contains it (item links of kind
+ * `contains`, such as a word and a kanji it uses), for these contained items, by container id.
+ */
+export function listContainingLinks(
+  db: Queryable,
+  itemIds: readonly number[],
+): Promise<{ item_id: number; container_id: number }[]> {
+  return query(
+    db,
+    `SELECT to_item_id AS item_id, from_item_id AS container_id
+       FROM item_links
+      WHERE kind = 'contains' AND to_item_id = ANY($1::bigint[])
+      ORDER BY from_item_id`,
+    [itemIds],
+  );
+}
+
 /**
  * FR-048: the items taught in this lesson and every lesson before it on the path (active and
  * published, as the learner sees the path).

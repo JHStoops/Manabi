@@ -1,11 +1,13 @@
 import type {
   ChoicePayload,
   ConjugatePayload,
+  DrawMemoryPayload,
   ExerciseGenerator,
   GeneratorContext,
   Item,
   MatchPairsPayload,
   ReadingInContextPayload,
+  StrokeTracePayload,
   Tile,
   TypedAnswerPayload,
   WordBankPayload,
@@ -13,8 +15,10 @@ import type {
 import {
   CHOICE_TYPE,
   CONJUGATE_TYPE,
+  DRAW_MEMORY_TYPE,
   MATCH_PAIRS_TYPE,
   READING_IN_CONTEXT_TYPE,
+  STROKE_TRACE_TYPE,
   TYPED_ANSWER_TYPE,
   WORD_BANK_TYPE,
 } from '@manabi/core';
@@ -25,8 +29,9 @@ import { kanaDataSchema, kanjiDataSchema, wordDataSchema } from './itemSchemas';
 import { kanaToRomaji } from './romaji';
 import { tokenize } from './tokenize';
 
-// FR-049: exercises generated from kana and word items for kana and vocabulary lessons (Product
-// Spec section 4, exercise catalog). FR-048: the session builder passes only taught items.
+// FR-049: exercises generated from kana, word and kanji items for kana, vocabulary and kanji
+// lessons (Product Spec sections 4 and 5, exercise catalog). FR-048: the session builder passes
+// only taught items.
 
 /** FR-141: the kana section is the section at this level; romaji is shown only there. */
 export const KANA_SECTION_LEVEL = 'kana';
@@ -53,9 +58,22 @@ function shuffled<T>(items: readonly T[]): T[] {
 /** DR-09: an item's data with the author's overrides applied, field by field. */
 export const effective = (item: Item) => ({ ...item.data, ...item.overrides });
 
+const KANA_ONLY = /^[ぁ-ゟ゠-ヿ]*$/u;
+
+/** A kanji's readings in hiragana, without okurigana and prefix or suffix marks, distinct. */
+const readingsOf = (kanji: KanjiData) => [
+  ...new Set(
+    [...kanji.onReadings, ...kanji.kunReadings].map((r) =>
+      toHiragana(r.split('.')[0]!.replace(/-/g, '')),
+    ),
+  ),
+];
+
 /** An item as exercises show it: its term (か, 水) and gloss (ka, water), with prompts for both. */
 interface Card {
   item: Item;
+  /** A kanji's data, for ranking look-alike distractors. */
+  kanji?: KanjiData;
   term: string;
   reading: string;
   gloss: string;
@@ -101,13 +119,38 @@ function card(item: Item, context: GeneratorContext): Card | undefined {
       glossPrompt: `Which word means “${glosses[0]!}”?`,
     };
   }
+  if (item.type === 'kanji') {
+    const kanji = kanjiDataSchema.safeParse(effective(item)).data;
+    if (!kanji) return undefined;
+    const { character, meanings } = kanji;
+    return {
+      item,
+      kanji,
+      term: character,
+      reading: readingsOf(kanji)[0] ?? character,
+      gloss: meanings[0]!,
+      glosses: meanings,
+      termPrompt: `What does the kanji ${character} mean?`,
+      glossPrompt: `Which kanji means “${meanings[0]!}”?`,
+    };
+  }
   return undefined;
 }
 
 /**
- * `count` taught items of the target's type and level (any level in the kana section) whose terms differ and whose glosses do not
- * overlap the target's or each other's; for kana, look-alikes first, then the target's script (so
- * the script does not give the answer away). Undefined when there are not enough.
+ * How much two kanji look alike: shared components count most, then a close stroke count
+ * (Product Spec section 5: distractors prefer look-alike kanji of the same level).
+ */
+function kanjiLikeness(a: KanjiData, b: KanjiData): number {
+  const shared = a.components.filter((c) => b.components.includes(c)).length;
+  return 2 * shared + Number(Math.abs(a.strokeCount - b.strokeCount) <= 2);
+}
+
+/**
+ * `count` taught items of the target's type and level (any level in the kana section) whose terms
+ * differ and whose glosses do not overlap the target's or each other's; for kana, look-alikes
+ * first, then the target's script (so the script does not give the answer away); for kanji,
+ * look-alikes first. Undefined when there are not enough.
  */
 function distractors(target: Card, context: GeneratorContext, count: number): Card[] | undefined {
   const { item } = target;
@@ -118,7 +161,9 @@ function distractors(target: Card, context: GeneratorContext, count: number): Ca
     item.type === 'kana'
       ? 2 * Number(looksAlike(target.term, c.term)) +
         Number(katakana(c.term) === katakana(target.term))
-      : 0;
+      : target.kanji && c.kanji
+        ? kanjiLikeness(target.kanji, c.kanji)
+        : 0;
   const pool = shuffled(
     context.taughtItems.flatMap((other) => {
       const c =
@@ -193,12 +238,49 @@ const wordBank: ExerciseGenerator = (item, { sentences, taughtItems }) => {
 };
 
 /**
+ * Taught words that use `kanji`, each with the kanji's reading in it (where it can be told), in
+ * random order.
+ */
+function kanjiUses(kanji: KanjiData, taughtItems: readonly Item[]) {
+  return shuffled(taughtItems).flatMap((other) => {
+    const word =
+      other.type === 'word' ? wordDataSchema.safeParse(effective(other)).data : undefined;
+    const reading = word && readingInWord(kanji, word.written, word.reading);
+    return word && reading ? [{ item: other, written: word.written, reading }] : [];
+  });
+}
+
+/** Hiragana as katakana (the reverse of `toHiragana`). */
+const toKatakana = (text: string) =>
+  text.replace(/[ぁ-ゖ]/gu, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
+
+/** EX-04 for a kanji's `reading` facet: type how the kanji is read in a taught word that uses it. */
+function typedKanjiReading(item: Item, kanji: KanjiData, context: GeneratorContext) {
+  const use = kanjiUses(kanji, context.taughtItems)[0];
+  if (!use) return [];
+  const payload: TypedAnswerPayload = {
+    prompt: `Type the reading of ${kanji.character} in ${use.written}.`,
+    answerLanguage: 'target',
+    // Teaching cards show on readings in katakana, as KANJIDIC writes them; both scripts count.
+    accept: [use.reading, toKatakana(use.reading)].map((text) => ({
+      text,
+      tiles: [{ surface: text, base: text, reading: use.reading, itemId: item.id }],
+    })),
+  };
+  return [{ type: TYPED_ANSWER_TYPE, payload }];
+}
+
+/**
  * EX-04: type the gloss of a term, or a word from its meaning. A kana is only asked for its sound:
- * typed as kana, its romaji would turn into the shown kana itself.
+ * typed as kana, its romaji would turn into the shown kana itself. A kanji is asked for its
+ * meaning, or for its reading in a word when the facet asked for is `reading`.
  */
 const typedAnswer: ExerciseGenerator = (item, context) => {
   const target = card(item, context);
   if (!target) return [];
+  if (target.kanji && context.facet === 'reading') {
+    return typedKanjiReading(item, target.kanji, context);
+  }
   const toTerm = item.type === 'word' && Math.random() < 0.5;
   const tile = {
     surface: target.term,
@@ -219,17 +301,6 @@ const typedAnswer: ExerciseGenerator = (item, context) => {
       };
   return [{ type: TYPED_ANSWER_TYPE, payload }];
 };
-
-const KANA_ONLY = /^[ぁ-ゟ゠-ヿ]*$/u;
-
-/** A kanji's readings in hiragana, without okurigana and prefix or suffix marks, distinct. */
-const readingsOf = (kanji: KanjiData) => [
-  ...new Set(
-    [...kanji.onReadings, ...kanji.kunReadings].map((r) =>
-      toHiragana(r.split('.')[0]!.replace(/-/g, '')),
-    ),
-  ),
-];
 
 /**
  * The reading of `kanji` inside a word, or undefined when it cannot be told for sure: the kanji
@@ -268,13 +339,7 @@ export function readingInWord(kanji: KanjiData, written: string, reading: string
 const readingInContext: ExerciseGenerator = (item, { taughtItems }) => {
   const kanji = item.type === 'kanji' ? kanjiDataSchema.safeParse(effective(item)).data : undefined;
   if (!kanji) return [];
-  const uses = shuffled(taughtItems).flatMap((other) => {
-    const word =
-      other.type === 'word' ? wordDataSchema.safeParse(effective(other)).data : undefined;
-    const reading = word && readingInWord(kanji, word.written, word.reading);
-    return word && reading ? [{ item: other, written: word.written, reading }] : [];
-  });
-  const use = uses[0];
+  const use = kanjiUses(kanji, taughtItems)[0];
   if (!use) return [];
   const others = shuffled(
     taughtItems.flatMap((other) => {
@@ -324,6 +389,39 @@ const conjugateGenerator: ExerciseGenerator = (item) => {
   return [{ type: CONJUGATE_TYPE, payload }];
 };
 
+/** The character a kanji or kana item is drawn as, or undefined for other items. */
+function drawnCharacter(item: Item): string | undefined {
+  const data = effective(item);
+  if (item.type === 'kanji') return kanjiDataSchema.safeParse(data).data?.character;
+  if (item.type === 'kana') return kanaDataSchema.safeParse(data).data?.character;
+  return undefined;
+}
+
+/**
+ * EX-11: trace a kanji or kana over its guide. The session builder leaves drawing exercises out
+ * for characters without stroke data.
+ */
+const strokeTrace: ExerciseGenerator = (item) => {
+  const character = drawnCharacter(item);
+  if (!character) return [];
+  const payload: StrokeTracePayload = { itemKey: item.key, character };
+  return [{ type: STROKE_TRACE_TYPE, payload }];
+};
+
+/** EX-12: draw a kanji from memory, given its primary meaning. */
+// shortcut: kanji only; a kana would be asked by its romaji, which only the kana section shows
+// (FR-141). Add it if kana lessons get a drawing step.
+const drawMemory: ExerciseGenerator = (item) => {
+  const kanji = item.type === 'kanji' ? kanjiDataSchema.safeParse(effective(item)).data : undefined;
+  if (!kanji) return [];
+  const payload: DrawMemoryPayload = {
+    itemKey: item.key,
+    character: kanji.character,
+    prompt: `Draw the kanji that means “${kanji.meanings[0]!}”.`,
+  };
+  return [{ type: DRAW_MEMORY_TYPE, payload }];
+};
+
 /** Exercise generators keyed by exercise type id. */
 export const generators: Record<string, ExerciseGenerator> = {
   [CHOICE_TYPE]: choice,
@@ -332,4 +430,6 @@ export const generators: Record<string, ExerciseGenerator> = {
   [TYPED_ANSWER_TYPE]: typedAnswer,
   [READING_IN_CONTEXT_TYPE]: readingInContext,
   [CONJUGATE_TYPE]: conjugateGenerator,
+  [STROKE_TRACE_TYPE]: strokeTrace,
+  [DRAW_MEMORY_TYPE]: drawMemory,
 };

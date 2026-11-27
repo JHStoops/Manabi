@@ -2459,6 +2459,26 @@ export interface paths {
                     pattern?: true;
                   }[];
                 }[];
+                /** @default [] */
+                words: {
+                  id: number;
+                  courseId: number;
+                  key: string;
+                  type: string;
+                  levelCode: string | null;
+                  data: {
+                    [key: string]: unknown;
+                  };
+                  overrides: {
+                    [key: string]: unknown;
+                  };
+                  source: string | null;
+                  datasetVersion: string | null;
+                  /** Format: date-time */
+                  archivedAt: string | null;
+                }[];
+                /** @default false */
+                strokeAnimation: boolean;
               }[];
               exercises: {
                 type: string;
@@ -11419,6 +11439,26 @@ export interface paths {
                     pattern?: true;
                   }[];
                 }[];
+                /** @default [] */
+                words: {
+                  id: number;
+                  courseId: number;
+                  key: string;
+                  type: string;
+                  levelCode: string | null;
+                  data: {
+                    [key: string]: unknown;
+                  };
+                  overrides: {
+                    [key: string]: unknown;
+                  };
+                  source: string | null;
+                  datasetVersion: string | null;
+                  /** Format: date-time */
+                  archivedAt: string | null;
+                }[];
+                /** @default false */
+                strokeAnimation: boolean;
               }[];
               exercises: {
                 type: string;

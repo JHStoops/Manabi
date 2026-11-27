@@ -6,7 +6,7 @@ import japanese from './index';
 import { courseKana } from './kana';
 import { kanaToRomaji } from './romaji';
 
-// FR-049, FR-048, FR-141: kana and vocabulary exercise generators.
+// FR-049, FR-048, FR-141: kana, vocabulary and kanji exercise generators.
 
 let nextId = 1;
 const item = (type: string, levelCode: string, data: object): Item => ({
@@ -78,6 +78,41 @@ const kanji = [study, eat, kanjiData('火', ['カ'], ['ひ'])].map((k) => item('
 const kanjiWords = [word('学生', 'がくせい', 'student'), word('学校', 'がっこう', 'school')];
 const kanjiContext = context('N5', [...words, ...kanji, ...kanjiWords]);
 const conjugateContext = context('N5', [...words, ...conjugable]);
+// Kanji with distinct meanings for meaning exercises (#53); 休 looks like 体, 木 and 本.
+const kanjiItem = (
+  character: string,
+  meaning: string,
+  strokeCount: number,
+  components: string[],
+  levelCode = 'N5',
+) =>
+  item('kanji', levelCode, {
+    character,
+    meanings: [meaning],
+    onReadings: [],
+    kunReadings: [],
+    strokeCount,
+    components,
+  });
+const rest = item('kanji', 'N5', {
+  character: '休',
+  meanings: ['rest', 'day off'],
+  onReadings: ['キュウ'],
+  kunReadings: ['やす.む'],
+  strokeCount: 6,
+  components: ['亻', '木'],
+});
+const meaningKanji = [
+  rest,
+  kanjiItem('体', 'body', 7, ['亻', '本']),
+  kanjiItem('木', 'tree', 4, ['木']),
+  kanjiItem('本', 'book', 5, ['木']),
+  kanjiItem('雨', 'rain', 8, ['雨']),
+  kanjiItem('電', 'electricity', 13, ['雨', '田']),
+];
+const n4Kanji = kanjiItem('作', 'make', 7, ['亻'], 'N4');
+const holiday = word('休み', 'やすみ', 'holiday');
+const meaningContext = context('N5', [...meaningKanji, n4Kanji, holiday, ...words]);
 const kanaContext = context(KANA_SECTION_LEVEL, [...kana, ...words]);
 const n5Context = context('N5', [...kana, ...words]);
 
@@ -91,6 +126,7 @@ const rightAnswer = (e: Exercise): unknown => {
   if (e.type === 'choice' || e.type === 'reading_in_context') return p.correct;
   if (e.type === 'match_pairs') return [0, 1, 2, 3, 4];
   if (e.type === 'word_bank') return (p.acceptedOrders as number[][])[0];
+  if (e.type === 'stroke_trace' || e.type === 'draw_memory') return { mistakes: 0 };
   return (p.accept as { text: string }[])[0]!.text;
 };
 
@@ -103,6 +139,13 @@ describe.each<[string, Item, GeneratorContext]>([
   ['typed_answer', kana[2]!, kanaContext],
   ['typed_answer', words[5]!, n5Context],
   ['word_bank', words[0]!, n5Context],
+  ['choice', rest, meaningContext],
+  ['match_pairs', rest, meaningContext],
+  ['typed_answer', rest, meaningContext],
+  ['typed_answer', rest, { ...meaningContext, facet: 'reading' }],
+  ['stroke_trace', rest, meaningContext],
+  ['stroke_trace', kana[0]!, kanaContext],
+  ['draw_memory', rest, meaningContext],
   ['reading_in_context', kanji[0]!, kanjiContext],
   ['reading_in_context', kanji[1]!, kanjiContext],
   ...conjugable.map((w): [string, Item, GeneratorContext] => ['conjugate', w, conjugateContext]),
@@ -125,7 +168,10 @@ describe.each<[string, Item, GeneratorContext]>([
     for (const e of exercises) {
       const ids = payloadItemIds(e.payload);
       expect(ids.every((id) => taught.has(id))).toBe(true);
-      if (type !== 'typed_answer') expect(ids).toContain(target.id);
+      // Typed answers name no options; drawing exercises name their character by item key.
+      if (type === 'stroke_trace' || type === 'draw_memory') {
+        expect(e.payload).toMatchObject({ itemKey: target.key });
+      } else if (type !== 'typed_answer') expect(ids).toContain(target.id);
     }
   });
 });
@@ -190,6 +236,76 @@ describe('EX-09 reading in context', () => {
   it('is left out when no taught word gives a sure reading', () => {
     expect(generators.reading_in_context!(kanji[2]!, kanjiContext)).toEqual([]);
     expect(generators.reading_in_context!(words[2]!, kanjiContext)).toEqual([]);
+  });
+});
+
+describe('kanji exercises (Product Spec section 5)', () => {
+  it('ask for the meaning by default, in EX-01 and EX-04', () => {
+    const typed = runs('typed_answer', rest, meaningContext);
+    expect(typed[0]!.payload).toEqual({
+      prompt: 'What does the kanji 休 mean?',
+      answerLanguage: 'base',
+      accept: [
+        { text: 'rest', tiles: [] },
+        { text: 'day off', tiles: [] },
+      ],
+    });
+    const prompts = runs('choice', rest, meaningContext).map(
+      (e) => (e.payload as { prompt: string }).prompt,
+    );
+    expect(new Set(prompts)).toEqual(
+      new Set(['What does the kanji 休 mean?', 'Which kanji means “rest”?']),
+    );
+  });
+
+  it("ask for the kanji's reading in a taught word for the reading facet (EX-04)", () => {
+    const [e] = generators.typed_answer!(rest, { ...meaningContext, facet: 'reading' });
+    expect(e!.payload).toMatchObject({
+      prompt: 'Type the reading of 休 in 休み.',
+      answerLanguage: 'target',
+      accept: [{ text: 'やす' }, { text: 'ヤス' }],
+    });
+    const noWord = context('N5', meaningKanji);
+    expect(generators.typed_answer!(rest, { ...noWord, facet: 'reading' })).toEqual([]);
+  });
+
+  it('accept a typed reading in katakana, as teaching cards show on readings', () => {
+    const dayOff = word('休日', 'きゅうじつ', 'day off');
+    const [e] = generators.typed_answer!(rest, {
+      ...context('N5', [rest, dayOff]),
+      facet: 'reading',
+    });
+    expect(e!.payload).toMatchObject({ prompt: 'Type the reading of 休 in 休日.' });
+    for (const answer of ['きゅう', 'キュウ']) {
+      expect(gradeResponse(e!, { attempts: [answer] }, japanese)).toEqual({ result: 'correct' });
+    }
+  });
+
+  it('prefer look-alike kanji of the same level as distractors', () => {
+    const lookAlikes = new Set([rest, ...meaningKanji.slice(1, 4)].map((k) => k.id));
+    for (const e of runs('choice', rest, meaningContext)) {
+      expect(new Set(payloadItemIds(e.payload))).toEqual(lookAlikes);
+    }
+    const all = runs('match_pairs', rest, meaningContext).flatMap((e) => payloadItemIds(e.payload));
+    expect(all).not.toContain(n4Kanji.id);
+  });
+
+  it('trace the kanji and draw it from its meaning, without showing it in the prompt', () => {
+    expect(generators.stroke_trace!(rest, meaningContext)).toEqual([
+      { type: 'stroke_trace', payload: { itemKey: rest.key, character: '休' } },
+    ]);
+    const [draw] = generators.draw_memory!(rest, meaningContext);
+    expect(draw!.payload).toEqual({
+      itemKey: rest.key,
+      character: '休',
+      prompt: 'Draw the kanji that means “rest”.',
+    });
+  });
+
+  it('are not drawn for words, and kana are traced but not drawn from memory', () => {
+    expect(generators.stroke_trace!(holiday, meaningContext)).toEqual([]);
+    expect(generators.draw_memory!(holiday, meaningContext)).toEqual([]);
+    expect(generators.draw_memory!(kana[0]!, kanaContext)).toEqual([]);
   });
 });
 
