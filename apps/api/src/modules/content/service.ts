@@ -135,6 +135,33 @@ function storedTiles(value: unknown, out = new Map<string, Tile[]>()): Map<strin
 }
 
 /**
+ * FR-229, FR-227: accepted answers kept across a re-import. Accepting a report adds answers to an
+ * authored exercise's stored `accept` list; the pack knows nothing of them. Each stored answer
+ * whose text the pack's list lacks is appended to `payload.accept` (so none is duplicated) and
+ * counted. Only a pack list that exists is extended, and only when the exercise keeps its type:
+ * answers accepted for a different kind of exercise are dropped with its old payload.
+ */
+function mergeAcceptedAnswers(
+  payload: JsonObject,
+  type: string,
+  stored: { type: string; payload: JsonObject } | undefined,
+): number {
+  if (stored?.type !== type) return 0;
+  if (!Array.isArray(payload.accept) || !Array.isArray(stored.payload.accept)) return 0;
+  const texts = new Set(
+    payload.accept.flatMap((a) => (isObject(a) && typeof a.text === 'string' ? [a.text] : [])),
+  );
+  let kept = 0;
+  for (const answer of stored.payload.accept) {
+    if (!isObject(answer) || typeof answer.text !== 'string' || texts.has(answer.text)) continue;
+    texts.add(answer.text);
+    payload.accept.push(answer);
+    kept += 1;
+  }
+  return kept;
+}
+
+/**
  * A pack exercise's payload in stored form, with items resolved by `idOf`, and the entries of its
  * `accept` list that leave out tiles, for the caller to fill (DR-12, FR-238). Only accept-list
  * answers may: elsewhere (word_bank, reorder) `acceptedOrders` index the tiles the author wrote.
@@ -282,6 +309,12 @@ export function packProblems(pack: ContentPack): PackProblem[] {
   return problems;
 }
 
+/** What an import reports besides success. */
+export interface ImportSummary {
+  /** FR-229: stored accepted answers the pack's accept lists lacked, kept on re-import. */
+  acceptedAnswersKept: number;
+}
+
 /**
  * Imports a pack in one transaction; nothing is written when any part fails. `structureOnly`
  * stores only the course, sections and lists: the first pass on an empty database, so the
@@ -292,12 +325,13 @@ export async function importPack(
   pool: Pool,
   pack: ContentPack,
   structureOnly = false,
-): Promise<void> {
+): Promise<ImportSummary> {
   const problems = packProblems(pack);
   if (problems.length > 0) throw new ContentPackError(problems.map((p) => p.message));
   const { course } = pack;
   const plugin = languagePlugins.get(course.plugin);
 
+  const summary: ImportSummary = { acceptedAnswersKept: 0 };
   await withTransaction(pool, async (db) => {
     await deferPositionChecks(db);
     const courseId = await upsertCourse(db, course);
@@ -371,12 +405,12 @@ export async function importPack(
         await replaceLessonItems(db, lessonId, ids);
 
         const before = new Map(
-          (await listAuthoredExercisePayloads(db, lessonId)).map((r) => [r.key, r.payload]),
+          (await listAuthoredExercisePayloads(db, lessonId)).map((r) => [r.key, r]),
         );
         for (const [position, e] of lesson.exercises.entries()) {
           const label = `lesson ${lesson.key} exercise ${e.key}`;
           const { payload, untiled } = storedPayload(e, (key) => idOf(key, label));
-          const kept = storedTiles(before.get(e.key));
+          const kept = storedTiles(before.get(e.key)?.payload);
           for (const answer of untiled) {
             // FR-238: tiles stored for the same text are kept, since an author may have edited
             // them; new text is segmented.
@@ -384,11 +418,13 @@ export async function importPack(
               kept.get(answer.text) ??
               (await segmentText(plugin, answer.text)).map(({ counted: _, ...tile }) => tile);
           }
+          const merged = mergeAcceptedAnswers(payload, e.type, before.get(e.key));
           const result = getExerciseType(e.type).payloadSchema.safeParse(payload);
           if (!result.success)
             throw new ContentPackError(
               payloadProblems(label, e, result.error.issues).map((p) => p.message),
             );
+          summary.acceptedAnswersKept += merged;
           await upsertAuthoredExercise(db, {
             lessonId,
             key: e.key,
@@ -436,6 +472,7 @@ export async function importPack(
     }
     await archiveAuthoredSentencesExcept(db, courseId, sentenceIds);
   });
+  return summary;
 }
 
 /** Reads a course's active content back into pack form (the reverse of importPack). */
