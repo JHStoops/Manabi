@@ -304,6 +304,36 @@ describeWithDb('item-level pins in reviews (#241)', () => {
       });
   });
 
+  it.each(['units', 'sections'])(
+    'skips the stored exercises of a single-item lesson whose %s row is archived (#261, FR-232)',
+    async (table) => {
+      const lessonId = await lesson('ja-en:mizu', [itemId]);
+      const pinned = typedPayload('ja:word:mizu', ['water', 'aqua']);
+      await pinFrom(typedPayload('ja:word:mizu', ['water']), pinned, { lessonId });
+      const authored = { ...typedPayload('ja:word:mizu', ['water', 'H2O']), prompt: 'Authored' };
+      await sql(
+        `INSERT INTO exercises (lesson_id, type, payload, origin) VALUES ($1, 'typed_answer', $2, 'authored')`,
+        [lessonId, authored],
+      );
+      expect(await served(0.99)).toEqual({ type: 'typed_answer', payload: authored });
+
+      await sql(
+        table === 'units'
+          ? `UPDATE units SET archived_at = now() WHERE id = (SELECT unit_id FROM lessons WHERE id = $1)`
+          : `UPDATE sections SET archived_at = now()
+              WHERE id = (SELECT u.section_id FROM lessons l JOIN units u ON u.id = l.unit_id
+                           WHERE l.id = $1)`,
+        [lessonId],
+      );
+      // Neither the pin nor the authored exercise is served: the generated original is.
+      for (const within of [0, 0.99])
+        expect(await served(0.99, within)).toEqual({
+          type: 'typed_answer',
+          payload: typedPayload('ja:word:mizu', ['water']),
+        });
+    },
+  );
+
   it('counts an edited pin once in its slot (#254)', async () => {
     const edited = { ...typedPayload('ja:word:mizu', ['water', 'aqua']), prompt: 'Fixed prompt' };
     await pinFrom(typedPayload('ja:word:mizu', ['water']), edited);

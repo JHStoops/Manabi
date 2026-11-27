@@ -4,7 +4,8 @@ import type { ApiClient } from '@manabi/api-client';
 import type { LanguagePlugin, LibraryItem, LibraryItemDetail } from '@manabi/core';
 import { japanese } from '@manabi/lang-ja';
 import '../../i18n';
-import { ActivePluginContext } from '../../state/plugins';
+import type { ActivePluginStatus } from '../../state/plugins';
+import { ActivePluginContext, ActivePluginStatusContext } from '../../state/plugins';
 import { ApiContext } from '../../state/session';
 import { AppThemeProvider } from '../../theme';
 import KanjiDetailPage from './KanjiDetailPage';
@@ -68,26 +69,51 @@ const detail: LibraryItemDetail = {
   ],
 };
 
-function mount(found: LibraryItemDetail | Error, plugin: LanguagePlugin | null = japanese) {
+function mount(
+  found: LibraryItemDetail | Error,
+  plugin: LanguagePlugin | null = japanese,
+  status: ActivePluginStatus = 'ready',
+) {
   const api = {
     GET: () => (found instanceof Error ? Promise.reject(found) : Promise.resolve(found)),
   } as unknown as ApiClient;
   render(
     <ApiContext.Provider value={api}>
       <AppThemeProvider>
-        <ActivePluginContext.Provider value={plugin}>
-          <MemoryRouter initialEntries={['/library/kanji/ja:kanji:食']}>
-            <Routes>
-              <Route path="/library/kanji/:key" element={<KanjiDetailPage />} />
-            </Routes>
-          </MemoryRouter>
-        </ActivePluginContext.Provider>
+        <ActivePluginStatusContext.Provider value={status}>
+          <ActivePluginContext.Provider value={plugin}>
+            <MemoryRouter initialEntries={['/library/kanji/ja:kanji:食']}>
+              <Routes>
+                <Route path="/library/kanji/:key" element={<KanjiDetailPage />} />
+              </Routes>
+            </MemoryRouter>
+          </ActivePluginContext.Provider>
+        </ActivePluginStatusContext.Provider>
       </AppThemeProvider>
     </ApiContext.Provider>,
   );
 }
 
 describe('KanjiDetailPage', () => {
+  it('says there is no character study once the plugin is known to be absent, not Loading (#260, FR-241)', async () => {
+    mount(detail, null, 'none');
+    await screen.findByText("This course's language has no character study.");
+    expect(screen.queryByText('Loading…')).toBeNull();
+  });
+
+  it('keeps showing Loading while the plugin is still being looked up (#260)', async () => {
+    mount(detail, null, 'loading');
+    await act(() => Promise.resolve());
+    screen.getByText('Loading…');
+  });
+
+  it('gives the Library back link a 44 px tap target (#260, IF-03)', async () => {
+    mount(detail);
+    const style = getComputedStyle(await screen.findByRole('link', { name: 'Library' }));
+    expect(style.minHeight).toBe('44px');
+    expect(style.minWidth).toBe('44px');
+  });
+
   it('shows the header, meanings and readings with okurigana and the first-taught one marked', async () => {
     mount(detail);
     await screen.findByRole('heading', { name: 'eat', level: 1 });
