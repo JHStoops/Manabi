@@ -1,5 +1,5 @@
 import type { Dispatch } from 'react';
-import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import styled from '@emotion/styled';
 import { Link, useParams } from 'react-router-dom';
@@ -23,6 +23,11 @@ import { apiErrorMessage } from '../auth/ui';
 import { getExerciseRenderer } from '../exercises/registry';
 import { WordBankAlternative } from '../exercises/WordBankAlternative';
 import { LessonResults } from './LessonResults';
+
+// FR-071: Hanzi Writer loads only when a teaching card animates strokes (NFR-04 first load).
+const StrokeCanvas = lazy(() =>
+  import('../strokes/StrokeCanvas').then((m) => ({ default: m.StrokeCanvas })),
+);
 import { initialPlayerState, lessonPlayerReducer } from './lessonPlayer';
 import type { PlayerAction, PlayerCompletion, PlayerSession } from './lessonPlayer';
 
@@ -154,6 +159,17 @@ const Term = styled.p`
   text-align: center;
 `;
 
+/** Product Spec section 5: a kanji's words, each as term, reading and meaning on one line. */
+const WordList = styled.ul`
+  padding: 0;
+  list-style: none;
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: ${({ theme }) => theme.spacing(2)};
+  }
+`;
+
 /** Product Spec sections 4 and 6: one new item, as the course's plugin shows it (FR-141). */
 function TeachingCard(props: {
   card: TeachingCardData;
@@ -170,6 +186,11 @@ function TeachingCard(props: {
     <Card>
       {/* The session has no targetLang; the plugin code is the language code (ja). */}
       <Term lang={lang}>{term}</Term>
+      {props.card.strokeAnimation && (
+        <Suspense fallback={null}>
+          <StrokeCanvas itemKey={props.card.item.key} character={term} mode="animate" />
+        </Suspense>
+      )}
       <dl>
         {reading && (
           <div>
@@ -204,6 +225,23 @@ function TeachingCard(props: {
             ))}
           </tbody>
         </table>
+      )}
+      {props.card.words.length > 0 && (
+        <section aria-label={t('player.wordsUsing', { term })}>
+          <h3>{t('player.wordsUsing', { term })}</h3>
+          <WordList>
+            {props.card.words.map((word) => {
+              const fields = props.plugin.teachingCard(word, props.sectionLevel);
+              return (
+                <li key={word.id}>
+                  <span lang={lang}>{fields.term}</span>
+                  {fields.reading && <span lang={lang}>{fields.reading}</span>}
+                  {fields.meaning && <span>{fields.meaning}</span>}
+                </li>
+              );
+            })}
+          </WordList>
+        </section>
       )}
       {spoken && (
         <Speakers>

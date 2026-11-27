@@ -88,6 +88,32 @@ export async function insertReviewEntries(
 }
 
 /**
+ * FR-110: for every learner's item in reviews, an entry for each of these facets of its course's
+ * plugin and item type that it lacks, copying the stage and due time of its lowest-stage entry
+ * (earliest due among equals; a retired item stays retired).
+ */
+export async function insertMissingFacets(
+  db: Queryable,
+  facets: readonly { plugin: string; itemType: string; facet: string }[],
+): Promise<void> {
+  await query(
+    db,
+    `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+     SELECT DISTINCT ON (p.user_id, p.item_id, f.facet) p.user_id, p.item_id, f.facet, p.stage, p.due_at
+       FROM item_progress p
+       JOIN items i ON i.id = p.item_id
+       JOIN courses c ON c.id = i.course_id
+       JOIN unnest($1::text[], $2::text[], $3::text[]) AS f (plugin, item_type, facet)
+         ON f.plugin = c.plugin AND f.item_type = i.type
+      WHERE NOT EXISTS (SELECT 1 FROM item_progress e
+                         WHERE e.user_id = p.user_id AND e.item_id = p.item_id AND e.facet = f.facet)
+      ORDER BY p.user_id, p.item_id, f.facet, p.stage, p.due_at
+     ON CONFLICT (user_id, item_id, facet) DO NOTHING`,
+    [facets.map((f) => f.plugin), facets.map((f) => f.itemType), facets.map((f) => f.facet)],
+  );
+}
+
+/**
  * A due item with one of its due facets, its course's plugin and the level of the section that
  * first teaches it (generators depend on it, FR-141; imported items may have no level).
  */

@@ -24,6 +24,12 @@ export interface GeneratorContext {
   taughtItems: readonly Item[];
   /** FR-056: sentences at or below the section's level, not challenging, of taught items only. */
   sentences: readonly GeneratorSentence[];
+  /**
+   * The review facet (see `reviewFacets`) the exercise should test, when the caller needs one:
+   * a review of that facet, or a lesson step (Product Spec section 5: a kanji's meaning, then its
+   * reading). Absent: the generator picks.
+   */
+  facet?: ReviewFacet;
 }
 
 /** An exercise generator: builds exercises of one type for an item (FR-049). */

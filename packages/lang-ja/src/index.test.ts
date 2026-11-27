@@ -41,12 +41,14 @@ describe('japanese language plugin', () => {
     expect(japanese.checkAnswer).toBe(checkAnswer);
   });
 
-  it('generates choice, match pairs, reading in context, conjugate, word bank and typed answer exercises (FR-049)', () => {
+  it('generates choice, match pairs, reading in context, conjugate, word bank, typed answer, stroke trace and draw from memory exercises (FR-049)', () => {
     expect(Object.keys(japanese.generators).sort()).toEqual([
       'choice',
       'conjugate',
+      'draw_memory',
       'match_pairs',
       'reading_in_context',
+      'stroke_trace',
       'typed_answer',
       'word_bank',
     ]);

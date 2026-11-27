@@ -3,6 +3,7 @@ import { ConfigError, loadConfig } from './config';
 import { runMigrations } from './db/migrate';
 import { createPool } from './db/pool';
 import { backfillLibraryFields } from './modules/library/service';
+import { backfillReviewFacets } from './modules/reviews/service';
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -11,6 +12,8 @@ async function main(): Promise<void> {
   const app = await buildApp({ config, pool: createPool(config.databaseUrl) });
   // Migration 0011 added library search columns; items written before it are filled once here.
   await backfillLibraryFields(app.db);
+  // FR-110: review facets a plugin added since (#53: kanji meaning) for items already in reviews.
+  await backfillReviewFacets(app.db);
 
   const stop = async (): Promise<void> => {
     await app.close();

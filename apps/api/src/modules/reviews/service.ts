@@ -64,6 +64,25 @@ export async function createReviewEntries(
   await q.insertReviewEntries(db, userId, entries, stage, dueAt);
 }
 
+/**
+ * FR-110: when a plugin adds a review facet to an item type (#53: kanji meaning), items already
+ * in reviews get an entry for it at their current stage and due time (their lowest-stage facet's),
+ * so they are reviewed on it without starting over. Runs at API start; existing entries are kept.
+ */
+export async function backfillReviewFacets(db: Queryable): Promise<void> {
+  const facets = languagePlugins.codes().flatMap((code) => {
+    const plugin = languagePlugins.get(code);
+    return Object.keys(plugin.itemSchemas).flatMap((itemType) =>
+      Object.keys(plugin.reviewFacets(itemType)).map((facet) => ({
+        plugin: code,
+        itemType,
+        facet,
+      })),
+    );
+  });
+  if (facets.length > 0) await q.insertMissingFacets(db, facets);
+}
+
 /** FR-113: items due now and the 7-day forecast in the learner's time zone. */
 export async function getSummary(
   db: Pool,
@@ -141,8 +160,12 @@ async function buildState(db: Queryable, userId: number, now: Date): Promise<Rev
         // FR-048: generated exercises use the learner's items only.
         for (const type of [...types].sort(() => Math.random() - 0.5)) {
           const generate = Object.hasOwn(plugin.generators, type) ? plugin.generators[type] : null;
-          const made = (generate?.(item, { sectionLevel, taughtItems, sentences: [] }) ??
-            []) as SessionExercise[];
+          const made = (generate?.(item, {
+            sectionLevel,
+            taughtItems,
+            sentences: [],
+            facet: row.facet,
+          }) ?? []) as SessionExercise[];
           const fit = made.find((e) => payloadItemIds(e.payload).every((id) => taught.has(id)));
           if (fit) return fit;
         }
