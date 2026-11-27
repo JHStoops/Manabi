@@ -286,15 +286,20 @@ export async function replaceLessonItems(
   );
 }
 
-/** The payloads of a lesson's authored exercises by key, archived ones included. */
+/**
+ * The types and payloads of a lesson's authored exercises by key, archived ones included. The rows
+ * are locked: accepting an answer report (FR-229) locks its exercise to extend the accept list,
+ * and an import that read it unlocked could overwrite that answer.
+ */
 export function listAuthoredExercisePayloads(
   db: Queryable,
   lessonId: number,
-): Promise<{ key: string; payload: JsonObject }[]> {
+): Promise<{ key: string; type: string; payload: JsonObject }[]> {
   return query(
     db,
-    `SELECT key, payload FROM exercises
-     WHERE lesson_id = $1 AND origin = 'authored' AND key IS NOT NULL`,
+    `SELECT key, type, payload FROM exercises
+     WHERE lesson_id = $1 AND origin = 'authored' AND key IS NOT NULL
+     FOR UPDATE`,
     [lessonId],
   );
 }
