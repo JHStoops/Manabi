@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { LibraryItem, LibraryItemDetail } from '@manabi/core';
 import { tapTarget } from '../../theme';
 import { useApi } from '../../state/session';
-import { ActivePluginContext } from '../../state/plugins';
+import { ActivePluginContext, ActivePluginStatusContext } from '../../state/plugins';
 import { apiErrorMessage } from '../auth/ui';
 import { ChoiceButton } from '../exercises/ui';
 import { StrokeCanvas } from '../strokes/StrokeCanvas';
@@ -36,6 +36,13 @@ const Page = styled.article`
   }
 `;
 
+// IF-03: the back link is a 44 px tap target.
+const BackLink = styled(Link)`
+  ${({ theme }) => tapTarget(theme)};
+  display: inline-flex;
+  align-items: center;
+`;
+
 const Glyph = styled.span`
   font-size: 5rem;
   line-height: 1;
@@ -61,6 +68,7 @@ export default function KanaDetailPage() {
   const { t } = useTranslation();
   const api = useApi();
   const plugin = useContext(ActivePluginContext);
+  const pluginStatus = useContext(ActivePluginStatusContext);
   const [item, setItem] = useState<LibraryItemDetail | null>(null);
   const [problem, setProblem] = useState('');
   const [practice, setPractice] = useState(false);
@@ -80,6 +88,8 @@ export default function KanaDetailPage() {
   }, [api, key, t]);
 
   if (problem) return <p role="alert">{problem}</p>;
+  // FR-241: no plugin at all (no course, unknown plugin, courses failed) means character study is off.
+  if (plugin === null && pluginStatus === 'none') return <p>{t('characters.unavailable')}</p>;
   if (plugin === null || !item) return <p>{t('app.loading')}</p>;
   // FR-241: character study features only for a plugin that enables them.
   if (!plugin.features.characterStudy) return <p>{t('characters.unavailable')}</p>;
@@ -98,7 +108,7 @@ export default function KanaDetailPage() {
 
   return (
     <Page>
-      <Link to="/library">{t('area.library')}</Link>
+      <BackLink to="/library">{t('area.library')}</BackLink>
       <Header>
         <Glyph lang="ja">{kana.character}</Glyph>
         <div>

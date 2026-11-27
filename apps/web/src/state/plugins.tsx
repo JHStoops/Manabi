@@ -11,33 +11,57 @@ export const plugins = createLanguagePluginRegistry([japanese]);
 /** The active course's plugin; null while loading, with no active course, or an unknown plugin. */
 export const ActivePluginContext = createContext<LanguagePlugin | null>(null);
 
+/**
+ * Whether the active plugin is still being looked up, known (`ready`), or known to be absent
+ * (`none`: no active course, an unknown plugin, or courses that failed to load). FR-241.
+ */
+export type ActivePluginStatus = 'loading' | 'ready' | 'none';
+
+/** Without a provider the plugin is reported as still loading. */
+export const ActivePluginStatusContext = createContext<ActivePluginStatus>('loading');
+
 /** Looks up the active course's plugin from GET /courses whenever the active course changes. */
 export function ActivePluginProvider({ children }: { children: ReactNode }) {
   const api = useApi();
   // Enrolling dispatches the new active course to the session (LearnPage), so this follows it.
   const { activeCourseId } = useSettings();
   const [plugin, setPlugin] = useState<LanguagePlugin | null>(null);
+  const [status, setStatus] = useState<ActivePluginStatus>('loading');
 
   useEffect(() => {
     let current = true;
     if (activeCourseId === null) {
       setPlugin(null);
+      setStatus('none');
       return;
     }
+    setPlugin(null);
+    setStatus('loading');
     api.GET('/api/v1/courses').then(
       ({ courses }) => {
         const code = courses.find((c) => c.id === activeCourseId)?.plugin;
-        if (current) setPlugin(code && plugins.has(code) ? plugins.get(code) : null);
+        if (!current) return;
+        const found = code && plugins.has(code) ? plugins.get(code) : null;
+        setPlugin(found);
+        setStatus(found ? 'ready' : 'none');
       },
       // Features stay off when courses cannot be loaded; the Learn tab shows the error.
-      () => current && setPlugin(null),
+      () => {
+        if (!current) return;
+        setPlugin(null);
+        setStatus('none');
+      },
     );
     return () => {
       current = false;
     };
   }, [api, activeCourseId]);
 
-  return <ActivePluginContext.Provider value={plugin}>{children}</ActivePluginContext.Provider>;
+  return (
+    <ActivePluginStatusContext.Provider value={status}>
+      <ActivePluginContext.Provider value={plugin}>{children}</ActivePluginContext.Provider>
+    </ActivePluginStatusContext.Provider>
+  );
 }
 
 const noFeatures: LanguageFeatures = {

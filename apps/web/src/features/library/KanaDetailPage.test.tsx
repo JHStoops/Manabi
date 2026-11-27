@@ -1,10 +1,12 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ApiClient } from '@manabi/api-client';
 import type { LibraryItem, LibraryItemDetail } from '@manabi/core';
+import type { LanguagePlugin } from '@manabi/core';
 import { japanese } from '@manabi/lang-ja';
 import '../../i18n';
-import { ActivePluginContext } from '../../state/plugins';
+import type { ActivePluginStatus } from '../../state/plugins';
+import { ActivePluginContext, ActivePluginStatusContext } from '../../state/plugins';
 import { ApiContext } from '../../state/session';
 import { AppThemeProvider } from '../../theme';
 import KanaDetailPage from './KanaDetailPage';
@@ -51,7 +53,11 @@ const kana = (character: string, romaji: string): LibraryItemDetail =>
   }) as LibraryItemDetail;
 
 const requested: unknown[] = [];
-function mount(found: LibraryItemDetail | Error, plugin = japanese) {
+function mount(
+  found: LibraryItemDetail | Error,
+  plugin: LanguagePlugin | null = japanese,
+  status: ActivePluginStatus = 'ready',
+) {
   const api = {
     GET: (_url: string, init: unknown) => (
       requested.push(init),
@@ -61,19 +67,40 @@ function mount(found: LibraryItemDetail | Error, plugin = japanese) {
   render(
     <ApiContext.Provider value={api}>
       <AppThemeProvider>
-        <ActivePluginContext.Provider value={plugin}>
-          <MemoryRouter initialEntries={['/library/kana/ja%3Akana%3A%E3%81%82']}>
-            <Routes>
-              <Route path="/library/kana/:key" element={<KanaDetailPage />} />
-            </Routes>
-          </MemoryRouter>
-        </ActivePluginContext.Provider>
+        <ActivePluginStatusContext.Provider value={status}>
+          <ActivePluginContext.Provider value={plugin}>
+            <MemoryRouter initialEntries={['/library/kana/ja%3Akana%3A%E3%81%82']}>
+              <Routes>
+                <Route path="/library/kana/:key" element={<KanaDetailPage />} />
+              </Routes>
+            </MemoryRouter>
+          </ActivePluginContext.Provider>
+        </ActivePluginStatusContext.Provider>
       </AppThemeProvider>
     </ApiContext.Provider>,
   );
 }
 
 describe('KanaDetailPage', () => {
+  it('says there is no character study once the plugin is known to be absent, not Loading (#260, FR-241)', async () => {
+    mount(kana('あ', 'a'), null, 'none');
+    await screen.findByText("This course's language has no character study.");
+    expect(screen.queryByText('Loading…')).toBeNull();
+  });
+
+  it('keeps showing Loading while the plugin is still being looked up (#260)', async () => {
+    mount(kana('あ', 'a'), null, 'loading');
+    await act(() => Promise.resolve());
+    screen.getByText('Loading…');
+  });
+
+  it('gives the Library back link a 44 px tap target (#260, IF-03)', async () => {
+    mount(kana('あ', 'a'));
+    const style = getComputedStyle(await screen.findByRole('link', { name: 'Library' }));
+    expect(style.minHeight).toBe('44px');
+    expect(style.minWidth).toBe('44px');
+  });
+
   it('shows the character, romaji, script, stage and the words that use it', async () => {
     mount(kana('あ', 'a'));
     await screen.findByRole('heading', { name: 'a', level: 1 });
