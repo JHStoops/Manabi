@@ -15,6 +15,7 @@ import {
   learnerSettingsSchema,
   TEACHING_CARD_MAX_WORDS,
   lessonCompletionSchema,
+  isFlowCard,
   lessonFlows,
   lessonRecipes,
   lessonSessionStateSchema,
@@ -30,11 +31,13 @@ import type {
   LanguagePlugin,
   LessonCompletion,
   LessonCompletionRequest,
+  LessonFlowEntry,
   LessonFlowStep,
   LessonSession,
   LessonPreview,
   LessonSessionState,
   SessionExercise,
+  TeachingCardFacet,
   TestOutCompletion,
   TestOutCompletionRequest,
   TestOutSession,
@@ -193,41 +196,59 @@ async function buildState(
   const { plugin, newItems, context, strokeKeys, containing } = await lessonInputs(db, lesson);
   const stored = await q.listStoredExercises(db, lesson.id);
   const flow = lessonFlows[lesson.type];
-  const exercises = flow
+  const flowSession = flow
     ? fillFlow(plugin, context, newItems, stored, flow, containing, drawing, strokeKeys)
-    : fillExercises(
-        plugin,
-        context,
-        newItems,
-        lesson.type === 'grammar' ? grammarExercises(stored, context) : stored,
-        lessonRecipes[lesson.type],
-        LESSON_MIN_EXERCISES,
-        LESSON_MAX_EXERCISES,
-        drawing,
-        strokeKeys,
-      );
+    : undefined;
+  const exercises =
+    flowSession?.exercises ??
+    fillExercises(
+      plugin,
+      context,
+      newItems,
+      lesson.type === 'grammar' ? grammarExercises(stored, context) : stored,
+      lessonRecipes[lesson.type],
+      LESSON_MIN_EXERCISES,
+      LESSON_MAX_EXERCISES,
+      drawing,
+      strokeKeys,
+    );
   if (exercises.length < LESSON_MIN_EXERCISES) {
     throw new AppError('conflict', 'This lesson does not have enough exercises yet', {
       exercises: exercises.length,
       required: LESSON_MIN_EXERCISES,
     });
   }
-  return lessonSessionStateSchema.parse({
-    // FR-041: the first fitting sentence is a new item's example, the first two a grammar point's
-    // (Product Spec section 6, sentences where it was detected); none when none fits.
-    teachingCards: newItems.map((item) => ({
-      item,
-      examples: context.sentences
-        .filter((s) => s.tokens.some((t) => t.itemId === item.id) || s.grammar.includes(item.key))
-        .slice(0, lesson.type === 'grammar' ? 2 : 1)
-        .map((s) => ({ text: s.text, translation: s.translation, tiles: s.tokens })),
-      // Product Spec section 5: a kanji's card shows 1 to 3 words that use it and its strokes.
-      words: (containing.get(item.id) ?? []).slice(0, TEACHING_CARD_MAX_WORDS),
-      strokeAnimation:
-        lesson.type === 'kanji' && plugin.features.strokeDrawing && strokeKeys.has(item.key),
-    })),
-    exercises,
-  });
+  // FR-041: the first fitting sentence is a new item's example, the first two a grammar point's
+  // (Product Spec section 6, sentences where it was detected); none when none fits.
+  const examples = (item: Item) =>
+    context.sentences
+      .filter((s) => s.tokens.some((t) => t.itemId === item.id) || s.grammar.includes(item.key))
+      .slice(0, lesson.type === 'grammar' ? 2 : 1)
+      .map((s) => ({ text: s.text, translation: s.translation, tiles: s.tokens }));
+  // Product Spec section 5: a kanji's card shows 1 to 3 words that use it and its strokes.
+  const words = (item: Item) => (containing.get(item.id) ?? []).slice(0, TEACHING_CARD_MAX_WORDS);
+  const strokeAnimation = (item: Item) =>
+    lesson.type === 'kanji' && plugin.features.strokeDrawing && strokeKeys.has(item.key);
+  // A flow places its cards among the exercises (#237): the kanji, meaning and strokes before
+  // the exercises; the reading, words and example after the meaning exercises.
+  const teachingCards = flowSession
+    ? flowSession.cards.flatMap(({ facet, before }) =>
+        newItems.map((item) => ({
+          item,
+          facet,
+          before,
+          examples: facet === 'meaning' ? [] : examples(item),
+          words: facet === 'meaning' ? [] : words(item),
+          strokeAnimation: facet !== 'reading' && strokeAnimation(item),
+        })),
+      )
+    : newItems.map((item) => ({
+        item,
+        examples: examples(item),
+        words: words(item),
+        strokeAnimation: strokeAnimation(item),
+      }));
+  return lessonSessionStateSchema.parse({ teachingCards, exercises });
 }
 
 /**
@@ -289,7 +310,9 @@ export async function generateExercises(
   if (!lesson) throw new AppError('not_found', 'Lesson not found');
   const { plugin, newItems, context, strokeKeys, containing } = await lessonInputs(db, lesson);
   const flow = lessonFlows[lesson.type];
-  if (flow) return fillFlow(plugin, context, newItems, [], flow, containing, true, strokeKeys);
+  if (flow) {
+    return fillFlow(plugin, context, newItems, [], flow, containing, true, strokeKeys).exercises;
+  }
   return fillExercises(
     plugin,
     context,
@@ -456,18 +479,19 @@ function fillExercises(
  * the new items (words). Up to 15 exercises; then, only while the session is under 10, more rounds
  * of the facet and word steps. The exercises are ordered by step at the end; a stored exercise goes
  * to the step it fits (`storedStep`). Taught-only, no duplicates, drawing off (FR-074) and stroke
- * data (FR-072) as in `fillExercises`.
+ * data (FR-072) as in `fillExercises`. Each card entry of the flow (#237) comes before the
+ * exercises of the steps after it: `cards` gives, in flow order, the index of the first of them.
  */
 function fillFlow(
   plugin: LanguagePlugin,
   context: GeneratorContext,
   newItems: Item[],
   stored: ExerciseRow[],
-  flow: readonly LessonFlowStep[],
+  flow: readonly LessonFlowEntry[],
   containing: ReadonlyMap<number, readonly Item[]>,
   drawing: boolean,
   strokeKeys: ReadonlySet<string>,
-): SessionExercise[] {
+): { exercises: SessionExercise[]; cards: { facet: TeachingCardFacet; before: number }[] } {
   const max = LESSON_MAX_EXERCISES;
   const taught = new Set(context.taughtItems.map((i) => i.id));
   const usable = (e: SessionExercise) =>
@@ -498,6 +522,8 @@ function fillFlow(
 
   // Stored exercises keep the lesson's own rules (drawing off becomes EX-01).
   const newIds = new Set(newItems.map((i) => i.id));
+  // The exercise steps, with their places in the flow (card entries make no exercises).
+  const steps = flow.flatMap((step, index) => (isFlowCard(step) ? [] : [{ step, index }]));
   for (const exercise of fillExercises(
     plugin,
     context,
@@ -509,10 +535,9 @@ function fillFlow(
     drawing,
     strokeKeys,
   )) {
-    add(exercise, storedStep(flow, exercise, newIds), false);
+    add(exercise, storedStep(steps, exercise, newIds), false);
   }
 
-  const steps = flow.map((step, index) => ({ step, index }));
   const required = steps.filter((s) => s.step.everyItem && !s.step.optional);
   const optional = steps.filter((s) => s.step.everyItem && s.step.optional);
   const forNew = steps.filter((s) => !s.step.everyItem && s.step.targets !== 'containing');
@@ -542,7 +567,15 @@ function fillFlow(
       if (next()) added = true;
     }
   }
-  return placed.sort((a, b) => a.step - b.step).map((p) => p.exercise);
+  placed.sort((a, b) => a.step - b.step);
+  return {
+    exercises: placed.map((p) => p.exercise),
+    cards: flow.flatMap((entry, index) =>
+      isFlowCard(entry)
+        ? [{ facet: entry.card, before: placed.filter((p) => p.step < index).length }]
+        : [],
+    ),
+  };
 }
 
 /**
@@ -552,14 +585,12 @@ function fillFlow(
  * fits. A type the flow does not use goes before the last step.
  */
 function storedStep(
-  flow: readonly LessonFlowStep[],
+  steps: readonly { step: LessonFlowStep; index: number }[],
   exercise: SessionExercise,
   newIds: ReadonlySet<number>,
 ): number {
-  const candidates = flow
-    .map((step, index) => ({ step, index }))
-    .filter(({ step }) => step.type === exercise.type);
-  if (candidates.length === 0) return flow.length - 1.5;
+  const candidates = steps.filter(({ step }) => step.type === exercise.type);
+  if (candidates.length === 0) return steps.at(-1)!.index - 0.5;
   const targets = payloadItemIds(exercise.payload).some((id) => newIds.has(id))
     ? 'new'
     : 'containing';

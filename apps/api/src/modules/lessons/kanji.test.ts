@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import { KANJI_LESSON_FLOW, getExerciseType, payloadItemIds } from '@manabi/core';
-import type { LessonSession, ReviewSession, SessionExercise } from '@manabi/core';
+import { KANJI_LESSON_FLOW, getExerciseType, isFlowCard, payloadItemIds } from '@manabi/core';
+import type { LessonFlowStep, LessonSession, ReviewSession, SessionExercise } from '@manabi/core';
 import { query } from '../../db/db';
 import { testApp } from '../../test/app';
 import type { TestApp } from '../../test/app';
@@ -34,11 +34,20 @@ const word = (written: string, reading: string, meaning: string) => ({
   senses: [{ partsOfSpeech: ['n'], meanings: [meaning] }],
 });
 
+/** A kanji flow entry's place in the flow, by label: `card:reading`, `choice:meaning`. */
+function flowIndex(label: string): number {
+  const index = KANJI_LESSON_FLOW.findIndex(
+    (s) => (isFlowCard(s) ? `card:${s.card}` : `${s.type}:${s.facet ?? s.targets ?? ''}`) === label,
+  );
+  if (index < 0) throw new Error(`No flow entry ${label}`);
+  return index;
+}
+
 /** The flow step an exercise of the kanji lesson belongs to (Product Spec section 5). */
 function stepOf(e: SessionExercise, kanjiIds: Set<number>): number {
   const ids = payloadItemIds(e.payload);
-  const step = (type: string, test: (s: (typeof KANJI_LESSON_FLOW)[number]) => boolean) =>
-    KANJI_LESSON_FLOW.findIndex((s) => s.type === type && test(s));
+  const step = (type: string, test: (s: LessonFlowStep) => boolean) =>
+    KANJI_LESSON_FLOW.findIndex((s) => !isFlowCard(s) && s.type === type && test(s));
   if (e.type === 'choice') {
     return ids.some((id) => kanjiIds.has(id))
       ? step('choice', (s) => s.facet === 'meaning')
@@ -220,25 +229,82 @@ describeWithDb('kanji lessons API', () => {
     expect(drawn('stroke_trace').sort()).toEqual(['休', '本']);
     expect(drawn('draw_memory').sort()).toEqual(['休', '本']);
     // Meaning, reading and word steps are all there.
-    for (const step of [1, 3, 5]) expect(steps).toContain(step);
+    for (const label of ['choice:meaning', 'reading_in_context:reading', 'choice:containing'])
+      expect(steps).toContain(flowIndex(label));
   });
 
-  it("shows each kanji's words and stroke animation on its teaching card (Product Spec 5)", async () => {
+  it("shows each kanji's meaning card with strokes first, and its reading card with words after the meaning exercises (Product Spec 5, #237)", async () => {
     const { courseId, lesson, items } = await seed();
     const { userId, session } = await learner(courseId);
     await completeEarlier(userId, lesson);
 
     const body = (await start(lesson.k!, session)).json<LessonSession>();
+    const kanjiIds = new Set([items['k:休']!, items['k:本']!]);
+    const steps = body.exercises.map((e) => stepOf(e, kanjiIds));
+    // The reading cards come before the first exercise after the meaning steps.
+    const readingAt = steps.findIndex((step) => step > flowIndex('card:reading'));
+    expect(readingAt).toBeGreaterThan(0);
+    expect(steps.slice(0, readingAt).every((step) => step < flowIndex('card:reading'))).toBe(true);
+    expect(steps.slice(0, readingAt)).toContain(flowIndex('choice:meaning'));
+    expect(steps.slice(readingAt)).toContain(flowIndex('reading_in_context:reading'));
     expect(
       body.teachingCards.map((c) => ({
         item: c.item.id,
+        facet: c.facet,
+        before: c.before,
         words: c.words.map((w) => w.id),
         strokeAnimation: c.strokeAnimation,
       })),
     ).toEqual([
-      { item: items['k:休'], words: [items['w:休み']], strokeAnimation: true },
-      { item: items['k:本'], words: [items['w:本'], items['w:日本']], strokeAnimation: true },
+      { item: items['k:休'], facet: 'meaning', before: 0, words: [], strokeAnimation: true },
+      { item: items['k:本'], facet: 'meaning', before: 0, words: [], strokeAnimation: true },
+      {
+        item: items['k:休'],
+        facet: 'reading',
+        before: readingAt,
+        words: [items['w:休み']],
+        strokeAnimation: false,
+      },
+      {
+        item: items['k:本'],
+        facet: 'reading',
+        before: readingAt,
+        words: [items['w:本'], items['w:日本']],
+        strokeAnimation: false,
+      },
     ]);
+  });
+
+  it('resumes and completes a kanji session saved before #237, with its cards upfront', async () => {
+    const { courseId, lesson, items } = await seed();
+    const { userId, session } = await learner(courseId);
+    await completeEarlier(userId, lesson);
+
+    const started = (await start(lesson.k!, session)).json<LessonSession>();
+    // A session saved before #237: one card per kanji, no facet and no position.
+    const oldCards = started.teachingCards
+      .filter((c) => c.facet === 'meaning')
+      .map(({ item, examples }) => ({ item, examples, words: [], strokeAnimation: true }));
+    await sql(`UPDATE lesson_sessions SET state = jsonb_set(state, '{teachingCards}', $1::jsonb)`, [
+      JSON.stringify(oldCards),
+    ]);
+
+    const resumed = await start(lesson.k!, session);
+    expect(resumed.statusCode).toBe(200);
+    const body = resumed.json<LessonSession>();
+    expect(body.id).toBe(started.id);
+    expect(body.teachingCards.map((c) => [c.item.id, c.facet, c.before])).toEqual([
+      [items['k:休'], null, 0],
+      [items['k:本'], null, 0],
+    ]);
+    const completed = await app.inject({
+      method: 'POST',
+      url: `/api/v1/lesson-sessions/${body.id}/complete`,
+      payload: { responses: body.exercises.map((e) => ({ attempts: [rightAnswer(e)] })) },
+      ...session,
+    });
+    expect(completed.statusCode).toBe(200);
+    expect(completed.json<{ accuracy: number }>().accuracy).toBe(100);
   });
 
   it('leaves out drawing for kanji without stroke data, and for learners who turned it off (FR-072, FR-074)', async () => {
@@ -250,7 +316,7 @@ describeWithDb('kanji lessons API', () => {
     const body = (await start(lesson.k!, session)).json<LessonSession>();
     const drawing = body.exercises.filter((e) => ['stroke_trace', 'draw_memory'].includes(e.type));
     expect(drawing.map((e) => e.payload.character)).toEqual(['休', '休']);
-    expect(body.teachingCards.map((c) => c.strokeAnimation)).toEqual([true, false]);
+    expect(body.teachingCards.map((c) => c.strokeAnimation)).toEqual([true, false, false, false]);
 
     await sql(`UPDATE users SET settings = settings || '{"drawingExercises": false}'`);
     await sql(`DELETE FROM lesson_sessions`);
@@ -353,7 +419,7 @@ describeWithDb('kanji lessons API', () => {
           e.payload.answerLanguage !== 'target' &&
           !prompt(e).includes(' read') &&
           about(e) &&
-          !isKanjiStep(e, [5]),
+          !isKanjiStep(e, [flowIndex('choice:containing')]),
       ),
       reading: body.exercises.some(
         (e) =>
@@ -403,7 +469,13 @@ describeWithDb('kanji lessons API', () => {
       if (count === 3) {
         // 9 required; the traces and a word exercise fit too.
         expect(traces).toBe(3);
-        expect(steps.some((step) => step >= 5 && step <= 6)).toBe(true);
+        expect(
+          steps.some(
+            (step) =>
+              step === flowIndex('choice:containing') ||
+              step === flowIndex('match_pairs:containing'),
+          ),
+        ).toBe(true);
       } else {
         // 15 required: no room for traces or words.
         expect(body.exercises).toHaveLength(15);
@@ -437,10 +509,7 @@ describeWithDb('kanji lessons API', () => {
     const steps = body.exercises.map((e) => stepOf(e, kanjiIds));
     expect(steps).toEqual([...steps].sort((a, b) => a - b));
     // It sits with the reading exercises, after every meaning exercise.
-    const readingStep = KANJI_LESSON_FLOW.findIndex(
-      (st) => st.type === 'typed_answer' && st.facet === 'reading',
-    );
-    expect(steps[at]).toBe(readingStep);
+    expect(steps[at]).toBe(flowIndex('typed_answer:reading'));
   });
 
   it('leaves the guided stroke trace out of test-outs (FR-024)', async () => {

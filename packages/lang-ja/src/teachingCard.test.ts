@@ -96,4 +96,65 @@ describe('teachingCard', () => {
       spoken: 'ja:grammar:x',
     });
   });
+
+  describe("a kanji's meaning and reading cards (Product Spec section 5, #237)", () => {
+    const hi = item('kanji', {
+      character: '日',
+      meanings: ['day', 'sun'],
+      onReadings: ['ニチ', 'ジツ'],
+      kunReadings: ['ひ', '-び', '-か'],
+      strokeCount: 4,
+    });
+    const wordOf = (id: number, written: string, reading: string) =>
+      ({
+        ...item('word', { written, reading, senses: [{ partsOfSpeech: ['n'], meanings: ['x'] }] }),
+        id,
+      }) as Item;
+
+    it('shows the meaning only on the meaning card, without speaking the reading', () => {
+      expect(japanese.teachingCard(hi, 'N5', { facet: 'meaning' })).toEqual({
+        term: '日',
+        reading: null,
+        meaning: 'day, sun',
+        spoken: '',
+      });
+    });
+
+    it('shows the reading most of its words use, in KANJIDIC form, on the reading card', () => {
+      const words = [
+        wordOf(2, '日本', 'にほん'),
+        wordOf(3, '毎日', 'まいにち'),
+        wordOf(4, '日曜日', 'にちようび'),
+      ];
+      // 日本 cannot be told for sure (no on reading にほ); 毎日 uses にち; 日曜日 has 日 twice.
+      expect(japanese.teachingCard(hi, 'N5', { facet: 'reading', words })).toEqual({
+        term: '日',
+        reading: 'ニチ',
+        meaning: null,
+        spoken: 'にち',
+      });
+      const kun = [
+        wordOf(5, '日々', 'ひび'),
+        wordOf(6, '日帰り', 'ひがえり'),
+        wordOf(7, '毎日', 'まいにち'),
+      ];
+      expect(japanese.teachingCard(hi, 'N5', { facet: 'reading', words: kun }).reading).toBe('ひ');
+    });
+
+    it('falls back to the first on reading, then the first kun reading, without words', () => {
+      expect(japanese.teachingCard(hi, 'N5', { facet: 'reading' })).toMatchObject({
+        reading: 'ニチ',
+        spoken: 'にち',
+      });
+      const kunOnly = item('kanji', { ...hi.data, onReadings: [], kunReadings: ['た.べる'] });
+      expect(japanese.teachingCard(kunOnly, 'N5', { facet: 'reading' })).toMatchObject({
+        reading: 'た.べる',
+        spoken: 'たべる',
+      });
+    });
+
+    it('ignores the facet for other items', () => {
+      expect(japanese.teachingCard(word, 'N5', { facet: 'meaning' })).toEqual(card(word));
+    });
+  });
 });

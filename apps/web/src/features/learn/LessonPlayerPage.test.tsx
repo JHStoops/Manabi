@@ -50,7 +50,9 @@ const session: LessonSession = {
   lessonType: 'kana',
   sectionLevel: 'kana',
   plugin: 'ja',
-  teachingCards: [{ item: kana, examples: [], words: [], strokeAnimation: false }],
+  teachingCards: [
+    { item: kana, examples: [], words: [], strokeAnimation: false, facet: null, before: 0 },
+  ],
   exercises: Array.from({ length: 10 }, (_, i) => ({
     type: TEST_EXERCISE_TYPE,
     payload: { prompt: `Type a${i}`, answer: `a${i}` },
@@ -106,12 +108,14 @@ describe('LessonPlayerPage', () => {
     const twoKana = {
       ...session,
       teachingCards: [
-        { item: kana, examples: [], words: [], strokeAnimation: false },
+        { item: kana, examples: [], words: [], strokeAnimation: false, facet: null, before: 0 },
         {
           item: item(2, 'kana', { character: 'い', script: 'hiragana', romaji: 'i' }),
           examples: [],
           words: [],
           strokeAnimation: false,
+          facet: null,
+          before: 0,
         },
       ],
     };
@@ -139,7 +143,16 @@ describe('LessonPlayerPage', () => {
           ...session,
           lessonType: 'vocabulary',
           sectionLevel: 'N5',
-          teachingCards: [{ item: water, examples: [], words: [], strokeAnimation: false }],
+          teachingCards: [
+            {
+              item: water,
+              examples: [],
+              words: [],
+              strokeAnimation: false,
+              facet: null,
+              before: 0,
+            },
+          ],
         }),
       ),
     );
@@ -171,8 +184,22 @@ describe('LessonPlayerPage', () => {
           lessonType: 'kanji',
           sectionLevel: 'N5',
           teachingCards: [
-            { item: rest, examples: [], words: [holiday], strokeAnimation: true },
-            { item: rest, examples: [], words: [], strokeAnimation: false },
+            {
+              item: rest,
+              examples: [],
+              words: [holiday],
+              strokeAnimation: true,
+              facet: null,
+              before: 0,
+            },
+            {
+              item: { ...rest, id: 7 },
+              examples: [],
+              words: [],
+              strokeAnimation: false,
+              facet: null,
+              before: 0,
+            },
           ],
         }),
       ),
@@ -188,6 +215,97 @@ describe('LessonPlayerPage', () => {
     expect(screen.getByRole('heading', { name: 'New item 2 of 2' })).toBeTruthy();
     expect(screen.queryByTestId('strokes')).toBeNull();
     expect(screen.queryByRole('region', { name: 'Words with 休' })).toBeNull();
+  });
+
+  it("shows a kanji's reading card mid-lesson, keeping progress and the retry round (Product Spec 5, #237)", async () => {
+    const rest = item(5, 'kanji', {
+      character: '休',
+      meanings: ['rest'],
+      onReadings: ['キュウ'],
+      kunReadings: ['やす.む'],
+      strokeCount: 6,
+      components: [],
+    });
+    const holiday = item(6, 'word', {
+      written: '休み',
+      reading: 'やすみ',
+      senses: [{ partsOfSpeech: ['n'], meanings: ['holiday'] }],
+    });
+    const card = { item: rest, examples: [] };
+    const api = show(
+      jest.fn((path: string) =>
+        Promise.resolve(
+          path === '/api/v1/lessons/{id}/sessions'
+            ? {
+                ...session,
+                lessonType: 'kanji',
+                sectionLevel: 'N5',
+                teachingCards: [
+                  { ...card, words: [], strokeAnimation: true, facet: 'meaning', before: 0 },
+                  {
+                    ...card,
+                    words: [holiday],
+                    strokeAnimation: false,
+                    facet: 'reading',
+                    before: 2,
+                  },
+                ],
+              }
+            : completion,
+        ),
+      ),
+    );
+    // The intro names the kanji once, though it has two cards.
+    expect(await screen.findByText('This lesson teaches 1 new items.')).toBeTruthy();
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['休']);
+    fireEvent.click(button('Start'));
+    // The meaning card: kanji, meaning and strokes; no reading or words yet.
+    expect(screen.getByRole('heading', { name: 'New item 1 of 1' })).toBeTruthy();
+    expect(screen.getByText('Meaning').nextSibling?.textContent).toBe('rest');
+    expect(screen.queryByText('Reading')).toBeNull();
+    expect((await screen.findByTestId('strokes')).textContent).toBe('animate 休 k5');
+    expect(screen.queryByRole('region', { name: 'Words with 休' })).toBeNull();
+    fireEvent.click(button('Next'));
+
+    const progress = () => Number(screen.getByLabelText('Lesson progress').getAttribute('value'));
+    await answer('a0');
+    fireEvent.click(button('Continue'));
+    await answer('x'); // exercise 1, wrong twice: it comes back at the end
+    await answer('y');
+    fireEvent.click(button('Continue'));
+    expect(progress()).toBe(1);
+
+    // The reading card, after the meaning exercises and before the rest.
+    expect(screen.getByRole('heading', { name: 'How to read 休' })).toBeTruthy();
+    expect(screen.getByText('Reading').nextSibling?.textContent).toBe('やす.む');
+    expect(screen.queryByText('Meaning')).toBeNull();
+    expect(screen.queryByTestId('strokes')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Words with 休' }).textContent).toContain('やすみ');
+    expect(progress()).toBe(1);
+    fireEvent.click(button('Next'));
+
+    for (let i = 2; i < 10; i++) {
+      expect(screen.getByLabelText(`Type a${i}`)).toBeTruthy();
+      await answer(`a${i}`);
+      fireEvent.click(button('Continue'));
+    }
+    // The retry round: the miss again, with no card in between.
+    expect(screen.getByLabelText('Type a1')).toBeTruthy();
+    await answer('a1');
+    fireEvent.click(button('Continue'));
+    expect(await screen.findByText('Accuracy 90%')).toBeTruthy();
+    expect(api.POST).toHaveBeenLastCalledWith(
+      '/api/v1/lesson-sessions/{id}/complete',
+      expect.objectContaining({
+        body: {
+          responses: [
+            { attempts: ['a0'] },
+            { attempts: ['x', 'y'] },
+            ...Array.from({ length: 8 }, (_, i) => ({ attempts: [`a${i + 2}`] })),
+          ],
+        },
+      }),
+    );
   });
 
   it('shows the example sentence and its translation on a card that has one, and none otherwise (FR-041)', async () => {
@@ -208,8 +326,22 @@ describe('LessonPlayerPage', () => {
           lessonType: 'vocabulary',
           sectionLevel: 'N5',
           teachingCards: [
-            { item: water, examples: [example], words: [], strokeAnimation: false },
-            { item: water, examples: [], words: [], strokeAnimation: false },
+            {
+              item: water,
+              examples: [example],
+              words: [],
+              strokeAnimation: false,
+              facet: null,
+              before: 0,
+            },
+            {
+              item: { ...water, id: 4 },
+              examples: [],
+              words: [],
+              strokeAnimation: false,
+              facet: null,
+              before: 0,
+            },
           ],
         }),
       ),
@@ -241,6 +373,8 @@ describe('LessonPlayerPage', () => {
               examples: [example('見てください。'), example('来てください。')],
               words: [],
               strokeAnimation: false,
+              facet: null,
+              before: 0,
             },
           ],
         }),
@@ -448,7 +582,16 @@ describe('LessonPlayerPage', () => {
             ...session,
             lessonType: 'vocabulary',
             sectionLevel: 'N5',
-            teachingCards: [{ item: water, examples: [], words: [], strokeAnimation: false }],
+            teachingCards: [
+              {
+                item: water,
+                examples: [],
+                words: [],
+                strokeAnimation: false,
+                facet: null,
+                before: 0,
+              },
+            ],
             exercises: [typed],
           }),
         ),

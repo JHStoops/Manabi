@@ -23,6 +23,24 @@ const teachingCards = (session: PlayerSession | null) =>
   session && 'teachingCards' in session ? session.teachingCards : [];
 
 /**
+ * Whether the card at `card` is due: it comes before the exercise up next (Product Spec section
+ * 5, #237: a kanji's reading card shows after its meaning exercises). The first pass plays the
+ * exercises in session order, so a card is due once the head of the queue reaches its `before`;
+ * a card after the last exercise is due when the queue runs out. Sessions saved before #237 have
+ * every card at 0, so they all show before the first exercise.
+ */
+const cardDue = (session: PlayerSession | null, card: number, queue: readonly number[]) => {
+  const next = teachingCards(session)[card];
+  return next !== undefined && next.before <= (queue[0] ?? Infinity);
+};
+
+/** After a card, or after the intro or feedback: the next due card, else the next exercise. */
+function advance(state: PlayerState, card: number, queue: number[]): PlayerState {
+  if (cardDue(state.session, card, queue)) return { ...state, phase: 'teaching', card, queue };
+  return { ...state, phase: queue.length ? 'answering' : 'completing', card, queue };
+}
+
+/**
  * The lesson player state machine (SDD section 9, Product Spec section 4): intro, teaching
  * cards, answering (with one second try), feedback, the retry round, completing and results.
  * Grades come from the shared grader in the browser (NFR-03); the server re-grades on completion.
@@ -33,7 +51,10 @@ export type PlayerPhase =
 export interface PlayerState {
   phase: PlayerPhase;
   session: PlayerSession | null;
-  /** The teaching card shown. */
+  /**
+   * The teaching card shown while teaching; otherwise how many cards have been shown, so the
+   * next card to show (cards are in the order they show, by `before`).
+   */
   card: number;
   /** Exercise indexes still to play; the head is the current one. FR-047: misses go to the end. */
   queue: number[];
@@ -83,26 +104,50 @@ const freshExercise = { answer: undefined, attempts: [], grade: null };
 
 export function lessonPlayerReducer(state: PlayerState, action: PlayerAction): PlayerState {
   switch (action.type) {
-    case 'loaded':
+    case 'loaded': {
+      // The server sends cards in showing order; a stable sort by position makes sure of it.
+      const session =
+        'teachingCards' in action.session
+          ? {
+              ...action.session,
+              teachingCards: [...action.session.teachingCards].sort((a, b) => a.before - b.before),
+            }
+          : action.session;
       return {
         ...initialPlayerState,
         phase: 'intro',
-        session: action.session,
+        session,
         // FR-114: a resumed review skips exercises already answered (the server rejects a second answer).
         queue: action.session.exercises.flatMap((e, i) =>
           'correct' in e && e.correct !== null ? [] : [i],
         ),
         responses: action.session.exercises.map(() => undefined),
       };
+    }
 
     case 'canSpeak': {
       // shortcut: decided once before the first exercise, so a voice that loads later does not
       // bring listening exercises back; upgrade when listening exercises exist (EX-07, EX-08).
-      if (!state.session || !['intro', 'teaching'].includes(state.phase)) return state;
-      const exercises = playableExercises(state.session.exercises, action.canSpeak);
+      // A mid-lesson card (step > 0) is past the first exercise.
+      if (!state.session || !['intro', 'teaching'].includes(state.phase) || state.step > 0)
+        return state;
+      const all = state.session.exercises;
+      const exercises = playableExercises(all, action.canSpeak);
+      // A card keeps its place: before the same exercise, or the next one kept.
+      const kept = all.map((e) => (exercises as readonly unknown[]).includes(e));
+      const position = (before: number) => kept.slice(0, before).filter(Boolean).length;
+      const cards =
+        'teachingCards' in state.session
+          ? {
+              teachingCards: state.session.teachingCards.map((c) => ({
+                ...c,
+                before: position(c.before),
+              })),
+            }
+          : {};
       return {
         ...state,
-        session: { ...state.session, exercises } as PlayerSession,
+        session: { ...state.session, exercises, ...cards } as PlayerSession,
         queue: exercises.map((_, i) => i),
         responses: exercises.map(() => undefined),
       };
@@ -111,26 +156,18 @@ export function lessonPlayerReducer(state: PlayerState, action: PlayerAction): P
     case 'next':
       switch (state.phase) {
         case 'intro':
-          return teachingCards(state.session).length
+          return cardDue(state.session, 0, state.queue)
             ? { ...state, phase: 'teaching', card: 0 }
             : { ...state, phase: 'answering' };
         case 'teaching':
-          return state.card + 1 < teachingCards(state.session).length
-            ? { ...state, card: state.card + 1 }
-            : { ...state, phase: 'answering' };
+          return advance(state, state.card + 1, state.queue);
         case 'feedback': {
           const [current, ...rest] = state.queue;
           // FR-047, FR-168: a miss comes back at the end; nothing ever ends the lesson early.
           // A review's retry is a new exercise the server appends (retryQueued), not this one again.
           const isReview = 'itemId' in (state.session?.exercises[current!] ?? {});
           const queue = state.grade?.result === 'wrong' && !isReview ? [...rest, current!] : rest;
-          return {
-            ...state,
-            ...freshExercise,
-            phase: queue.length ? 'answering' : 'completing',
-            queue,
-            step: state.step + 1,
-          };
+          return advance({ ...state, ...freshExercise, step: state.step + 1 }, state.card, queue);
         }
         case 'completing':
           return { ...state, error: null };
