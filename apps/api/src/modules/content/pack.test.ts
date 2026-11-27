@@ -307,6 +307,24 @@ describeWithDb('content packs', () => {
       expect(await texts()).toEqual(['水', 'みず']);
     });
 
+    it('drops stored accepted answers when the exercise changes type, and skips malformed ones', async () => {
+      const pack = await readPack(FIXTURE);
+      await importPack(pool(), pack);
+      const stored = [{ text: 'みず', tiles: [] }, { tiles: [] }, 'みず'];
+      await query(
+        pool(),
+        `UPDATE exercises SET payload = jsonb_set(payload, '{accept}', payload->'accept' || $1::jsonb)
+         WHERE key = 'type-water'`,
+        [JSON.stringify(stored)],
+      );
+      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: 1 });
+      expect((await typeWater())!.payload.accept.map((a) => a.text)).toEqual(['水', 'みず']);
+
+      await query(pool(), `UPDATE exercises SET type = 'other' WHERE key = 'type-water'`);
+      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: 0 });
+      expect((await typeWater())!.payload.accept.map((a) => a.text)).toEqual(['水']);
+    });
+
     it('archives an exercise dropped from the pack and restores it in place', async () => {
       const pack = await readPack(FIXTURE);
       await importPack(pool(), pack);

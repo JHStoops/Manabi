@@ -138,16 +138,21 @@ function storedTiles(value: unknown, out = new Map<string, Tile[]>()): Map<strin
  * FR-229, FR-227: accepted answers kept across a re-import. Accepting a report adds answers to an
  * authored exercise's stored `accept` list; the pack knows nothing of them. Each stored answer
  * whose text the pack's list lacks is appended to `payload.accept` (so none is duplicated) and
- * counted. Only a pack list that exists is extended: the stored answers of an exercise that
- * no longer has one are dropped with its old payload.
+ * counted. Only a pack list that exists is extended, and only when the exercise keeps its type:
+ * answers accepted for a different kind of exercise are dropped with its old payload.
  */
-function mergeAcceptedAnswers(payload: JsonObject, stored: JsonObject | undefined): number {
-  if (!Array.isArray(payload.accept) || !Array.isArray(stored?.accept)) return 0;
+function mergeAcceptedAnswers(
+  payload: JsonObject,
+  type: string,
+  stored: { type: string; payload: JsonObject } | undefined,
+): number {
+  if (stored?.type !== type) return 0;
+  if (!Array.isArray(payload.accept) || !Array.isArray(stored.payload.accept)) return 0;
   const texts = new Set(
     payload.accept.flatMap((a) => (isObject(a) && typeof a.text === 'string' ? [a.text] : [])),
   );
   let kept = 0;
-  for (const answer of stored.accept) {
+  for (const answer of stored.payload.accept) {
     if (!isObject(answer) || typeof answer.text !== 'string' || texts.has(answer.text)) continue;
     texts.add(answer.text);
     payload.accept.push(answer);
@@ -400,12 +405,12 @@ export async function importPack(
         await replaceLessonItems(db, lessonId, ids);
 
         const before = new Map(
-          (await listAuthoredExercisePayloads(db, lessonId)).map((r) => [r.key, r.payload]),
+          (await listAuthoredExercisePayloads(db, lessonId)).map((r) => [r.key, r]),
         );
         for (const [position, e] of lesson.exercises.entries()) {
           const label = `lesson ${lesson.key} exercise ${e.key}`;
           const { payload, untiled } = storedPayload(e, (key) => idOf(key, label));
-          const kept = storedTiles(before.get(e.key));
+          const kept = storedTiles(before.get(e.key)?.payload);
           for (const answer of untiled) {
             // FR-238: tiles stored for the same text are kept, since an author may have edited
             // them; new text is segmented.
@@ -413,12 +418,13 @@ export async function importPack(
               kept.get(answer.text) ??
               (await segmentText(plugin, answer.text)).map(({ counted: _, ...tile }) => tile);
           }
+          const merged = mergeAcceptedAnswers(payload, e.type, before.get(e.key));
           const result = getExerciseType(e.type).payloadSchema.safeParse(payload);
           if (!result.success)
             throw new ContentPackError(
               payloadProblems(label, e, result.error.issues).map((p) => p.message),
             );
-          summary.acceptedAnswersKept += mergeAcceptedAnswers(payload, before.get(e.key));
+          summary.acceptedAnswersKept += merged;
           await upsertAuthoredExercise(db, {
             lessonId,
             key: e.key,
