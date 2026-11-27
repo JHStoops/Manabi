@@ -1,5 +1,6 @@
 import {
   KANJI_LESSON_FLOW,
+  isFlowCard,
   lessonFlows,
   lessonRecipes,
   payloadItemIds,
@@ -19,13 +20,21 @@ describe('payloadItemIds (FR-048)', () => {
   });
 });
 
-describe('kanji lesson flow (Product Spec section 5, #53)', () => {
-  it('runs trace, meaning, reading, words, then draw from memory, in that order', () => {
+const exerciseSteps = KANJI_LESSON_FLOW.flatMap((s) => (isFlowCard(s) ? [] : [s]));
+
+describe('kanji lesson flow (Product Spec section 5, #53, #237)', () => {
+  it('runs the meaning card, trace, meaning, the reading card, reading, words, then draw from memory', () => {
     expect(lessonFlows.kanji).toBe(KANJI_LESSON_FLOW);
-    expect(KANJI_LESSON_FLOW.map((s) => `${s.type}:${s.facet ?? s.targets ?? ''}`)).toEqual([
+    expect(
+      KANJI_LESSON_FLOW.map((s) =>
+        isFlowCard(s) ? `card:${s.card}` : `${s.type}:${s.facet ?? s.targets ?? ''}`,
+      ),
+    ).toEqual([
+      'card:meaning',
       'stroke_trace:',
       'choice:meaning',
       'typed_answer:meaning',
+      'card:reading',
       'reading_in_context:reading',
       'typed_answer:reading',
       'choice:containing',
@@ -35,7 +44,7 @@ describe('kanji lesson flow (Product Spec section 5, #53)', () => {
   });
 
   it('makes the trace and the draw from memory for every kanji', () => {
-    expect(KANJI_LESSON_FLOW.filter((s) => s.everyItem).map((s) => s.type)).toEqual([
+    expect(exerciseSteps.filter((s) => s.everyItem).map((s) => s.type)).toEqual([
       'stroke_trace',
       'draw_memory',
     ]);
@@ -43,12 +52,12 @@ describe('kanji lesson flow (Product Spec section 5, #53)', () => {
 
   it('is the only flow; other lesson types keep their recipes', () => {
     expect(Object.keys(lessonFlows)).toEqual(['kanji']);
-    expect(new Set(lessonRecipes.kanji)).toEqual(new Set(KANJI_LESSON_FLOW.map((s) => s.type)));
+    expect(new Set(lessonRecipes.kanji)).toEqual(new Set(exerciseSteps.map((s) => s.type)));
   });
 });
 
 describe('teachingCardSchema', () => {
-  it('reads cards saved before #53 with no words and no stroke animation', () => {
+  it('reads cards saved before #53 and #237 as one card per item, before every exercise', () => {
     const item = {
       id: 1,
       courseId: 1,
@@ -66,6 +75,8 @@ describe('teachingCardSchema', () => {
       examples: [],
       words: [],
       strokeAnimation: false,
+      facet: null,
+      before: 0,
     });
   });
 });

@@ -3,6 +3,7 @@ import type { Course, Item } from './content';
 import type { Exercise } from './exerciseRegistry';
 import type { AnswerText, Sentence, Tile } from './sentence';
 import type { ReadingAnnotationMode } from './settings';
+import type { TeachingCardFacet } from './lessonSession';
 
 // NOTE: Several types below are placeholders. They will be replaced by the real
 // domain types (learner state) as the corresponding features land.
@@ -208,8 +209,16 @@ export interface LanguagePlugin {
    * Offsets are into the tiles' surfaces joined.
    */
   annotate(tiles: readonly Tile[], learnedItems: Item[], mode: ReadingAnnotationMode): Annotation[];
-  /** The teaching-card fields of an item in a section at `sectionLevel` (FR-041, FR-141). */
-  teachingCard(item: Item, sectionLevel: string): TeachingCardFields;
+  /**
+   * The teaching-card fields of an item in a section at `sectionLevel` (FR-041, FR-141). Product
+   * Spec section 5: `card.facet` asks for only the meaning or only the reading part of the card;
+   * `card.words` are the words the card shows, which can pick the reading it shows.
+   */
+  teachingCard(
+    item: Item,
+    sectionLevel: string,
+    card?: { facet?: TeachingCardFacet | null; words?: readonly Item[] },
+  ): TeachingCardFields;
   /** Exercise generators keyed by exercise type. */
   generators: Record<string, ExerciseGenerator>;
   /**

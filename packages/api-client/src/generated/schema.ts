@@ -2479,6 +2479,13 @@ export interface paths {
                 }[];
                 /** @default false */
                 strokeAnimation: boolean;
+                /**
+                 * @default null
+                 * @enum {string|null}
+                 */
+                facet: 'meaning' | 'reading' | null;
+                /** @default 0 */
+                before: number;
               }[];
               exercises: {
                 type: string;
@@ -11459,6 +11466,13 @@ export interface paths {
                 }[];
                 /** @default false */
                 strokeAnimation: boolean;
+                /**
+                 * @default null
+                 * @enum {string|null}
+                 */
+                facet: 'meaning' | 'reading' | null;
+                /** @default 0 */
+                before: number;
               }[];
               exercises: {
                 type: string;
