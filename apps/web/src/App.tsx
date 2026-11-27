@@ -14,6 +14,7 @@ const ReviewPage = lazy(() => import('./features/review/ReviewPage'));
 const LibraryPage = lazy(() => import('./features/library/LibraryPage'));
 const CharacterLibraryPage = lazy(() => import('./features/library/CharacterLibraryPage'));
 const KanjiDetailPage = lazy(() => import('./features/library/KanjiDetailPage'));
+const KanaDetailPage = lazy(() => import('./features/library/KanaDetailPage'));
 const GrammarReferencePage = lazy(() => import('./features/library/GrammarReferencePage'));
 const GrammarPointPage = lazy(() => import('./features/library/GrammarPointPage'));
 const WordPage = lazy(() => import('./features/library/WordPage'));
@@ -198,6 +199,7 @@ export function App() {
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/library/kanji" element={<CharacterLibraryPage />} />
             <Route path="/library/kanji/:key" element={<KanjiDetailPage />} />
+            <Route path="/library/kana/:key" element={<KanaDetailPage />} />
             <Route path="/library/grammar" element={<GrammarReferencePage />} />
             <Route path="/library/grammar/:key" element={<GrammarPointPage />} />
             <Route path="/library/words/:key" element={<WordPage />} />

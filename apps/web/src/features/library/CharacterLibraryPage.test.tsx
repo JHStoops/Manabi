@@ -262,7 +262,7 @@ describe('CharacterLibraryPage', () => {
     expect(shown()).toEqual([]);
   });
 
-  it('lists kana without the kanji-only filters, and kana do not link', async () => {
+  it('lists kana without the kanji-only filters, and kana tiles link to the kana page', async () => {
     const queries = mount();
     await loaded('水', '火', '木', '海');
     fireEvent.change(screen.getByRole('textbox', { name: 'Radical' }), {
@@ -276,8 +276,9 @@ describe('CharacterLibraryPage', () => {
     expect(screen.queryByRole('spinbutton', { name: 'Strokes' })).toBeNull();
     expect(queries.at(-1)).toEqual(expect.objectContaining({ type: 'kana' }));
     expect(queries.at(-1)!.radical).toBeUndefined();
-    screen.getByRole('img', { name: 'あ, a, Retired' });
-    expect(screen.queryByRole('link', { name: /あ/ })).toBeNull();
+    expect(screen.getByRole('link', { name: 'あ, a, Retired' }).getAttribute('href')).toBe(
+      '/library/kana/ja%3Akana%3A%E3%81%82',
+    );
   });
 
   it('loads the next page when the grid reaches the end of what is loaded', async () => {

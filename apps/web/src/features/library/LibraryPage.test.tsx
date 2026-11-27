@@ -7,10 +7,18 @@ import { japanese } from '@manabi/lang-ja';
 import '../../i18n';
 import { ActivePluginContext, ActivePluginProvider } from '../../state/plugins';
 import { ApiContext, SessionProvider } from '../../state/session';
+import { AppThemeProvider } from '../../theme';
 import LibraryPage from './LibraryPage';
 
 // FR-241: the Kanji area appears only when the active course's plugin has character study.
 
+beforeEach(() => {
+  window.matchMedia = (() => ({
+    matches: false,
+    addEventListener() {},
+    removeEventListener() {},
+  })) as unknown as typeof window.matchMedia;
+});
 afterEach(cleanup);
 
 const user = {
@@ -30,9 +38,11 @@ function mount(courses: CourseListEntry[]) {
     <ApiContext.Provider value={api}>
       <SessionProvider>
         <ActivePluginProvider>
-          <MemoryRouter>
-            <LibraryPage />
-          </MemoryRouter>
+          <AppThemeProvider>
+            <MemoryRouter>
+              <LibraryPage />
+            </MemoryRouter>
+          </AppThemeProvider>
         </ActivePluginProvider>
       </SessionProvider>
     </ApiContext.Provider>,
@@ -42,15 +52,21 @@ function mount(courses: CourseListEntry[]) {
 describe('LibraryPage', () => {
   it("shows the Kanji entry for the active course's Japanese plugin", async () => {
     mount([course(2, 'xx'), course(3, 'ja')]);
-    await screen.findByRole('heading', { name: 'Kanji' });
-    expect(screen.getByRole('link', { name: 'Kanji' }).getAttribute('href')).toBe('/library/kanji');
+    await screen.findByRole('link', { name: /^Kanji/ });
+    expect(screen.getByRole('link', { name: /^Kanji/ }).getAttribute('href')).toBe(
+      '/library/kanji',
+    );
+    expect(screen.getByRole('link', { name: /^Grammar/ }).getAttribute('href')).toBe(
+      '/library/grammar',
+    );
   });
 
   it('hides the Kanji entry for a course with an unknown plugin', async () => {
     mount([course(3, 'xx')]);
     await screen.findByRole('heading', { name: 'Library' });
     await act(() => Promise.resolve());
-    expect(screen.queryByRole('heading', { name: 'Kanji' })).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Kanji/ })).toBeNull();
+    screen.getByRole('link', { name: /^Grammar/ });
   });
 
   it('hides the Kanji entry when a stub plugin disables character study', () => {
@@ -58,12 +74,15 @@ describe('LibraryPage', () => {
       <ActivePluginContext.Provider
         value={{ ...japanese, features: { ...japanese.features, characterStudy: false } }}
       >
-        <MemoryRouter>
-          <LibraryPage />
-        </MemoryRouter>
+        <AppThemeProvider>
+          <MemoryRouter>
+            <LibraryPage />
+          </MemoryRouter>
+        </AppThemeProvider>
       </ActivePluginContext.Provider>,
     );
     screen.getByRole('heading', { name: 'Library' });
-    expect(screen.queryByRole('heading', { name: 'Kanji' })).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Kanji/ })).toBeNull();
+    screen.getByRole('link', { name: /^Grammar/ });
   });
 });
