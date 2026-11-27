@@ -24,7 +24,9 @@ for (const viewport of [
       expect(box?.width).toBeGreaterThanOrEqual(44);
       expect(box?.height).toBeGreaterThanOrEqual(44);
     }
-    // Keyboard reaches every tab, in the order they are drawn.
+    // Keyboard reaches the skip link first, then every tab in the order they are drawn.
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
     for (const tab of await tabs.all()) {
       await page.keyboard.press('Tab');
       await expect(tab).toBeFocused();
