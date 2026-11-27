@@ -276,7 +276,9 @@ describe('LessonPlayerPage', () => {
     expect(progress()).toBe(1);
 
     // The reading card, after the meaning exercises and before the rest.
-    expect(screen.getByRole('heading', { name: 'How to read 休' })).toBeTruthy();
+    const heading = screen.getByRole('heading', { name: 'How to read 休' });
+    expect(heading.querySelector('[lang="ja"]')?.textContent).toBe('休');
+    expect(document.activeElement).toBe(screen.getByText('Words with 休').closest('[tabindex]'));
     expect(screen.getByText('Reading').nextSibling?.textContent).toBe('やす.む');
     expect(screen.queryByText('Meaning')).toBeNull();
     expect(screen.queryByTestId('strokes')).toBeNull();

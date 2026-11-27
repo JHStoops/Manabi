@@ -25,18 +25,18 @@ const teachingCards = (session: PlayerSession | null) =>
 /**
  * Whether the card at `card` is due: it comes before the exercise up next (Product Spec section
  * 5, #237: a kanji's reading card shows after its meaning exercises). The first pass plays the
- * exercises in session order, so a card is due once the head of the queue reaches its `before`;
- * a card after the last exercise is due when the queue runs out. Sessions saved before #237 have
- * every card at 0, so they all show before the first exercise.
+ * exercises in session order, one presentation each, so a card is due once `before` exercises
+ * have been presented: a card after the last exercise shows before the retry round. Sessions
+ * saved before #237 have every card at 0, so they all show before the first exercise.
  */
-const cardDue = (session: PlayerSession | null, card: number, queue: readonly number[]) => {
+const cardDue = (session: PlayerSession | null, card: number, step: number) => {
   const next = teachingCards(session)[card];
-  return next !== undefined && next.before <= (queue[0] ?? Infinity);
+  return next !== undefined && next.before <= step;
 };
 
 /** After a card, or after the intro or feedback: the next due card, else the next exercise. */
 function advance(state: PlayerState, card: number, queue: number[]): PlayerState {
-  if (cardDue(state.session, card, queue)) return { ...state, phase: 'teaching', card, queue };
+  if (cardDue(state.session, card, state.step)) return { ...state, phase: 'teaching', card, queue };
   return { ...state, phase: queue.length ? 'answering' : 'completing', card, queue };
 }
 
@@ -156,7 +156,7 @@ export function lessonPlayerReducer(state: PlayerState, action: PlayerAction): P
     case 'next':
       switch (state.phase) {
         case 'intro':
-          return cardDue(state.session, 0, state.queue)
+          return cardDue(state.session, 0, state.step)
             ? { ...state, phase: 'teaching', card: 0 }
             : { ...state, phase: 'answering' };
         case 'teaching':

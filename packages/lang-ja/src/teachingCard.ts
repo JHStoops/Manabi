@@ -14,11 +14,20 @@ const unmarked = (reading: string) => reading.replace(/[-.]/g, '');
  * first on reading, else its first kun reading.
  */
 function mainReading(kanji: KanjiData, words: readonly Item[]): string | undefined {
+  const own = (reading: string) =>
+    [...kanji.onReadings, ...kanji.kunReadings].find(
+      (r) => toHiragana(unmarked(r.split('.')[0]!)) === reading,
+    );
   const counts = new Map<string, number>();
   for (const word of words) {
     const data = wordDataSchema.safeParse(effective(word)).data;
-    const used = data && readingInWord(kanji, data.written, data.reading);
-    if (used) counts.set(used, (counts.get(used) ?? 0) + 1);
+    const found = data && readingInWord(kanji, data.written, data.reading);
+    // A sound change (がく as がっ in 学校) counts as the reading it comes from.
+    const base =
+      found && !own(found) && found.endsWith('っ')
+        ? [...'くつちき'].map((c) => found.slice(0, -1) + c).find((r) => own(r))
+        : found;
+    if (base) counts.set(base, (counts.get(base) ?? 0) + 1);
   }
   // The first most used, in the card's word order.
   const used = [...counts].reduce<[string, number] | undefined>(
@@ -26,10 +35,7 @@ function mainReading(kanji: KanjiData, words: readonly Item[]): string | undefin
     undefined,
   )?.[0];
   if (!used) return kanji.onReadings[0] ?? kanji.kunReadings[0];
-  const own = [...kanji.onReadings, ...kanji.kunReadings].find(
-    (r) => toHiragana(unmarked(r.split('.')[0]!)) === used,
-  );
-  return own ?? used;
+  return own(used) ?? used;
 }
 
 /**

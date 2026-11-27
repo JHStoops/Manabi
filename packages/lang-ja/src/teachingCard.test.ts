@@ -141,6 +141,28 @@ describe('teachingCard', () => {
       expect(japanese.teachingCard(hi, 'N5', { facet: 'reading', words: kun }).reading).toBe('ひ');
     });
 
+    it('counts a sound-changed reading (がっ in 学校) as the reading it comes from', () => {
+      const learn = item('kanji', {
+        character: '学',
+        meanings: ['study'],
+        onReadings: ['ガク'],
+        kunReadings: ['まな.ぶ'],
+        strokeCount: 8,
+      });
+      for (const words of [
+        [wordOf(8, '学校', 'がっこう')],
+        [wordOf(8, '学校', 'がっこう'), wordOf(9, '学生', 'がくせい')],
+      ])
+        expect(japanese.teachingCard(learn, 'N5', { facet: 'reading', words })).toMatchObject({
+          reading: 'ガク',
+          spoken: 'がく',
+        });
+      expect(
+        japanese.teachingCard(hi, 'N5', { facet: 'reading', words: [wordOf(10, '日記', 'にっき')] })
+          .reading,
+      ).toBe('ニチ');
+    });
+
     it('falls back to the first on reading, then the first kun reading, without words', () => {
       expect(japanese.teachingCard(hi, 'N5', { facet: 'reading' })).toMatchObject({
         reading: 'ニチ',

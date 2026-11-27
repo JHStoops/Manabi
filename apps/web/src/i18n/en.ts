@@ -533,7 +533,8 @@ export const en = {
     start: 'Start',
     newItem: 'New item {{n}} of {{total}}',
     // Product Spec section 5: a kanji's reading card, after its meaning exercises.
-    readingOf: 'How to read {{term}}',
+    // The term follows, in its own language.
+    readingOf: 'How to read',
     reading: 'Reading',
     meaning: 'Meaning',
     example: 'Example',

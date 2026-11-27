@@ -581,11 +581,16 @@ export default function LessonPlayerPage({
     content = (
       <>
         <h1>
-          {card.facet === 'reading'
-            ? t('player.readingOf', {
-                term: plugin.teachingCard(card.item, session.sectionLevel).term,
-              })
-            : t('player.newItem', { n, total })}
+          {card.facet === 'reading' ? (
+            <>
+              {t('player.readingOf')}{' '}
+              <span lang={plugin.code}>
+                {plugin.teachingCard(card.item, session.sectionLevel).term}
+              </span>
+            </>
+          ) : (
+            t('player.newItem', { n, total })
+          )}
         </h1>
         <TeachingCard
           // A fresh card each time, so its stroke animation and audio start over.

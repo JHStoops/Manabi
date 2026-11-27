@@ -197,6 +197,15 @@ describe('lessonPlayerReducer', () => {
       expect(state.phase).toBe('completing');
     });
 
+    it('shows a card placed after the last exercise before the retry round', () => {
+      let state = reduce(reduce(reduce(loaded(kanji(2)), next), next), next);
+      state = miss(right(state));
+      expect(state).toMatchObject({ phase: 'teaching', card: 2, queue: [1] });
+      state = reduce(reduce(state, next), next);
+      expect(state).toMatchObject({ phase: 'answering', card: 4, queue: [1] });
+      expect(right(state).phase).toBe('completing');
+    });
+
     it('shows every card first in a session saved before #237 (all before 0)', () => {
       const old = kanji();
       old.teachingCards = old.teachingCards.map((c) => ({ ...c, facet: null, before: 0 }));

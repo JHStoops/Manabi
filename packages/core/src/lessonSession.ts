@@ -124,7 +124,7 @@ export const GRAMMAR_EXERCISE_ORDER: readonly string[] = [
 export const lessonIdParamsSchema = z.object({ id: idParamSchema });
 
 /**
- * FR-041, Product Spec sections 4 and 6: one teaching card per new item of the lesson, in lesson
+ * FR-041, Product Spec sections 4 and 6: a teaching card per new item of the lesson, in lesson
  * order, with example sentences (their tiles for audio) and translations: one for most items,
  * two for a grammar point, fewer when fewer fit. Product Spec section 5: a kanji has two cards,
  * meaning then reading, and the reading card comes mid-lesson (`before`). Cards are in the order

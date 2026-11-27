@@ -510,6 +510,13 @@ describeWithDb('kanji lessons API', () => {
     expect(steps).toEqual([...steps].sort((a, b) => a - b));
     // It sits with the reading exercises, after every meaning exercise.
     expect(steps[at]).toBe(flowIndex('typed_answer:reading'));
+    // The reading cards still come right before the reading exercises (#237).
+    const readingAt = steps.findIndex((step) => step > flowIndex('card:reading'));
+    expect(readingAt).toBeLessThanOrEqual(at);
+    expect(body.teachingCards.filter((c) => c.facet === 'reading').map((c) => c.before)).toEqual([
+      readingAt,
+      readingAt,
+    ]);
   });
 
   it('leaves the guided stroke trace out of test-outs (FR-024)', async () => {
