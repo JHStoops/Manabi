@@ -4,7 +4,13 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import styled from '@emotion/styled';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { TEST_OUT_PASS_ACCURACY, UnknownLanguagePluginError, gradeResponse } from '@manabi/core';
+import {
+  TEST_OUT_PASS_ACCURACY,
+  UnknownLanguagePluginError,
+  acceptsAnswerReports,
+  gradeResponse,
+  payloadItemIds,
+} from '@manabi/core';
 import type {
   AnswerText,
   ExerciseResponse,
@@ -23,6 +29,7 @@ import { apiErrorMessage } from '../auth/ui';
 import { getExerciseRenderer } from '../exercises/registry';
 import { WordBankAlternative } from '../exercises/WordBankAlternative';
 import { LessonResults } from './LessonResults';
+import { ReportAnswerButton } from './ReportAnswerButton';
 
 import { initialPlayerState, lessonPlayerReducer } from './lessonPlayer';
 import type { PlayerAction, PlayerCompletion, PlayerSession } from './lessonPlayer';
@@ -638,6 +645,22 @@ export default function LessonPlayerPage({
     (phase === 'answering' && state.answer === undefined) ||
     (review && phase === 'feedback' && savedAt !== state.step && !error);
 
+  // FR-054: a wrong typed answer can be reported as one that should be accepted. A preview has no
+  // session to report from.
+  const lastAnswer = state.attempts.at(-1);
+  const reportable =
+    phase === 'feedback' &&
+    grade?.result === 'wrong' &&
+    !!session &&
+    'id' in session &&
+    !!exercise &&
+    acceptsAnswerReports(exercise) &&
+    typeof lastAnswer === 'string' &&
+    // A test-out has no lesson to pin into: a generated exercise there needs an item to pin at.
+    // shortcut: this also hides authored test-out exercises that name no item; keep each
+    // exercise's lesson in the test-out state if those need reports.
+    !('unitId' in session && payloadItemIds(exercise.payload).length === 0);
+
   // FR-135: hear the answer after feedback; choice exercises have no tiles, so no button yet.
   const answerReading =
     phase === 'feedback' && exercise && plugin
@@ -675,6 +698,15 @@ export default function LessonPlayerPage({
           {tone && <span aria-hidden="true">{icons[tone]}</span>}
           {message}
         </Bar>
+        {reportable && (
+          <ReportAnswerButton
+            key={state.step}
+            session={{ kind: review ? 'review' : 'lesson', id: session.id }}
+            exercise={exercise}
+            answer={lastAnswer}
+            onSent={() => actionRef.current?.focus()}
+          />
+        )}
         {answerReading && (
           <Speakers>
             <SpeakerButton what="answer" reading={answerReading} />

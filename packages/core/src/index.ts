@@ -6,6 +6,7 @@
 export { z } from 'zod';
 export * from './account';
 export * from './admin';
+export * from './answerReport';
 export * from './auth';
 export * from './authoring';
 export * from './blockedWords';

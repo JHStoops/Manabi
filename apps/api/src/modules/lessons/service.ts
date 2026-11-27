@@ -54,13 +54,28 @@ import * as q from './queries';
 // FR-050, FR-051 to FR-053, FR-056; SDD sections 6 and 7).
 
 /** JSON with object keys sorted, so equal values compare equal (jsonb reorders keys). */
-function stableJson(value: unknown): string {
+export function stableJson(value: unknown): string {
   return JSON.stringify(value, (_key, v: unknown) =>
     v && typeof v === 'object' && !Array.isArray(v)
       ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1)))
       : v,
   );
 }
+
+/**
+ * An exercise without its accept list. A generated exercise with the same key as a pinned one is
+ * that pin's original: accepting an answer report (FR-229) pins a copy with a longer accept list,
+ * which replaces its original instead of being served next to it.
+ */
+function questionKey(e: SessionExercise): string {
+  const payload = { ...e.payload };
+  delete payload.accept;
+  return stableJson({ type: e.type, payload });
+}
+
+/** The question keys of the pinned exercises among `stored`. */
+const pinnedQuestions = (stored: readonly ExerciseRow[]) =>
+  new Set(stored.filter((e) => e.origin === 'pinned').map(questionKey));
 
 export function toItem(row: ItemRow): Item {
   return {
@@ -345,8 +360,9 @@ async function buildTestOutState(
 
 /**
  * SDD section 6: the stored exercises (up to `max`), then the recipe's generators over the new
- * items until there are `target`. Every exercise uses taught items only (FR-048), and no two are
- * identical (same type and deeply equal payload). With `drawing` off, a stored drawing exercise
+ * items until there are `target`. Every exercise uses taught items only (FR-048), no two are
+ * identical (same type and deeply equal payload), and no generated one is a pinned one's original
+ * (`questionKey`). With `drawing` off, a stored drawing exercise
  * becomes the plugin's EX-01 for the same item, and the recipe's drawing types are skipped (FR-074).
  * A drawing exercise for a character without stroke data (not in `strokeKeys`) is treated the
  * same way, since it could not be drawn (FR-072).
@@ -371,9 +387,11 @@ function fillExercises(
 
   const exercises: SessionExercise[] = [];
   const seen = new Set<string>();
-  const add = (e: SessionExercise) => {
+  const pinned = pinnedQuestions(stored);
+  const add = (e: SessionExercise, generated = true) => {
     const key = stableJson(e);
     if (seen.has(key) || exercises.length >= max) return false;
+    if (generated && pinned.has(questionKey(e))) return false;
     seen.add(key);
     exercises.push(e);
     return true;
@@ -383,7 +401,7 @@ function fillExercises(
   for (const e of stored) {
     if (!fits(e)) continue;
     if (!offDrawing(e.type) && drawable(e)) {
-      add({ type: e.type, payload: e.payload });
+      add({ type: e.type, payload: e.payload }, false);
       continue;
     }
     // Drawing payloads name their character by item key (EX-11, EX-12). One EX-01 per item, so
@@ -458,9 +476,11 @@ function fillFlow(
       (drawing && strokeKeys.has(String(e.payload.itemKey))));
   const placed: { step: number; exercise: SessionExercise }[] = [];
   const seen = new Set<string>();
-  const add = (exercise: SessionExercise, step: number) => {
+  const pinned = pinnedQuestions(stored);
+  const add = (exercise: SessionExercise, step: number, generated = true) => {
     const key = stableJson(exercise);
     if (placed.length >= max || seen.has(key) || !usable(exercise)) return false;
+    if (generated && pinned.has(questionKey(exercise))) return false;
     seen.add(key);
     placed.push({ step, exercise });
     return true;
@@ -489,7 +509,7 @@ function fillFlow(
     drawing,
     strokeKeys,
   )) {
-    add(exercise, storedStep(flow, exercise, newIds));
+    add(exercise, storedStep(flow, exercise, newIds), false);
   }
 
   const steps = flow.map((step, index) => ({ step, index }));

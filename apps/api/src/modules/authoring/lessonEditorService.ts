@@ -115,7 +115,7 @@ export async function getPreview(db: Queryable, lessonId: number): Promise<Lesso
 /** Answer text sent without tiles, or with none, is segmented. */
 const untiled = (answer: JsonObject) => !Array.isArray(answer.tiles) || answer.tiles.length === 0;
 
-const segment = async (plugin: LanguagePlugin, text: string): Promise<Tile[]> =>
+export const segment = async (plugin: LanguagePlugin, text: string): Promise<Tile[]> =>
   (await segmentText(plugin, text)).map(({ counted: _, ...tile }) => tile);
 
 /**

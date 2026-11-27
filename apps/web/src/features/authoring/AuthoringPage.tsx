@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next';
 import type { CourseListEntry } from '@manabi/core';
 import { useApi } from '../../state/session';
 import { apiErrorMessage } from '../auth/ui';
+import { AnswerReportsInbox } from './AnswerReportsInbox';
 import { CourseTreeEditor } from './CourseTreeEditor';
 import { ItemEditor } from './ItemEditor';
 import { SentenceEditor } from './SentenceEditor';
 
 // Product Spec section 11 (Content editor). The course tree comes with #41; the item and lesson
-// editors with #42 and #43.
+// editors with #42 and #43; the answer reports inbox with #63.
 export default function AuthoringPage() {
   const { t } = useTranslation();
   const api = useApi();
@@ -46,6 +47,8 @@ export default function AuthoringPage() {
       {courseId !== null && <CourseTreeEditor courseId={courseId} />}
       {courseId !== null && <ItemEditor key={courseId} courseId={courseId} />}
       {courseId !== null && <SentenceEditor key={`s${courseId}`} courseId={courseId} />}
+      {/* FR-229: reports from every course, oldest first. */}
+      <AnswerReportsInbox />
     </>
   );
 }
