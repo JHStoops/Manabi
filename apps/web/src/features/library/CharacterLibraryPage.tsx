@@ -363,18 +363,14 @@ export default function CharacterLibraryPage() {
         cellHeight={CELL_HEIGHT}
         gap={GAP}
         onNearEnd={loadMore}
-        renderItem={(item) =>
-          // shortcut: kana have no detail page yet (#238), so kana tiles do not link.
-          item.type === 'kanji' ? (
-            <Cell to={`/library/kanji/${encodeURIComponent(item.key)}`} aria-label={tileName(item)}>
-              {tile(item)}
-            </Cell>
-          ) : (
-            <div role="img" aria-label={tileName(item)} style={{ height: '100%' }}>
-              {tile(item)}
-            </div>
-          )
-        }
+        renderItem={(item) => (
+          <Cell
+            to={`/library/${item.type}/${encodeURIComponent(item.key)}`}
+            aria-label={tileName(item)}
+          >
+            {tile(item)}
+          </Cell>
+        )}
       />
       {list.generation > 0 && list.loading && <p>{t('app.loading')}</p>}
     </>

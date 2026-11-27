@@ -56,6 +56,14 @@ export const en = {
     kanji: 'Kanji',
     // FR-070: the kanji detail page.
     notKanji: 'This item is not a kanji.',
+    // FR-241: the Library landing page, one entry per area.
+    landing: {
+      grammar: 'Grammar points explained, with examples, grouped by level.',
+      kanji: 'Every kanji and kana with its stage, stroke order and practice drawing.',
+    },
+    // The kana detail page (#238).
+    notKana: 'This item is not a kana.',
+    script: { hiragana: 'Hiragana', katakana: 'Katakana' },
     grammar: 'Grammar',
     notStarted: 'Not started',
     stage: 'Stage {{stage}}',
