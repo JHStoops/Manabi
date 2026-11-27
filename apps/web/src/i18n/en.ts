@@ -1,7 +1,7 @@
 // FR-243: English UI string catalog. Every visible string comes from here.
 export const en = {
   app: { loading: 'Loading…' },
-  nav: { label: 'Main' },
+  nav: { label: 'Main', skip: 'Skip to content' },
   // FR-135: the speaker buttons.
   audio: {
     play: 'Play {{what}}',

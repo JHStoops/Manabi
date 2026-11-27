@@ -17,6 +17,7 @@ const Toggle = styled.button`
   padding: ${({ theme }) => theme.spacing(2)} ${({ theme }) => theme.spacing(3)};
   border: none;
   background: none;
+  box-shadow: none;
   color: ${({ theme }) => theme.colors.primary};
   font-size: ${({ theme }) => theme.fontSizes.body};
   text-decoration: underline;

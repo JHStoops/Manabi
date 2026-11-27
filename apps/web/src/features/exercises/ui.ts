@@ -35,10 +35,10 @@ export const ChoiceButton = styled.button`
 
 const field = ({ theme }: { theme: Theme }) => css`
   ${tapTarget(theme)};
-  box-sizing: border-box;
   width: 100%;
   padding: ${theme.spacing(2)};
-  border: 2px solid ${theme.colors.border};
+  /* NFR-30: the field edge needs 3:1 against the page. */
+  border: 2px solid ${theme.colors.textMuted};
   border-radius: ${theme.radii.small};
   background: ${theme.colors.surface};
   color: ${theme.colors.text};

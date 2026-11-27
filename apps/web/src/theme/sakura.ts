@@ -19,8 +19,11 @@ export const stageColors = {
   mastered: '#388e3c',
   retired: '#7a7a7a',
 };
-// Dark enough for white band titles (WCAG AA).
-export const sectionColors = ['#b0306a', '#00796b', '#5e35b1', '#1565c0', '#bf360c'];
+// Sakura's path bands: blossom, plum, beni red, wisteria, bark. Band titles pick black or white
+// text by contrast (WCAG AA); each theme has its own set in themes.ts.
+export const sectionColors = ['#b0306a', '#8a3f88', '#a3384f', '#6b4a96', '#86503a'];
+// Lighter on dark pages, for 3:1 against the background (WCAG 1.4.11).
+export const darkSectionColors = ['#e0679a', '#c27ac0', '#e07a8a', '#a48ad6', '#c8906e'];
 
 export const sakuraLight: ManabiTheme = {
   name: 'sakura',
@@ -62,7 +65,7 @@ export const sakuraDark: ManabiTheme = {
   },
   lessonColors,
   stageColors,
-  sectionColors,
+  sectionColors: darkSectionColors,
   spacing,
   radii,
   fontSizes,

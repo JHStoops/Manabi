@@ -4,14 +4,12 @@ import styled from '@emotion/styled';
 import { ApiRequestError } from '@manabi/api-client';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { tapTarget } from '../../theme';
+import { pressable, primaryLedge, tapTarget } from '../../theme';
 
 export const Card = styled.main`
   max-width: 420px;
   margin: 0 auto;
-  padding: ${({ theme }) => theme.spacing(6)} ${({ theme }) => theme.spacing(4)};
-  color: ${({ theme }) => theme.colors.text};
-  font-family: system-ui, sans-serif;
+  padding: ${({ theme }) => theme.spacing(10)} ${({ theme }) => theme.spacing(4)};
 `;
 
 const FieldLabel = styled.label`
@@ -25,22 +23,19 @@ const FieldLabel = styled.label`
 
 const Input = styled.input`
   ${({ theme }) => tapTarget(theme)};
-  padding: ${({ theme }) => theme.spacing(2)};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.radii.small};
-  background: ${({ theme }) => theme.colors.surface};
-  color: ${({ theme }) => theme.colors.text};
   font-size: ${({ theme }) => theme.fontSizes.body};
 `;
 
 export const Button = styled.button`
   ${({ theme }) => tapTarget(theme)};
+  ${({ theme }) => pressable(primaryLedge(theme))};
   padding: ${({ theme }) => theme.spacing(2)} ${({ theme }) => theme.spacing(4)};
   border: 0;
   border-radius: ${({ theme }) => theme.radii.medium};
   background: ${({ theme }) => theme.colors.primary};
   color: ${({ theme }) => theme.colors.primaryText};
   font-size: ${({ theme }) => theme.fontSizes.body};
+  font-weight: 700;
   cursor: pointer;
 
   &:disabled {

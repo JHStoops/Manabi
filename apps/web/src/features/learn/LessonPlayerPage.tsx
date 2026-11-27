@@ -24,7 +24,7 @@ import { SpeakerButton } from '../audio/SpeakerButton';
 import { SpeechProvider, useSpeech } from '../audio/speech';
 import { plugins } from '../../state/plugins';
 import { useApi, useSession } from '../../state/session';
-import { Confetti, tapTarget, useSound } from '../../theme';
+import { Confetti, pressable, primaryLedge, tapTarget, useSound } from '../../theme';
 import { apiErrorMessage } from '../auth/ui';
 import { getExerciseRenderer } from '../exercises/registry';
 import { WordBankAlternative } from '../exercises/WordBankAlternative';
@@ -46,14 +46,10 @@ const icons = { close: '✕', correct: '✓', tryAgain: '!', wrong: '✗' };
 const Screen = styled.div`
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100dvh;
   max-width: 640px;
   margin: 0 auto;
   padding: ${({ theme }) => theme.spacing(4)};
-  box-sizing: border-box;
-  background: ${({ theme }) => theme.colors.background};
-  color: ${({ theme }) => theme.colors.text};
-  font-family: system-ui, sans-serif;
 `;
 
 const Top = styled.header`
@@ -101,6 +97,7 @@ const Bar = styled.div<{ tone: Exclude<keyof typeof icons, 'close'> | null }>`
 
 const Action = styled.button`
   ${({ theme }) => tapTarget(theme)};
+  ${({ theme }) => pressable(primaryLedge(theme))};
   width: 100%;
   padding: ${({ theme }) => theme.spacing(3)};
   border: none;
