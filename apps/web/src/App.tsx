@@ -12,6 +12,7 @@ const LearnPage = lazy(() => import('./features/learn/LearnPage'));
 const LessonPlayerPage = lazy(() => import('./features/learn/LessonPlayerPage'));
 const ReviewPage = lazy(() => import('./features/review/ReviewPage'));
 const LibraryPage = lazy(() => import('./features/library/LibraryPage'));
+const CharacterLibraryPage = lazy(() => import('./features/library/CharacterLibraryPage'));
 const KanjiDetailPage = lazy(() => import('./features/library/KanjiDetailPage'));
 const GrammarReferencePage = lazy(() => import('./features/library/GrammarReferencePage'));
 const GrammarPointPage = lazy(() => import('./features/library/GrammarPointPage'));
@@ -155,6 +156,7 @@ export function App() {
             <Route path="/learn" element={<LearnPage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/library" element={<LibraryPage />} />
+            <Route path="/library/kanji" element={<CharacterLibraryPage />} />
             <Route path="/library/kanji/:key" element={<KanjiDetailPage />} />
             <Route path="/library/grammar" element={<GrammarReferencePage />} />
             <Route path="/library/grammar/:key" element={<GrammarPointPage />} />

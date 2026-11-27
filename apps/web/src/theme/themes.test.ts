@@ -41,6 +41,17 @@ describe('themes', () => {
     for (const t of themes) expect(t.lessonColors).toEqual(themes[0]!.lessonColors);
   });
 
+  // FR-102, WCAG 1.4.11: the stage ring stands out from the tile in every theme.
+  it.each(themes.map((t) => [`${t.name} ${t.mode}`, t] as const))(
+    '%s shows every stage ring color at 3:1 or more on the surface',
+    (_label, { colors, stageColors }) => {
+      for (const color of Object.values(stageColors)) {
+        expect(contrastRatio(color, colors.surface)).toBeGreaterThanOrEqual(3);
+      }
+      expect(stageColors).toEqual(themes[0]!.stageColors);
+    },
+  );
+
   it('follows the device only for the system color mode', () => {
     expect(themeFor('umi', 'system', true).mode).toBe('dark');
     expect(themeFor('umi', 'system', false).mode).toBe('light');

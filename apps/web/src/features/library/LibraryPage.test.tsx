@@ -43,6 +43,7 @@ describe('LibraryPage', () => {
   it("shows the Kanji entry for the active course's Japanese plugin", async () => {
     mount([course(2, 'xx'), course(3, 'ja')]);
     await screen.findByRole('heading', { name: 'Kanji' });
+    expect(screen.getByRole('link', { name: 'Kanji' }).getAttribute('href')).toBe('/library/kanji');
   });
 
   it('hides the Kanji entry for a course with an unknown plugin', async () => {

@@ -7,6 +7,7 @@ import {
   sakuraLight,
   sectionColors,
   spacing,
+  stageColors,
 } from './sakura';
 import type { ManabiTheme } from './types';
 
@@ -105,6 +106,7 @@ function build(name: ThemeName, mode: 'light' | 'dark'): ManabiTheme {
     mode,
     colors: { ...base.colors, ...palettes[name][mode] },
     lessonColors,
+    stageColors,
     sectionColors,
     spacing,
     radii,
