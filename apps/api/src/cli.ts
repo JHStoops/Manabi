@@ -65,8 +65,8 @@ function command(args: string[]): ((pool: Pool) => Promise<unknown>) | null {
   const dir = resolve(cwd, arg);
   if (group === 'pack' && name === 'import' && !file) {
     return async (pool) => {
-      await importPack(pool, await readPack(dir), structureOnly);
-      return `Imported ${dir}`;
+      const { acceptedAnswersKept } = await importPack(pool, await readPack(dir), structureOnly);
+      return `Imported ${dir}; kept ${acceptedAnswersKept} accepted answer(s) not in the pack`;
     };
   }
   if (group === 'pack' && name === 'export') {

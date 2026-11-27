@@ -278,6 +278,35 @@ describeWithDb('content packs', () => {
       expect((await typeWater())!.payload.accept[0]!.tiles).not.toEqual(edited);
     });
 
+    it('keeps accepted answers the pack lacks on re-import, without duplicates (FR-229)', async () => {
+      const pack = await readPack(FIXTURE);
+      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: 0 });
+      // What accepting an answer report does to an authored exercise.
+      const accepted = {
+        text: 'みず',
+        tiles: [{ surface: 'みず', base: 'みず', reading: 'みず' }],
+      };
+      await query(
+        pool(),
+        `UPDATE exercises SET payload = jsonb_set(payload, '{accept}', payload->'accept' || $1::jsonb)
+         WHERE key = 'type-water'`,
+        [JSON.stringify([accepted])],
+      );
+
+      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: 1 });
+      const texts = async () => (await typeWater())!.payload.accept.map((a) => a.text);
+      expect(await texts()).toEqual(['水', 'みず']);
+      expect((await typeWater())!.payload.accept[1]).toEqual(accepted);
+      // A second import keeps it again and adds no copy.
+      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: 1 });
+      expect(await texts()).toEqual(['水', 'みず']);
+
+      // A pack that now lists the answer itself takes over: nothing is kept or duplicated.
+      exercises(pack)[1]!.payload.accept = [{ text: '水' }, { text: 'みず' }];
+      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: 0 });
+      expect(await texts()).toEqual(['水', 'みず']);
+    });
+
     it('archives an exercise dropped from the pack and restores it in place', async () => {
       const pack = await readPack(FIXTURE);
       await importPack(pool(), pack);
