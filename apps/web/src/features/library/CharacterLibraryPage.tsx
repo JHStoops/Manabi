@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
 import styled from '@emotion/styled';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { STAGE_BANDS } from '@manabi/core';
 import type { LibraryItem, LibraryItemsQuery, StageBand } from '@manabi/core';
+import { ActivePluginContext } from '../../state/plugins';
 import { useApi, useSettings } from '../../state/session';
 import { tapTarget } from '../../theme';
 import { apiErrorMessage } from '../auth/ui';
@@ -83,7 +84,10 @@ interface Filters {
 
 const noFilters: Filters = { level: '', strokeCount: '', radical: '', stage: '' };
 
-/** The `GET /items` query for the grid's filters; filters a kind lacks are left out. */
+/**
+ * The `GET /items` query for the grid's filters; filters a kind lacks, and a stroke count that is
+ * not a whole number from 1 to 100 (the field shows it as invalid), are left out.
+ */
 export function itemsQuery(
   courseId: number,
   kind: Kind,
@@ -98,8 +102,12 @@ export function itemsQuery(
     limit: PAGE_SIZE,
     level: filters.level || undefined,
     strokeCount:
-      kanji && filters.strokeCount !== '' && Number.isInteger(strokes) && strokes >= 1
-        ? Math.min(strokes, 100)
+      kanji &&
+      filters.strokeCount !== '' &&
+      Number.isInteger(strokes) &&
+      strokes >= 1 &&
+      strokes <= 100
+        ? strokes
         : undefined,
     radical: (kanji && filters.radical.trim()) || undefined,
     stage: filters.stage || undefined,
@@ -108,8 +116,13 @@ export function itemsQuery(
 }
 
 interface ListState {
-  /** The query the items belong to, as JSON; a response for another query is dropped. */
+  /** The query the items belong to, as JSON. */
   forQuery: string;
+  /**
+   * Counts every 'start'. A response carries the generation it was asked in and is dropped
+   * unless it still matches, even when a later round asked the very same query.
+   */
+  generation: number;
   items: LibraryItem[];
   nextCursor: string | null;
   loading: boolean;
@@ -119,11 +132,12 @@ interface ListState {
 type ListAction =
   | { type: 'start'; forQuery: string }
   | { type: 'more' }
-  | { type: 'page'; forQuery: string; items: LibraryItem[]; nextCursor: string | null }
-  | { type: 'failed'; forQuery: string; problem: string };
+  | { type: 'page'; generation: number; items: LibraryItem[]; nextCursor: string | null }
+  | { type: 'failed'; generation: number; problem: string };
 
 const initialList: ListState = {
   forQuery: '',
+  generation: 0,
   items: [],
   nextCursor: null,
   loading: true,
@@ -133,11 +147,11 @@ const initialList: ListState = {
 function listReducer(state: ListState, action: ListAction): ListState {
   switch (action.type) {
     case 'start':
-      return { ...initialList, forQuery: action.forQuery };
+      return { ...initialList, forQuery: action.forQuery, generation: state.generation + 1 };
     case 'more':
       return { ...state, loading: true, problem: null };
     case 'page':
-      if (action.forQuery !== state.forQuery) return state;
+      if (action.generation !== state.generation) return state;
       return {
         ...state,
         items: [...state.items, ...action.items],
@@ -145,7 +159,7 @@ function listReducer(state: ListState, action: ListAction): ListState {
         loading: false,
       };
     case 'failed':
-      if (action.forQuery !== state.forQuery) return state;
+      if (action.generation !== state.generation) return state;
       return { ...state, loading: false, problem: action.problem };
   }
 }
@@ -168,13 +182,15 @@ export default function CharacterLibraryPage() {
   const { t } = useTranslation();
   const api = useApi();
   const { activeCourseId } = useSettings();
+  const plugin = useContext(ActivePluginContext);
   const [kind, setKind] = useState<Kind>('kanji');
   const [filters, setFilters] = useState<Filters>(noFilters);
   const [search, setSearch] = useState('');
   const q = useDebounced(search, SEARCH_DELAY_MS);
   const [levels, setLevels] = useState<string[]>([]);
   const [list, dispatch] = useReducer(listReducer, initialList);
-  const loadingMore = useRef(false);
+  // The page last asked for, as "generation:cursor", so one page is never requested twice.
+  const requested = useRef('');
 
   // The level filter offers the course's levels in section order.
   useEffect(() => {
@@ -194,30 +210,52 @@ export default function CharacterLibraryPage() {
   const queryKey = JSON.stringify(query);
 
   const fetchPage = useCallback(
-    (forQuery: string, cursor: string | undefined) => {
+    (forQuery: string, generation: number, cursor: string | undefined) => {
       const params = { ...(JSON.parse(forQuery) as LibraryItemsQuery), cursor };
-      return api.GET('/api/v1/items', { params: { query: params } }).then(
-        (page) => dispatch({ type: 'page', forQuery, ...page }),
-        (error) => dispatch({ type: 'failed', forQuery, problem: apiErrorMessage(t, error) }),
+      api.GET('/api/v1/items', { params: { query: params } }).then(
+        (page) => dispatch({ type: 'page', generation, ...page }),
+        (error) => dispatch({ type: 'failed', generation, problem: apiErrorMessage(t, error) }),
       );
     },
     [api, t],
   );
 
+  // A new query starts a new generation; its first page is fetched once the reducer has it.
   useEffect(() => {
-    if (queryKey === 'null') return;
-    dispatch({ type: 'start', forQuery: queryKey });
-    void fetchPage(queryKey, undefined);
-  }, [queryKey, fetchPage]);
+    if (queryKey !== 'null') dispatch({ type: 'start', forQuery: queryKey });
+  }, [queryKey]);
+  useEffect(() => {
+    if (list.generation === 0 || list.items.length > 0 || !list.loading) return;
+    const key = `${list.generation}:`;
+    if (requested.current === key) return;
+    requested.current = key;
+    fetchPage(list.forQuery, list.generation, undefined);
+  }, [list.generation, list.forQuery, list.items.length, list.loading, fetchPage]);
+
+  /** The next page, or after a failure the page that failed. */
+  const fetchNext = useCallback(() => {
+    if (list.loading || list.nextCursor === null) return;
+    requested.current = `${list.generation}:${list.nextCursor}`;
+    dispatch({ type: 'more' });
+    fetchPage(list.forQuery, list.generation, list.nextCursor);
+  }, [list.loading, list.nextCursor, list.generation, list.forQuery, fetchPage]);
 
   const loadMore = useCallback(() => {
-    if (list.loading || list.problem || list.nextCursor === null || loadingMore.current) return;
-    loadingMore.current = true;
-    dispatch({ type: 'more' });
-    void fetchPage(list.forQuery, list.nextCursor).finally(() => {
-      loadingMore.current = false;
-    });
-  }, [list.loading, list.problem, list.nextCursor, list.forQuery, fetchPage]);
+    // A failed page waits for the learner's Retry instead of being asked for in a loop.
+    if (list.problem || requested.current === `${list.generation}:${list.nextCursor}`) return;
+    fetchNext();
+  }, [list.problem, list.generation, list.nextCursor, fetchNext]);
+
+  const retry = () => {
+    if (list.items.length === 0) {
+      // The first page failed: ask for it again in a fresh generation.
+      dispatch({ type: 'start', forQuery: list.forQuery });
+    } else fetchNext();
+  };
+
+  // FR-241: only a course whose plugin has character study has this screen.
+  if (plugin === null) return <p>{t('app.loading')}</p>;
+  if (!plugin.features.characterStudy) return <p>{t('characters.unavailable')}</p>;
 
   const set = (patch: Partial<Filters>) => setFilters({ ...filters, ...patch });
   const tileName = (item: LibraryItem) => {
@@ -245,6 +283,7 @@ export default function CharacterLibraryPage() {
           {t('characters.search')}
           <input
             type="search"
+            maxLength={100}
             value={search}
             placeholder={t(`characters.searchHint.${kind}`)}
             onChange={(e) => setSearch(e.target.value)}
@@ -270,6 +309,8 @@ export default function CharacterLibraryPage() {
                 inputMode="numeric"
                 min={1}
                 max={100}
+                step={1}
+                aria-invalid={filters.strokeCount !== '' && query?.strokeCount === undefined}
                 value={filters.strokeCount}
                 onChange={(e) => set({ strokeCount: e.target.value })}
               />
@@ -302,8 +343,18 @@ export default function CharacterLibraryPage() {
         </label>
       </Controls>
 
-      {list.problem && <p role="alert">{list.problem}</p>}
-      {!list.loading && !list.problem && list.items.length === 0 && <p>{t('characters.none')}</p>}
+      {activeCourseId === null && <p>{t('characters.noCourse')}</p>}
+      {list.problem && (
+        <p role="alert">
+          {list.problem}{' '}
+          <button type="button" onClick={retry}>
+            {t('characters.retry')}
+          </button>
+        </p>
+      )}
+      {list.generation > 0 && !list.loading && !list.problem && list.items.length === 0 && (
+        <p>{t('characters.none')}</p>
+      )}
       <VirtualGrid
         items={list.items}
         itemKey={(item) => item.key}
@@ -325,7 +376,7 @@ export default function CharacterLibraryPage() {
           )
         }
       />
-      {list.loading && <p>{t('app.loading')}</p>}
+      {list.generation > 0 && list.loading && <p>{t('app.loading')}</p>}
     </>
   );
 }

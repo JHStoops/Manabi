@@ -98,11 +98,34 @@ function serve(all: typeof course, q: LibraryItemsQuery) {
   });
 }
 
-function mount(items = course, pageSize = 100) {
+interface MountOptions {
+  pageSize?: number;
+  /** Holds back the responses it returns true for, until released. */
+  hold?: (query: LibraryItemsQuery) => boolean;
+  /** Fails the requests it returns true for. */
+  fail?: (query: LibraryItemsQuery) => boolean;
+  plugin?: typeof japanese | null;
+  me?: User;
+}
+
+/** Held responses, oldest first; calling one delivers it. */
+let held: (() => void)[] = [];
+afterEach(() => {
+  held = [];
+});
+
+function mount(items = course, options: MountOptions | number = {}) {
+  const {
+    pageSize = 100,
+    hold = () => false,
+    fail = () => false,
+    plugin = japanese,
+    me = user,
+  } = typeof options === 'number' ? { pageSize: options } : options;
   const queries: LibraryItemsQuery[] = [];
   const api = {
     GET: (url: string, opts?: { params: { query: LibraryItemsQuery } }) => {
-      if (url === '/api/v1/me') return Promise.resolve(user);
+      if (url === '/api/v1/me') return Promise.resolve(me);
       if (url === '/api/v1/courses/{id}/path') {
         return Promise.resolve({
           sections: [{ levelCode: 'N5' }, { levelCode: 'N5' }, { levelCode: 'N4' }],
@@ -110,20 +133,25 @@ function mount(items = course, pageSize = 100) {
       }
       const query = opts!.params.query;
       queries.push(query);
+      if (fail(query)) {
+        return Promise.reject({ error: { code: 'internal', message: 'boom', details: null } });
+      }
       const matching = serve(items, query);
       const start = query.cursor ? Number(query.cursor) : 0;
       const end = start + Math.min(query.limit, pageSize);
-      return Promise.resolve({
+      const page = {
         items: matching.slice(start, end),
         nextCursor: end < matching.length ? String(end) : null,
-      });
+      };
+      if (!hold(query)) return Promise.resolve(page);
+      return new Promise((resolve) => held.push(() => resolve(page)));
     },
   } as unknown as ApiClient;
   render(
     <ApiContext.Provider value={api}>
       <SessionProvider>
         <AppThemeProvider>
-          <ActivePluginContext.Provider value={japanese}>
+          <ActivePluginContext.Provider value={plugin}>
             <MemoryRouter initialEntries={['/library/kanji']}>
               <Routes>
                 <Route path="/library/kanji" element={<CharacterLibraryPage />} />
@@ -261,26 +289,97 @@ describe('CharacterLibraryPage', () => {
     expect(queries.map((q) => q.cursor)).toEqual([undefined, '2', '4']);
   });
 
-  it('shows an API error', async () => {
-    const api = {
-      GET: (url: string) =>
-        url === '/api/v1/me'
-          ? Promise.resolve(user)
-          : Promise.reject({ error: { code: 'internal', message: 'boom', details: null } }),
-    } as unknown as ApiClient;
-    render(
-      <ApiContext.Provider value={api}>
-        <SessionProvider>
-          <AppThemeProvider>
-            <MemoryRouter>
-              <CharacterLibraryPage />
-            </MemoryRouter>
-          </AppThemeProvider>
-        </SessionProvider>
-      </ApiContext.Provider>,
-    );
+  it('shows an API error and retries the first page', async () => {
+    let failing = true;
+    const queries = mount(course, { fail: () => failing });
     await screen.findByRole('alert');
+    failing = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await loaded('水', '火', '木', '海');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(queries).toHaveLength(2);
+  });
+
+  it('retries a failed later page instead of stalling', async () => {
+    const many = Array.from({ length: 5 }, (_, i) =>
+      kanji(String.fromCodePoint(0x4e00 + i), `k${i}`, 'N5', 1, '一', null),
+    );
+    let failing = true;
+    const queries = mount(many, { pageSize: 2, fail: (q) => failing && q.cursor === '2' });
+    await screen.findByRole('alert');
+    expect(shown()).toHaveLength(2);
+    // The failed page is not asked for again on its own.
     await act(() => Promise.resolve());
+    expect(queries.filter((q) => q.cursor === '2')).toHaveLength(1);
+    failing = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(shown()).toHaveLength(5));
+  });
+
+  it('drops a late response from an earlier round of the same query', async () => {
+    let holding = true;
+    mount(course, { hold: () => holding });
+    // The kanji query is asked, then kana, then kanji again, before any answer arrives.
+    await waitFor(() => expect(held).toHaveLength(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Kana' }));
+    await waitFor(() => expect(held).toHaveLength(2));
+    holding = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Kanji' }));
+    await loaded('水', '火', '木', '海');
+    act(() => held.forEach((release) => release()));
+    await act(() => Promise.resolve());
+    expect(shown()).toEqual(['水', '火', '木', '海']);
+  });
+
+  it('keeps paging after a filter changes while a page is loading', async () => {
+    const many = Array.from({ length: 5 }, (_, i) =>
+      kanji(String.fromCodePoint(0x4e00 + i), `k${i}`, 'N5', 1, i < 4 ? '一' : '二', null),
+    );
+    const queries = mount(many, { pageSize: 2, hold: (q) => q.cursor === '2' && !q.radical });
+    await waitFor(() => expect(held).toHaveLength(1));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Radical' }), {
+      target: { value: '一' },
+    });
+    await waitFor(() => expect(shown()).toHaveLength(4));
+    act(() => held[0]!());
+    await act(() => Promise.resolve());
+    expect(shown()).toHaveLength(4);
+    expect(queries.filter((q) => q.radical).map((q) => q.cursor)).toEqual([undefined, '2']);
+  });
+
+  it('asks for a course when none is active', async () => {
+    const queries = mount(course, {
+      me: { ...user, settings: learnerSettingsSchema.parse({}) },
+    });
+    await screen.findByText('Choose a course on the Learn tab to see its characters.');
+    expect(screen.queryByText('Loading…')).toBeNull();
+    expect(queries).toHaveLength(0);
+  });
+
+  it('is unavailable when the course plugin has no character study (FR-241)', async () => {
+    mount(course, {
+      plugin: { ...japanese, features: { ...japanese.features, characterStudy: false } },
+    });
+    await screen.findByText("This course's language has no character study.");
+    expect(screen.queryByRole('list')).toBeNull();
+  });
+
+  it('marks a stroke count it cannot filter by as invalid', async () => {
+    const queries = mount();
+    await loaded('水', '火', '木', '海');
+    const strokes = screen.getByRole('spinbutton', { name: 'Strokes' });
+    fireEvent.change(strokes, { target: { value: '0' } });
+    expect(strokes.getAttribute('aria-invalid')).toBe('true');
+    fireEvent.change(strokes, { target: { value: '4' } });
+    expect(strokes.getAttribute('aria-invalid')).toBe('false');
+    await loaded('水', '火', '木');
+    expect(queries.every((q) => q.strokeCount === undefined || q.strokeCount === 4)).toBe(true);
+  });
+
+  it('caps the search at the length the API accepts', async () => {
+    mount();
+    await loaded('水', '火', '木', '海');
+    expect(screen.getByRole('searchbox', { name: 'Search' }).getAttribute('maxlength')).toBe('100');
   });
 });
 
@@ -303,10 +402,10 @@ describe('itemsQuery', () => {
     ).toMatchObject({ type: 'kana', strokeCount: undefined, radical: undefined, level: 'N5' });
   });
 
-  it('ignores a stroke count that is not a whole number of at least 1', () => {
-    for (const strokeCount of ['0', '-2', '1.5', 'x']) {
+  it('ignores a stroke count that is not a whole number from 1 to 100', () => {
+    for (const strokeCount of ['0', '-2', '1.5', 'x', '101']) {
       expect(itemsQuery(3, 'kanji', { ...none, strokeCount }, '').strokeCount).toBeUndefined();
     }
-    expect(itemsQuery(3, 'kanji', { ...none, strokeCount: '250' }, '').strokeCount).toBe(100);
+    expect(itemsQuery(3, 'kanji', { ...none, strokeCount: '100' }, '').strokeCount).toBe(100);
   });
 });

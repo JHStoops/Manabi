@@ -90,6 +90,9 @@ export const en = {
     stage: 'Stage',
     allStages: 'All stages',
     none: 'No characters match.',
+    noCourse: 'Choose a course on the Learn tab to see its characters.',
+    unavailable: "This course's language has no character study.",
+    retry: 'Try again',
   },
   // FR-113, FR-114: the Review tab and the review session.
   review: {
