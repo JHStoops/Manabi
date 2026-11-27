@@ -50,10 +50,10 @@ A course is a path of sections, units and lessons built from reusable learning i
 
 ## 4. Lesson flow and exercise types
 
-A lesson introduces its new items on teaching cards, drills them, repeats whatever was missed, and ends on a results screen (PR-3, PR-4).
+A lesson teaches its items on teaching cards, drills them, repeats whatever was missed, and ends on a results screen (PR-3, PR-4). Lessons do not always teach new items: repetition matters, so a lesson can also bring back cards for items taught earlier.
 
 1. **Intro.** Lesson title, type and the items it will teach.
-2. **Teaching cards.** One card per new item: the item, reading, meaning, audio, one example. Grammar lessons show the explanation summary. No answer required.
+2. **Teaching cards.** One card per new item, plus cards that re-present items from earlier lessons: the item, reading, meaning, audio, one example. Grammar lessons show the explanation summary. No answer required. Cards can come upfront or between exercises (as in the kanji flow, section 5); a lesson can show up to 3 cards for every 5 to 7 exercises.
 3. **Exercises.** 10 to 15, one per screen, with a progress bar. Check button, then a feedback bar. Correct: green with a short confirmation. Wrong the first time: an amber "not quite, try once more" bar that does not reveal the answer, and the learner answers again straight away. Wrong the second time: red with the correct answer and a one-line reason, and the exercise is marked incorrect. An answer fixed on the second try counts as correct. Match pairs and drawing exercises already allow retries and are unchanged.
 4. **Retry round.** Missed exercises return at the end until answered correctly.
 5. **Results.** XP earned, accuracy, new items added to reviews, streak update, and any achievement unlocked.

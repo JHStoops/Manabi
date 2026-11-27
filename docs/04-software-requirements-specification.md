@@ -72,7 +72,7 @@ Manabi is a self-contained system: one server deployment used through web browse
 | ID | The system shall | Traces | Milestone |
 | --- | --- | --- | --- |
 | FR-040 | Support the six lesson types: kana, vocabulary, kanji, grammar, listening, unit review | PR-2 | M1 to M3 |
-| FR-041 | Build each lesson session from teaching cards for new items followed by 10 to 15 exercises | PR-3 | M1 |
+| FR-041 | Build each lesson session from teaching cards and 10 to 15 exercises, with each card placed before the first exercise or between exercises; a card introduces a new item or re-presents one taught in an earlier lesson, and a lesson may show up to 3 cards for every 5 to 7 exercises | PR-3 | M1 |
 | FR-042 | Implement exercise types EX-01 to EX-06 (choice, match pairs, word bank, typed answer, fill the blank, reorder) | PR-3 | M1 |
 | FR-043 | Implement EX-09 and EX-10 (reading in context, conjugate) | PR-21 | M2 |
 | FR-044 | Implement EX-11 and EX-12 (stroke trace, draw from memory) | PR-13 | M2 |
