@@ -111,8 +111,9 @@ function toSession(row: ReviewSessionRow, state: ReviewSessionState): ReviewSess
 /**
  * FR-114, NFR-02: the learner's unexpired review session, or a new one of up to 20 due items,
  * oldest due first. Each due facet of an item gets one exercise of a type suited to it: an
- * authored stored one when there is one, else one of the generated ones or the item's pins, a pin
- * taking the place of the generated original it was pinned from (#241, #254). 409 when nothing due can be reviewed.
+ * authored stored one when there is one, else one of the generated ones or the item's pins (item
+ * level, or in a lesson teaching only that item), a pin taking the place of its own generated
+ * original (#241, #254, #255). 409 when nothing due can be reviewed.
  */
 export async function startSession(
   db: Pool,
@@ -162,9 +163,11 @@ async function buildState(db: Queryable, userId: number, now: Date): Promise<Rev
             (plugin.testsFacet?.({ type: e.type, payload: e.payload }, item.type, row.facet) ??
               true),
         );
-        // #241: an item-level pin is a generated exercise kept with a longer accept list (FR-229),
-        // so it competes with the generated ones instead of always winning, like authored ones do.
-        const isPin = (e: ExerciseRow) => e.origin === 'pinned' && e.lesson_id === null;
+        // #241, #255: a pin is a generated exercise kept with a longer accept list (FR-229), so it
+        // competes with the generated ones instead of always winning, like authored ones do. That
+        // holds for an item-level pin and for a pin in a lesson that teaches only this item
+        // (accepting a report from that lesson pins there); authored ones keep winning.
+        const isPin = (e: ExerciseRow) => e.origin === 'pinned';
         const authored = own.filter((e) => !isPin(e));
         const storedPick = authored.length > 0 ? pickRandom(authored) : undefined;
         if (storedPick) return { type: storedPick.type, payload: storedPick.payload };
