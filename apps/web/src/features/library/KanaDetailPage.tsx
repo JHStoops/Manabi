@@ -9,6 +9,7 @@ import { ActivePluginContext, ActivePluginStatusContext } from '../../state/plug
 import { apiErrorMessage } from '../auth/ui';
 import { ChoiceButton } from '../exercises/ui';
 import { StrokeCanvas } from '../strokes/StrokeCanvas';
+import { BackLink } from './BackLink';
 
 // FR-070, FR-071, FR-241, Product Spec section 5 (Kanji library: "The same stroke animation, trace
 // and draw features apply to kana"): one kana from GET /items/:key, with the kanji page's canvas.
@@ -34,13 +35,6 @@ const Page = styled.article`
     display: inline-flex;
     align-items: center;
   }
-`;
-
-// IF-03: the back link is a 44 px tap target.
-const BackLink = styled(Link)`
-  ${({ theme }) => tapTarget(theme)};
-  display: inline-flex;
-  align-items: center;
 `;
 
 const Glyph = styled.span`
@@ -90,6 +84,8 @@ export default function KanaDetailPage() {
   if (problem) return <p role="alert">{problem}</p>;
   // FR-241: no plugin at all (no course, unknown plugin, courses failed) means character study is off.
   if (plugin === null && pluginStatus === 'none') return <p>{t('characters.unavailable')}</p>;
+  if (plugin === null && pluginStatus === 'error')
+    return <p role="alert">{t('app.courseLoadFailed')}</p>;
   if (plugin === null || !item) return <p>{t('app.loading')}</p>;
   // FR-241: character study features only for a plugin that enables them.
   if (!plugin.features.characterStudy) return <p>{t('characters.unavailable')}</p>;

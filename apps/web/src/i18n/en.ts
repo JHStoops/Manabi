@@ -1,6 +1,9 @@
 // FR-243: English UI string catalog. Every visible string comes from here.
 export const en = {
-  app: { loading: 'Loading…' },
+  app: {
+    loading: 'Loading…',
+    courseLoadFailed: 'Your course could not be loaded. Check your connection and reload the page.',
+  },
   nav: { label: 'Main', skip: 'Skip to content' },
   // FR-135: the speaker buttons.
   audio: {
@@ -83,6 +86,8 @@ export const en = {
     sentences: 'Example sentences',
     example: 'Example',
     notAWord: 'This item is not a word.',
+    wordUnavailable:
+      'Words need an active course in a supported language. Choose one on the Learn tab.',
     partOfSpeech: '({{pos}})',
   },
   // FR-075: the kanji and kana grid.

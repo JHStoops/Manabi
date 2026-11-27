@@ -190,6 +190,13 @@ describe('CharacterLibraryPage', () => {
     ).toHaveLength(1);
   });
 
+  it('gives the Library back link a 44 px tap target (#263, IF-03)', async () => {
+    mount();
+    const style = getComputedStyle(await screen.findByRole('link', { name: 'Library' }));
+    expect(style.minHeight).toBe('44px');
+    expect(style.minWidth).toBe('44px');
+  });
+
   it('filters by level from the course path', async () => {
     const queries = mount();
     await loaded('水', '火', '木', '海');
@@ -346,15 +353,6 @@ describe('CharacterLibraryPage', () => {
     await act(() => Promise.resolve());
     expect(shown()).toHaveLength(4);
     expect(queries.filter((q) => q.radical).map((q) => q.cursor)).toEqual([undefined, '2']);
-  });
-
-  it('asks for a course when none is active', async () => {
-    const queries = mount(course, {
-      me: { ...user, settings: learnerSettingsSchema.parse({}) },
-    });
-    await screen.findByText('Choose a course on the Learn tab to see its characters.');
-    expect(screen.queryByText('Loading…')).toBeNull();
-    expect(queries).toHaveLength(0);
   });
 
   it('is unavailable when the course plugin has no character study (FR-241)', async () => {

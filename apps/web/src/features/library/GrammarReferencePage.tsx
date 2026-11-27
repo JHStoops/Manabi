@@ -35,6 +35,12 @@ const List = styled.ul`
   li {
     padding: ${({ theme }) => theme.spacing(2)} 0;
   }
+  /* IF-03: each point's link is a 44 px tap target. */
+  li a {
+    ${({ theme }) => tapTarget(theme)};
+    display: inline-flex;
+    align-items: center;
+  }
 `;
 
 type Grouping = 'level' | 'theme';

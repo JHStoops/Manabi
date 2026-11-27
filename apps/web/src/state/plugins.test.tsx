@@ -47,10 +47,10 @@ describe('ActivePluginProvider status', () => {
     await waitFor(() => screen.getByText('status:none'));
   });
 
-  it('is none when the courses fail to load', async () => {
+  it('is error when the courses fail to load (#263)', async () => {
     activeCourseId = 1;
     mount(() => Promise.reject(new Error('offline')));
-    await screen.findByText('status:none');
+    await screen.findByText('status:error');
   });
 
   it('never shows the last course as ready, or none, for a course that is not looked up yet', async () => {

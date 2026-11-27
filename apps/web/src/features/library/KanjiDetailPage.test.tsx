@@ -95,6 +95,13 @@ function mount(
 }
 
 describe('KanjiDetailPage', () => {
+  it('says the course could not be loaded when the courses failed (#263)', async () => {
+    mount(detail, null, 'error');
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Your course could not be loaded. Check your connection and reload the page.',
+    );
+  });
+
   it('says there is no character study once the plugin is known to be absent, not Loading (#260, FR-241)', async () => {
     mount(detail, null, 'none');
     await screen.findByText("This course's language has no character study.");

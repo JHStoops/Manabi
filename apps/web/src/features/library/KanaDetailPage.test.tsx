@@ -88,6 +88,13 @@ describe('KanaDetailPage', () => {
     expect(screen.queryByText('Loading…')).toBeNull();
   });
 
+  it('says the course could not be loaded when the courses failed (#263)', async () => {
+    mount(kana('あ', 'a'), null, 'error');
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Your course could not be loaded. Check your connection and reload the page.',
+    );
+  });
+
   it('keeps showing Loading while the plugin is still being looked up (#260)', async () => {
     mount(kana('あ', 'a'), null, 'loading');
     await act(() => Promise.resolve());

@@ -5,12 +5,20 @@ import { learnerSettingsSchema } from '@manabi/core';
 import type { User } from '@manabi/core';
 import { japanese } from '@manabi/lang-ja';
 import '../../i18n';
+import { AppThemeProvider } from '../../theme';
 import { ActivePluginContext } from '../../state/plugins';
 import { ApiContext, SessionProvider } from '../../state/session';
 import WordPage from './WordPage';
 
 // FR-100: reading, meanings, part of speech, example sentence and kanji links; FR-102: stage.
 
+beforeAll(() => {
+  window.matchMedia = (() => ({
+    matches: false,
+    addEventListener() {},
+    removeEventListener() {},
+  })) as unknown as typeof window.matchMedia;
+});
 afterEach(cleanup);
 
 const user = { id: 1, role: 'learner', settings: learnerSettingsSchema.parse({}) } as User;
@@ -50,16 +58,24 @@ function mount(body: unknown) {
     <ApiContext.Provider value={{ GET } as unknown as ApiClient}>
       <SessionProvider>
         <ActivePluginContext.Provider value={japanese}>
-          <MemoryRouter initialEntries={['/library/words/ja:word:日本:にほん']}>
-            <Routes>
-              <Route path="/library/words/:key" element={<WordPage />} />
-            </Routes>
-          </MemoryRouter>
+          <AppThemeProvider>
+            <MemoryRouter initialEntries={['/library/words/ja:word:日本:にほん']}>
+              <Routes>
+                <Route path="/library/words/:key" element={<WordPage />} />
+              </Routes>
+            </MemoryRouter>
+          </AppThemeProvider>
         </ActivePluginContext.Provider>
       </SessionProvider>
     </ApiContext.Provider>,
   );
   return GET;
+}
+
+function expectTapTarget(link: HTMLElement) {
+  const style = getComputedStyle(link);
+  expect(style.minHeight).toBe('44px');
+  expect(style.minWidth).toBe('44px');
 }
 
 describe('WordPage', () => {
@@ -77,6 +93,12 @@ describe('WordPage', () => {
       '/library/kanji/ja%3Akanji%3A%E6%97%A5',
     );
     screen.getByRole('link', { name: '本' });
+  });
+
+  it('has 44 px back and kanji links (#263, IF-03)', async () => {
+    mount(detail([kanjiLink('日')]));
+    expectTapTarget(await screen.findByRole('link', { name: 'Library' }));
+    expectTapTarget(screen.getByRole('link', { name: '日' }));
   });
 
   it('omits the kanji section for a kana word and says when not started', async () => {
