@@ -91,7 +91,7 @@ describeWithDb('answer reports API', () => {
     return query<R>(pool(), text, params);
   }
 
-  function call(who: Who, method: 'GET' | 'POST', url: string, payload?: object) {
+  function call(who: Who, method: 'GET' | 'POST' | 'PATCH', url: string, payload?: object) {
     return app.inject({ method, url: `/api/v1${url}`, payload, ...who });
   }
 
@@ -277,10 +277,10 @@ describeWithDb('answer reports API', () => {
     );
     expect(pinned).toEqual([expect.objectContaining({ lesson_id: lessonId, origin: 'pinned' })]);
     const accept = (pinned[0]!.payload as { accept: { text: string; tiles: unknown[] }[] }).accept;
-    // An English answer gets no tiles, like the generated ones.
+    // An English answer gets no tiles, like the generated ones. #251: marked as report-accepted.
     expect(accept).toEqual([
       { text: 'water', tiles: [] },
-      { text: 'H2O', tiles: [] },
+      { text: 'H2O', tiles: [], source: 'report' },
     ]);
 
     // The other open report of the same exercise now points at the pinned one, so accepting it
@@ -306,6 +306,50 @@ describeWithDb('answer reports API', () => {
     expect((await inbox(admin, 'accepted')).map((r) => r.id)).toEqual([first.id, other.id]);
   });
 
+  it('keeps an edited pin tied to its generated original in lessons and reports (#254)', async () => {
+    const admin = await signIn('admin', 'admin');
+    const learner = await signIn('learner');
+    const second = await signIn('second');
+    const session = await startLesson(learner);
+    const exercise = generatedTyped(session);
+    // A session built before the pin, which still holds the generated original.
+    const older = await startLesson(second);
+    const filed = (await report(learner, session.id, exercise, 'H2O')).json();
+    const { exerciseId } = (
+      await call(admin, 'POST', `/authoring/reports/${filed.id}/accept`, {})
+    ).json<AnswerReport>();
+    // The pin records the generated original it was made from, without its accept list.
+    const question = { ...exercise.payload };
+    delete question.accept;
+    expect(await sql(`SELECT original_payload FROM exercises WHERE id = $1`, [exerciseId])).toEqual(
+      [{ original_payload: question }],
+    );
+
+    // The author fixes the pin's prompt.
+    const [row] = await sql<{ payload: Record<string, unknown> }>(
+      `SELECT payload FROM exercises WHERE id = $1`,
+      [exerciseId],
+    );
+    const edited = { ...row!.payload, prompt: 'What does mizu mean?' };
+    const patched = await call(admin, 'PATCH', `/authoring/exercises/${exerciseId}`, {
+      payload: edited,
+    });
+    expect(patched.statusCode).toBe(200);
+
+    // A new session serves the edited pin once, and never its generated original next to it.
+    await sql(`DELETE FROM lesson_sessions WHERE id = $1`, [session.id]);
+    const next = await startLesson(learner);
+    const base = next.exercises.filter(
+      (e) => e.type === 'typed_answer' && e.payload.answerLanguage === 'base',
+    );
+    expect(base.map((e) => e.payload.prompt)).toEqual(['What does mizu mean?']);
+
+    // A report filed on the original from an older session extends the edited pin, not a new one.
+    const again = (await report(second, older.id, exercise, 'aqua')).json();
+    expect((await inbox(admin)).find((r) => r.id === again.id)).toMatchObject({ exerciseId });
+    expect(await sql(`SELECT id FROM exercises WHERE origin = 'pinned'`)).toHaveLength(1);
+  });
+
   it('accepts a report on a stored exercise into its accept list', async () => {
     const admin = await signIn('admin', 'admin');
     const learner = await signIn('learner');
@@ -325,8 +369,13 @@ describeWithDb('answer reports API', () => {
       `SELECT payload FROM exercises WHERE id = $1`,
       [authoredId],
     );
-    // The new answer is segmented into tiles, as the lesson editor does (DR-12).
+    // The new answer is segmented into tiles, as the lesson editor does (DR-12), and marked as
+    // report-accepted so a pack re-import keeps it (#251); the pack's own answer is not.
     expect(row!.payload.accept[1]!.tiles.length).toBeGreaterThan(0);
+    expect(row!.payload.accept.map((a) => (a as { source?: string }).source)).toEqual([
+      undefined,
+      'report',
+    ]);
     expect(await sql(`SELECT id FROM exercises WHERE origin = 'pinned'`)).toEqual([]);
     // Resolved reports cannot be resolved again.
     expect(
@@ -439,6 +488,33 @@ describeWithDb('answer reports API', () => {
     ).toEqual([
       { lesson_id: lessonId, item_id: null },
       { lesson_id: null, item_id: itemId },
+    ]);
+  });
+
+  it('extends the pin of a single-item lesson for a review report, as reviews serve it (#255)', async () => {
+    const admin = await signIn('admin', 'admin');
+    const learner = await signIn('learner');
+    const session = await startLesson(learner);
+    const exercise = generatedTyped(session);
+    const lessonReport = (await report(learner, session.id, exercise, 'H2O')).json();
+    const { exerciseId } = (
+      await call(admin, 'POST', `/authoring/reports/${lessonReport.id}/accept`, {})
+    ).json<AnswerReport>();
+
+    // The lesson now teaches only the first item (a session needs two to start), so reviews serve
+    // its pin. A review built before the pin served the generated original; its report goes to
+    // the pin.
+    await sql(`DELETE FROM lesson_items WHERE lesson_id = $1 AND item_id <> $2`, [
+      lessonId,
+      itemId,
+    ]);
+    const reviewReport = await reviewReportOf(learner, exercise, 'aqua');
+    const accepted = (
+      await call(admin, 'POST', `/authoring/reports/${reviewReport}/accept`, {})
+    ).json<AnswerReport>();
+    expect(accepted).toMatchObject({ exerciseId, currentAccept: ['water', 'H2O', 'aqua'] });
+    expect(await sql(`SELECT id FROM exercises WHERE origin = 'pinned'`)).toEqual([
+      { id: exerciseId },
     ]);
   });
 

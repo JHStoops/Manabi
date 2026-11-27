@@ -207,7 +207,13 @@ export async function createExercise(
   const { payload, blockedWords } = await preparePayload(pool, lesson, body.type, body);
   let row;
   try {
-    row = await q.insertExercise(pool, { ...body, payload });
+    // #254: a pin's original is the generated payload the author pinned, before any edit or
+    // segmenting.
+    row = await q.insertExercise(pool, {
+      ...body,
+      payload,
+      original: body.original ?? body.payload,
+    });
   } catch (err) {
     if ((err as { code?: string }).code !== '23505') throw err;
     throw new AppError('conflict', 'A content pack exercise in this lesson already has that key');

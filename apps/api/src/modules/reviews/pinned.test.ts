@@ -10,8 +10,9 @@ import { seedUser } from '../../test/fixtures';
 import { SESSION_COOKIE } from '../auth/guard';
 import { hashPassword } from '../auth/passwords';
 
-// API tests for item-level pins in reviews (issue #241): FR-114, FR-229, SDD section 6. A pin is
-// one candidate among the generated exercises of its facet, and takes its own original's place.
+// API tests for pins in reviews (issues #241, #254, #255): FR-114, FR-229, SDD section 6. A pin
+// (item level, or in a lesson that teaches only the item) is one candidate among the generated
+// exercises of its facet, and takes the place of the generated original it was pinned from.
 
 // Japanese, where a word's one facet is reviewed by a choice or a typed answer, one of each.
 jest.mock('../../plugins', () => {
@@ -54,6 +55,7 @@ describeWithDb('item-level pins in reviews (#241)', () => {
   let current: TestApp | undefined;
   let app: FastifyInstance;
   let itemId: number;
+  let courseId: number;
   let session: { cookies: Record<string, string>; headers: Record<string, string> };
 
   const sql = <R extends object = { id: number }>(text: string, params: unknown[] = []) =>
@@ -72,6 +74,7 @@ describeWithDb('item-level pins in reviews (#241)', () => {
       [course!.id],
     );
     itemId = item!.id;
+    courseId = course!.id;
     const user = await seedUser(pool(), {
       username: 'aiko',
       passwordHash: await hashPassword(PASSWORD),
@@ -108,6 +111,40 @@ describeWithDb('item-level pins in reviews (#241)', () => {
       'typed_answer',
       payload,
     ]);
+
+  /** A pin made from the generated `original`, as accepting a report records it (#254). */
+  const pinFrom = (original: object, payload: object, at: { lessonId?: number } = {}) =>
+    sql(
+      `INSERT INTO exercises (item_id, lesson_id, type, payload, origin, original_payload)
+       VALUES ($1, $2, 'typed_answer', $3, $4, $5::jsonb - 'accept')`,
+      [at.lessonId ? null : itemId, at.lessonId ?? null, payload, 'pinned', original],
+    );
+
+  /** A published lesson teaching `items` (by id), in a new section and unit. */
+  async function lesson(key: string, items: number[]): Promise<number> {
+    const [section] = await sql(
+      `INSERT INTO sections (course_id, key, position, title, level_code)
+       VALUES ($1, $2, (SELECT count(*) FROM sections), 'S', 'N5') RETURNING id`,
+      [courseId, `${key}:s`],
+    );
+    const [unit] = await sql(
+      `INSERT INTO units (section_id, key, position, title, status)
+       VALUES ($1, $2, 0, 'U', 'published') RETURNING id`,
+      [section!.id, `${key}:u`],
+    );
+    const [row] = await sql(
+      `INSERT INTO lessons (unit_id, key, position, type, title, status)
+       VALUES ($1, $2, 0, 'vocabulary', 'L', 'published') RETURNING id`,
+      [unit!.id, key],
+    );
+    for (const [position, id] of items.entries())
+      await sql(`INSERT INTO lesson_items (lesson_id, item_id, position) VALUES ($1, $2, $3)`, [
+        row!.id,
+        id,
+        position,
+      ]);
+    return row!.id;
+  }
 
   /**
    * The exercise a fresh review session serves when Math.random picks the type slot with `slot`,
@@ -204,5 +241,89 @@ describeWithDb('item-level pins in reviews (#241)', () => {
     for (const random of [0, 0.99]) {
       expect(await served(random)).toEqual({ type: 'typed_answer', payload: authored });
     }
+  });
+
+  it('keeps an edited pin in place of its recorded original (#254)', async () => {
+    const original = typedPayload('ja:word:mizu', ['water']);
+    const edited = { ...typedPayload('ja:word:mizu', ['water', 'aqua']), prompt: 'Fixed prompt' };
+    await pinFrom(original, edited);
+
+    // Slots: [choice], [the pin alone]: its generated original is never served next to it.
+    for (const within of [0, 0.99]) {
+      expect(await served(0.99, within)).toEqual({ type: 'typed_answer', payload: edited });
+      expect((await served(0, within)).type).toBe('choice');
+    }
+  });
+
+  it('treats a pin in a single-item lesson as one candidate, like an item-level pin (#255)', async () => {
+    const lessonId = await lesson('ja-en:mizu', [itemId]);
+    const pinned = typedPayload('ja:word:mizu', ['water', 'aqua']);
+    await pinFrom(typedPayload('ja:word:mizu', ['water']), pinned, { lessonId });
+
+    // The other type is still served, and the pin replaces its own original in its slot.
+    expect(await served(0)).toEqual({
+      type: 'choice',
+      payload: { prompt: 'ja:word:mizu', options: ['a', 'b'] },
+    });
+    for (const within of [0, 0.99])
+      expect(await served(0.99, within)).toEqual({ type: 'typed_answer', payload: pinned });
+  });
+
+  it('still always serves an authored exercise of a single-item lesson (#255)', async () => {
+    const lessonId = await lesson('ja-en:mizu', [itemId]);
+    await pinFrom(
+      typedPayload('ja:word:mizu', ['water']),
+      typedPayload('ja:word:mizu', ['water', 'aqua']),
+      { lessonId },
+    );
+    const authored = { ...typedPayload('ja:word:mizu', ['water', 'H2O']), prompt: 'Authored' };
+    await sql(
+      `INSERT INTO exercises (lesson_id, type, payload, origin) VALUES ($1, 'typed_answer', $2, 'authored')`,
+      [lessonId, authored],
+    );
+    for (const random of [0, 0.5, 0.99])
+      expect(await served(random)).toEqual({ type: 'typed_answer', payload: authored });
+  });
+
+  it('ignores pins of a lesson that teaches more than one item (#255)', async () => {
+    const [other] = await sql(
+      `INSERT INTO items (course_id, key, type, level_code)
+       VALUES ($1, 'ja:word:yama', 'word', 'N5') RETURNING id`,
+      [courseId],
+    );
+    const lessonId = await lesson('ja-en:two', [itemId, other!.id]);
+    await pinFrom(
+      typedPayload('ja:word:mizu', ['water']),
+      typedPayload('ja:word:mizu', ['water', 'aqua']),
+      { lessonId },
+    );
+    for (const within of [0, 0.99])
+      expect(await served(0.99, within)).toEqual({
+        type: 'typed_answer',
+        payload: typedPayload('ja:word:mizu', ['water']),
+      });
+  });
+
+  it('counts an edited pin once in its slot (#254)', async () => {
+    const edited = { ...typedPayload('ja:word:mizu', ['water', 'aqua']), prompt: 'Fixed prompt' };
+    await pinFrom(typedPayload('ja:word:mizu', ['water']), edited);
+    const stale = { ...typedPayload('ja:word:mizu', ['water', 'H2O']), prompt: 'Old prompt' };
+    await pin(stale);
+
+    // The typed slot is [edited pin, stale pin]: each half of the draw, not two thirds to one.
+    expect(await served(0.99, 0.49)).toEqual({ type: 'typed_answer', payload: edited });
+    expect(await served(0.99, 0.5)).toEqual({ type: 'typed_answer', payload: stale });
+  });
+
+  it('serves two pins of one original as one, with both accept lists (#254, #255)', async () => {
+    const lessonId = await lesson('ja-en:mizu', [itemId]);
+    const original = typedPayload('ja:word:mizu', ['water']);
+    await pinFrom(original, typedPayload('ja:word:mizu', ['water', 'aqua']), { lessonId });
+    await pinFrom(original, typedPayload('ja:word:mizu', ['water', 'H2O']));
+    for (const within of [0, 0.99])
+      expect(await served(0.99, within)).toEqual({
+        type: 'typed_answer',
+        payload: typedPayload('ja:word:mizu', ['water', 'aqua', 'H2O']),
+      });
   });
 });

@@ -17671,6 +17671,7 @@
                   "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
                   "origin": { "type": "string", "enum": ["authored", "pinned"] },
                   "payload": { "type": "object", "additionalProperties": {} },
+                  "original": { "type": "object", "additionalProperties": {} },
                   "resegment": { "default": false, "type": "boolean" }
                 },
                 "required": ["lessonId", "type", "origin", "payload"]

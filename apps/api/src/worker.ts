@@ -17,6 +17,12 @@ async function main(): Promise<void> {
   // Node's default (exit by signal); the stop then runs as soon as the worker is up.
   let worker: RunningWorker | undefined;
   let requested: NodeJS.Signals | undefined;
+  // Flush the logger before exiting (#235). pino's default stdout destination writes synchronously,
+  // so this is a safeguard for a buffered destination rather than the fix itself: the flaky test
+  // read stdout on 'exit', before the pipe had delivered the last line ('close' is the fix).
+  const exit = (code: number): void => {
+    log.flush(() => process.exit(code));
+  };
   const stop = (signal: NodeJS.Signals): void => {
     if (!worker) {
       requested = signal;
@@ -24,10 +30,10 @@ async function main(): Promise<void> {
     }
     log.info({ signal }, 'worker stopping');
     worker.stop().then(
-      () => process.exit(0),
+      () => exit(0),
       (err: unknown) => {
         log.error({ err }, 'worker did not stop cleanly');
-        process.exit(1);
+        exit(1);
       },
     );
   };
@@ -38,7 +44,8 @@ async function main(): Promise<void> {
     worker = await startWorker({ databaseUrl: config.databaseUrl, jobs: allJobs, log });
   } catch (err) {
     log.error({ err }, 'worker failed to start');
-    process.exit(1);
+    exit(1);
+    return;
   }
   if (requested) stop(requested);
 }

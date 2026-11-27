@@ -184,16 +184,40 @@ describeWithDb('lesson editor API', () => {
       payload,
     });
     expect(exercise).toMatchObject({ type: 'choice', origin: 'pinned', payload });
-    const [row] = await query<{ origin: string; key: string }>(
+    const [row] = await query<{ origin: string; key: string; original_payload: unknown }>(
       pool(),
-      `SELECT origin, key FROM exercises WHERE id = $1`,
+      `SELECT origin, key, original_payload FROM exercises WHERE id = $1`,
       [exercise.id],
     );
-    expect(row).toEqual({ origin: 'pinned', key: `ex-${exercise.id}` });
+    // #254: the pin records the generated payload it was made from.
+    expect(row).toEqual({ origin: 'pinned', key: `ex-${exercise.id}`, original_payload: payload });
 
     const editor = await ok<LessonEditor>('DELETE', `/authoring/exercises/${exercise.id}`);
     expect(editor.exercises).toEqual([]);
     expect(await count('exercises')).toBe(0);
+  });
+
+  it('records the generated payload a pin was made from, before the author edited it (#254)', async () => {
+    const original = {
+      prompt: 'water',
+      options: ['a', 'b', 'c', 'd'].map((text) => ({ text })),
+      correct: 1,
+    };
+    const payload = { ...original, prompt: 'Which one is water?' };
+    const { exercise } = await ok<ExerciseWrite>('POST', '/authoring/exercises', {
+      lessonId,
+      type: 'choice',
+      origin: 'pinned',
+      payload,
+      original,
+    });
+    expect(exercise.payload).toEqual(payload);
+    const [row] = await query<{ original_payload: unknown }>(
+      pool(),
+      `SELECT original_payload FROM exercises WHERE id = $1`,
+      [exercise.id],
+    );
+    expect(row).toEqual({ original_payload: original });
   });
 
   it('segments authored answer text on save and keeps edited tiles', async () => {

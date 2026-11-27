@@ -3,6 +3,7 @@ import styled from '@emotion/styled';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { LibraryItem, LibraryItemDetail } from '@manabi/core';
+import { tapTarget } from '../../theme';
 import { useApi } from '../../state/session';
 import { ActivePluginContext } from '../../state/plugins';
 import { SpeakerButton } from '../audio/SpeakerButton';
@@ -12,7 +13,7 @@ import { ChoiceButton } from '../exercises/ui';
 import { StrokeCanvas } from '../strokes/StrokeCanvas';
 import { AnnotatedText } from '../text/AnnotatedText';
 
-// FR-070, FR-071, Product Spec section 5 (Kanji detail page): one kanji from GET /items/:key.
+// FR-070, FR-071, FR-241, Product Spec section 5 (Kanji detail page): one kanji from GET /items/:key.
 // The My note block is not part of FR-070 and comes with its own issue.
 
 const Page = styled.article`
@@ -33,6 +34,12 @@ const Page = styled.article`
     display: flex;
     flex-wrap: wrap;
     gap: ${({ theme }) => theme.spacing(2)};
+  }
+  /* IF-03: component and word links are tappable at 44 px. */
+  li a {
+    ${({ theme }) => tapTarget(theme)};
+    display: inline-flex;
+    align-items: center;
   }
 `;
 
@@ -109,7 +116,9 @@ export default function KanjiDetailPage() {
   }, [api, key, t]);
 
   if (problem) return <p role="alert">{problem}</p>;
-  if (!item) return <p>{t('app.loading')}</p>;
+  if (plugin === null || !item) return <p>{t('app.loading')}</p>;
+  // FR-241: character study features only for a plugin that enables them.
+  if (!plugin.features.characterStudy) return <p>{t('characters.unavailable')}</p>;
   if (item.type !== 'kanji') return <p role="alert">{t('library.notKanji')}</p>;
 
   const kanji = kanjiOf(item);
@@ -199,7 +208,7 @@ export default function KanjiDetailPage() {
 
       <section aria-labelledby="k-words">
         <h2 id="k-words">{t('library.words')}</h2>
-        <SpeechProvider locale={plugin?.ttsVoice.locale ?? ''}>
+        <SpeechProvider locale={plugin.ttsVoice.locale}>
           <ul>
             {words.map((w) => {
               const word = w.data as {
@@ -209,7 +218,10 @@ export default function KanjiDetailPage() {
               };
               return (
                 <li key={w.key}>
-                  <span lang="ja">{word.written}</span> <span lang="ja">{word.reading}</span>{' '}
+                  <Link to={`/library/words/${encodeURIComponent(w.key)}`}>
+                    <span lang="ja">{word.written}</span>
+                  </Link>{' '}
+                  <span lang="ja">{word.reading}</span>{' '}
                   {[word.senses[0]?.meanings.join(', '), stage(w)].join(' · ')}{' '}
                   <SpeakerButton reading={word.reading} what="word" />
                 </li>
@@ -226,12 +238,8 @@ export default function KanjiDetailPage() {
             {item.sentences.map((s) => (
               <li key={s.id}>
                 <p>
-                  {plugin ? (
-                    // shortcut: furigana as if nothing were learned; wire the learner's items when #56 loads them.
-                    <AnnotatedText plugin={plugin} tiles={s.tokens} learnedItems={[]} />
-                  ) : (
-                    s.text
-                  )}
+                  {/* shortcut: furigana as if nothing were learned; wire the learner's items when #56 loads them. */}
+                  <AnnotatedText plugin={plugin} tiles={s.tokens} learnedItems={[]} />
                 </p>
                 <p>{s.translation}</p>
               </li>

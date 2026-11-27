@@ -27,7 +27,7 @@ import { languagePlugins } from '../../plugins';
 import type { ScopedUserId } from '../auth/service';
 import type { ExerciseRow, ItemRow } from '../content/rows';
 import { awardXp } from '../courses/service';
-import { questionKey, toItem } from '../lessons/service';
+import { originalKey, questionKey, toItem } from '../lessons/service';
 import * as q from './queries';
 import type { ReviewSessionRow, Stage } from './rows';
 
@@ -111,8 +111,9 @@ function toSession(row: ReviewSessionRow, state: ReviewSessionState): ReviewSess
 /**
  * FR-114, NFR-02: the learner's unexpired review session, or a new one of up to 20 due items,
  * oldest due first. Each due facet of an item gets one exercise of a type suited to it: an
- * authored stored one when there is one, else one of the generated ones or the item's pins, a pin
- * taking the place of its own generated original (#241). 409 when nothing due can be reviewed.
+ * authored stored one when there is one, else one of the generated ones or the item's pins (item
+ * level, or in a lesson teaching only that item), a pin taking the place of its own generated
+ * original (#241, #254, #255). 409 when nothing due can be reviewed.
  */
 export async function startSession(
   db: Pool,
@@ -128,6 +129,22 @@ export async function startSession(
     if (state.exercises.length === 0) throw new AppError('conflict', 'No reviews are due');
     return toSession(await q.replaceReviewSession(client, userId, state), state);
   });
+}
+
+/**
+ * `first` with the accept-list answers of `other` it lacks (by text) appended: two pins of one
+ * generated original, served as one so every accepted answer is graded right (#254, #255).
+ */
+function withAnswersOf(first: SessionExercise, other: SessionExercise): SessionExercise {
+  const answers = (e: SessionExercise) =>
+    Array.isArray(e.payload.accept) ? (e.payload.accept as { text?: unknown }[]) : [];
+  const texts = new Set(answers(first).map((a) => a.text));
+  const extra = answers(other).filter((a) => !texts.has(a.text));
+  if (extra.length === 0 || !Array.isArray(first.payload.accept)) return first;
+  return {
+    ...first,
+    payload: { ...first.payload, accept: [...answers(first), ...extra] },
+  };
 }
 
 async function buildState(db: Queryable, userId: number, now: Date): Promise<ReviewSessionState> {
@@ -162,23 +179,27 @@ async function buildState(db: Queryable, userId: number, now: Date): Promise<Rev
             (plugin.testsFacet?.({ type: e.type, payload: e.payload }, item.type, row.facet) ??
               true),
         );
-        // #241: an item-level pin is a generated exercise kept with a longer accept list (FR-229),
-        // so it competes with the generated ones instead of always winning, like authored ones do.
-        const isPin = (e: ExerciseRow) => e.origin === 'pinned' && e.lesson_id === null;
+        // #241, #255: a pin is a generated exercise kept with a longer accept list (FR-229), so it
+        // competes with the generated ones instead of always winning, like authored ones do. That
+        // holds for an item-level pin and for a pin in a lesson that teaches only this item
+        // (accepting a report from that lesson pins there); authored ones keep winning.
+        const isPin = (e: ExerciseRow) => e.origin === 'pinned';
         const authored = own.filter((e) => !isPin(e));
         const storedPick = authored.length > 0 ? pickRandom(authored) : undefined;
         if (storedPick) return { type: storedPick.type, payload: storedPick.payload };
         const usesTaughtOnly = (e: SessionExercise) =>
           payloadItemIds(e.payload).every((id) => taught.has(id));
-        const pins = new Map(
-          own
-            .filter(isPin)
-            .map((e): [string, SessionExercise] => [
-              questionKey(e),
-              { type: e.type, payload: e.payload },
-            ])
-            .filter(([, e]) => usesTaughtOnly(e)),
-        );
+        // #254: keyed by the original it was pinned from, not by its (editable) payload. Two pins
+        // of one original (one at item level, one in the single-item lesson) are served as one,
+        // the first by id with the other's extra accepted answers added, so neither loses any.
+        const pins = new Map<string, SessionExercise>();
+        for (const e of own.filter(isPin)) {
+          const pin: SessionExercise = { type: e.type, payload: e.payload };
+          if (!usesTaughtOnly(pin)) continue;
+          const key = originalKey(e);
+          const first = pins.get(key);
+          pins.set(key, first ? withAnswersOf(first, pin) : pin);
+        }
         // FR-048: generated exercises use the learner's items only. Each type is one slot, so pins
         // never crowd out the other types: its generated exercise (replaced by the pin it is the
         // original of), or one of the type's pins whose original was not generated this time.
@@ -191,13 +212,17 @@ async function buildState(db: Queryable, userId: number, now: Date): Promise<Rev
             sentences: [],
             facet: row.facet,
           }) ?? []) as SessionExercise[];
-          const fit = made.filter(usesTaughtOnly).map((e) => pins.get(questionKey(e)) ?? e);
-          const pick = fit.find((e) => pins.has(questionKey(e))) ?? fit[0];
-          const pickKey = pick && questionKey(pick);
+          // Each candidate with the question key of the generated exercise it stands for, so an
+          // edited pin is recognised by its original's key, not its own payload's.
+          const fit = made
+            .filter(usesTaughtOnly)
+            .map((e) => ({ key: questionKey(e), e }))
+            .map(({ key, e }) => ({ key, e: pins.get(key) ?? e }));
+          const pick = fit.find(({ key }) => pins.has(key)) ?? fit[0];
           const slot = [
-            ...(pick ? [pick] : []),
+            ...(pick ? [pick.e] : []),
             ...[...pins].flatMap(([key, pin]) =>
-              pin.type === type && key !== pickKey ? [pin] : [],
+              pin.type === type && key !== pick?.key ? [pin] : [],
             ),
           ];
           if (slot.length > 0) slots.push(slot);

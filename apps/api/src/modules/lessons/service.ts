@@ -76,9 +76,18 @@ export function questionKey(e: SessionExercise): string {
   return stableJson({ type: e.type, payload });
 }
 
-/** The question keys of the pinned exercises among `stored`. */
+/**
+ * The question key of a pin's generated original (#254): recorded when it was pinned, so an author
+ * editing the pin (its prompt, say) does not untie it from its original. A row without a recorded
+ * original (none in the database since migration 0014) falls back to its own payload.
+ */
+export function originalKey(e: Pick<ExerciseRow, 'type' | 'payload' | 'original_payload'>): string {
+  return questionKey({ type: e.type, payload: e.original_payload ?? e.payload });
+}
+
+/** The question keys of the generated originals of the pinned exercises among `stored`. */
 const pinnedQuestions = (stored: readonly ExerciseRow[]) =>
-  new Set(stored.filter((e) => e.origin === 'pinned').map(questionKey));
+  new Set(stored.filter((e) => e.origin === 'pinned').map(originalKey));
 
 export function toItem(row: ItemRow): Item {
   return {
@@ -385,7 +394,7 @@ async function buildTestOutState(
  * SDD section 6: the stored exercises (up to `max`), then the recipe's generators over the new
  * items until there are `target`. Every exercise uses taught items only (FR-048), no two are
  * identical (same type and deeply equal payload), and no generated one is a pinned one's original
- * (`questionKey`). With `drawing` off, a stored drawing exercise
+ * (`originalKey`). With `drawing` off, a stored drawing exercise
  * becomes the plugin's EX-01 for the same item, and the recipe's drawing types are skipped (FR-074).
  * A drawing exercise for a character without stroke data (not in `strokeKeys`) is treated the
  * same way, since it could not be drawn (FR-072).

@@ -19,6 +19,7 @@ type JsonObject = { [key: string]: Json };
 interface Schema {
   type?: string;
   enum?: string[];
+  const?: string;
   properties?: Record<string, Schema>;
   required?: string[];
   items?: Schema;
@@ -158,6 +159,22 @@ function Field(props: {
     );
   }
 
+  // A fixed marker, such as an accept entry's `source: 'report'` (#251): a checkbox, not free
+  // text. Unchecking it drops the marker (the pack then owns the answer).
+  if (typeof s.const === 'string') {
+    const marker = s.const;
+    return (
+      <label>
+        {`${label}: ${marker}`}
+        <input
+          type="checkbox"
+          checked={value === marker}
+          onChange={(e) => onChange(e.target.checked ? marker : undefined)}
+        />
+      </label>
+    );
+  }
+
   if (s.type === 'boolean') {
     return (
       <label>
@@ -219,6 +236,8 @@ export function ExerciseForm(props: {
   origin: 'authored' | 'pinned';
   exerciseId?: number;
   payload?: JsonObject;
+  /** #254: for a new pin, the generated payload it is made from, before any edit. */
+  original?: JsonObject;
   onSaved: (write: ExerciseWrite) => void;
   onCancel: () => void;
 }) {
@@ -247,6 +266,7 @@ export function ExerciseForm(props: {
               type: props.type,
               origin: props.origin,
               payload,
+              ...(props.original ? { original: props.original } : {}),
               resegment,
             },
           });

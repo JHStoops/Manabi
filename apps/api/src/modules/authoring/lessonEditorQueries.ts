@@ -110,19 +110,27 @@ export function listItemExercises(db: Queryable, itemId: number): Promise<Exerci
  */
 export async function insertExercise(
   db: Queryable,
-  e: { lessonId: number; type: string; origin: 'authored' | 'pinned'; payload: JsonObject },
+  e: {
+    lessonId: number;
+    type: string;
+    origin: 'authored' | 'pinned';
+    payload: JsonObject;
+    /** A pin's generated original (#254); its accept list is dropped. Defaults to `payload`. */
+    original?: JsonObject;
+  },
 ): Promise<ExerciseRow> {
   // One statement, so a clash never leaves a row without its key.
   return insertReturning<ExerciseRow>(
     db,
     `WITH n AS (SELECT nextval(pg_get_serial_sequence('exercises', 'id')) AS id)
-     INSERT INTO exercises (id, key, lesson_id, type, origin, payload, position)
+     INSERT INTO exercises (id, key, lesson_id, type, origin, payload, position, original_payload)
      OVERRIDING SYSTEM VALUE
      SELECT n.id, 'ex-' || n.id, $1, $2, $3, $4,
-            (SELECT coalesce(max(position) + 1, 0) FROM exercises WHERE lesson_id = $1)
+            (SELECT coalesce(max(position) + 1, 0) FROM exercises WHERE lesson_id = $1),
+            CASE WHEN $3 = 'pinned' THEN $5::jsonb - 'accept' END
        FROM n
      RETURNING *`,
-    [e.lessonId, e.type, e.origin, e.payload],
+    [e.lessonId, e.type, e.origin, e.payload, e.original ?? e.payload],
   );
 }
 

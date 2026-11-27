@@ -44,10 +44,14 @@ describeSchema(
 describeSchema(
   'acceptListSchema',
   acceptListSchema,
-  [['one answer', [{ text: 'water', tiles: [] }]]],
+  [
+    ['one answer', [{ text: 'water', tiles: [] }]],
+    ['a report-accepted answer (#251)', [{ text: 'water', tiles: [], source: 'report' }]],
+  ],
   [
     ['an empty list', []],
     ['a bare string', ['water']],
+    ['an unknown answer source', [{ text: 'water', tiles: [], source: 'pack' }]],
   ],
 );
 

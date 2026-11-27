@@ -136,27 +136,31 @@ function storedTiles(value: unknown, out = new Map<string, Tile[]>()): Map<strin
 
 /**
  * FR-229, FR-227: accepted answers kept across a re-import. Accepting a report adds answers to an
- * authored exercise's stored `accept` list; the pack knows nothing of them. Each stored answer
- * whose text the pack's list lacks is appended to `payload.accept` (so none is duplicated) and
- * counted. Only a pack list that exists is extended, and only when the exercise keeps its type:
- * answers accepted for a different kind of exercise are dropped with its old payload.
+ * authored exercise's stored `accept` list, marked `source: 'report'`; the pack knows nothing of
+ * them. Each marked stored answer whose text the pack's list lacks is appended to
+ * `payload.accept` (so none is duplicated) and returned. Unmarked stored answers came from the
+ * pack (or an editor edit) and follow the pack: one it no longer lists is dropped (#251). Only a
+ * pack list that exists is extended, and only when the exercise keeps its type: answers accepted
+ * for a different kind of exercise are dropped with its old payload.
  */
 function mergeAcceptedAnswers(
   payload: JsonObject,
   type: string,
   stored: { type: string; payload: JsonObject } | undefined,
-): number {
-  if (stored?.type !== type) return 0;
-  if (!Array.isArray(payload.accept) || !Array.isArray(stored.payload.accept)) return 0;
+): string[] {
+  if (stored?.type !== type) return [];
+  if (!Array.isArray(payload.accept) || !Array.isArray(stored.payload.accept)) return [];
   const texts = new Set(
     payload.accept.flatMap((a) => (isObject(a) && typeof a.text === 'string' ? [a.text] : [])),
   );
-  let kept = 0;
+  const kept: string[] = [];
   for (const answer of stored.payload.accept) {
-    if (!isObject(answer) || typeof answer.text !== 'string' || texts.has(answer.text)) continue;
+    if (!isObject(answer) || typeof answer.text !== 'string' || answer.source !== 'report')
+      continue;
+    if (texts.has(answer.text)) continue;
     texts.add(answer.text);
     payload.accept.push(answer);
-    kept += 1;
+    kept.push(answer.text);
   }
   return kept;
 }
@@ -309,10 +313,17 @@ export function packProblems(pack: ContentPack): PackProblem[] {
   return problems;
 }
 
+/** An answer accepted from a report that a re-import kept although the pack lacks it. */
+export interface KeptAnswer {
+  lesson: string;
+  exercise: string;
+  text: string;
+}
+
 /** What an import reports besides success. */
 export interface ImportSummary {
-  /** FR-229: stored accepted answers the pack's accept lists lacked, kept on re-import. */
-  acceptedAnswersKept: number;
+  /** FR-229: stored report-accepted answers the pack's accept lists lacked, kept on re-import. */
+  acceptedAnswersKept: KeptAnswer[];
 }
 
 /**
@@ -331,7 +342,7 @@ export async function importPack(
   const { course } = pack;
   const plugin = languagePlugins.get(course.plugin);
 
-  const summary: ImportSummary = { acceptedAnswersKept: 0 };
+  const summary: ImportSummary = { acceptedAnswersKept: [] };
   await withTransaction(pool, async (db) => {
     await deferPositionChecks(db);
     const courseId = await upsertCourse(db, course);
@@ -424,7 +435,9 @@ export async function importPack(
             throw new ContentPackError(
               payloadProblems(label, e, result.error.issues).map((p) => p.message),
             );
-          summary.acceptedAnswersKept += merged;
+          summary.acceptedAnswersKept.push(
+            ...merged.map((text) => ({ lesson: lesson.key, exercise: e.key, text })),
+          );
           await upsertAuthoredExercise(db, {
             lessonId,
             key: e.key,

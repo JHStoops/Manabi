@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ApiClient } from '@manabi/api-client';
-import type { LibraryItem, LibraryItemDetail } from '@manabi/core';
+import type { LanguagePlugin, LibraryItem, LibraryItemDetail } from '@manabi/core';
 import { japanese } from '@manabi/lang-ja';
 import '../../i18n';
 import { ActivePluginContext } from '../../state/plugins';
@@ -9,7 +9,7 @@ import { ApiContext } from '../../state/session';
 import { AppThemeProvider } from '../../theme';
 import KanjiDetailPage from './KanjiDetailPage';
 
-// FR-070, FR-071: each block of the kanji detail page, from fixture data.
+// FR-070, FR-071, FR-241, IF-03: each block of the kanji detail page, from fixture data.
 
 jest.mock('../strokes/StrokeCanvas', () => ({
   StrokeCanvas: ({ mode }: { mode: string }) => <div data-testid="canvas">{mode}</div>,
@@ -68,14 +68,14 @@ const detail: LibraryItemDetail = {
   ],
 };
 
-function mount(found: LibraryItemDetail | Error) {
+function mount(found: LibraryItemDetail | Error, plugin: LanguagePlugin | null = japanese) {
   const api = {
     GET: () => (found instanceof Error ? Promise.reject(found) : Promise.resolve(found)),
   } as unknown as ApiClient;
   render(
     <ApiContext.Provider value={api}>
       <AppThemeProvider>
-        <ActivePluginContext.Provider value={japanese}>
+        <ActivePluginContext.Provider value={plugin}>
           <MemoryRouter initialEntries={['/library/kanji/ja:kanji:食']}>
             <Routes>
               <Route path="/library/kanji/:key" element={<KanjiDetailPage />} />
@@ -115,6 +115,29 @@ describe('KanjiDetailPage', () => {
     const items = await screen.findAllByText(/to eat/);
     expect(items[0]!.textContent).toContain('Stage 4');
     expect(items[1]!.textContent).toContain('Not started');
+    expect(screen.getByRole('link', { name: '食べる' }).getAttribute('href')).toBe(
+      '/library/words/ja%3Aword%3Ab',
+    );
+  });
+
+  it('gives component and word links a 44 px tap target', async () => {
+    mount(detail);
+    for (const name of ['良', '食べる', '食べない']) {
+      const style = getComputedStyle(await screen.findByRole('link', { name }));
+      expect(style.minHeight).toBe('44px');
+      expect(style.minWidth).toBe('44px');
+    }
+  });
+
+  it('shows no kanji study for a plugin without character study, and waits for the plugin', async () => {
+    mount(detail, { ...japanese, features: { ...japanese.features, characterStudy: false } });
+    await screen.findByText("This course's language has no character study.");
+    expect(screen.queryByTestId('canvas')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'eat' })).toBeNull();
+    cleanup();
+    mount(detail, null);
+    await act(() => Promise.resolve());
+    screen.getByText('Loading…');
   });
 
   it('shows the example sentences', async () => {

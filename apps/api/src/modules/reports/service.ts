@@ -291,7 +291,8 @@ export async function acceptReport(
     if (!alreadyAccepted(exercise, report.given_answer, plugin)) {
       const tiles =
         payload.answerLanguage === 'base' ? [] : await segment(plugin, report.given_answer);
-      accept.push({ text: report.given_answer, tiles });
+      // #251: marked, so a content pack re-import keeps it although the pack lacks it.
+      accept.push({ text: report.given_answer, tiles, source: 'report' });
       const parsed = getExerciseType(exercise.type).payloadSchema.safeParse(payload);
       if (!parsed.success) {
         throw new AppError('conflict', 'The answer does not fit the exercise', parsed.error.issues);

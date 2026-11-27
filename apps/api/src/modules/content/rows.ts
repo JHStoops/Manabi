@@ -153,6 +153,11 @@ export interface ExerciseRow {
   type: string;
   payload: JsonObject;
   origin: ExerciseOrigin;
+  /**
+   * A pin's generated original: its payload without the accept list (migration 0014, #254).
+   * Null for exercises that are not pins.
+   */
+  original_payload: JsonObject | null;
   /** Authored exercises from a pack: key within the lesson, position in it (migration 0008). */
   key: string | null;
   position: number | null;

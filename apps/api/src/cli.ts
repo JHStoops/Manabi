@@ -65,8 +65,16 @@ function command(args: string[]): ((pool: Pool) => Promise<unknown>) | null {
   const dir = resolve(cwd, arg);
   if (group === 'pack' && name === 'import' && !file) {
     return async (pool) => {
-      const { acceptedAnswersKept } = await importPack(pool, await readPack(dir), structureOnly);
-      return `Imported ${dir}; kept ${acceptedAnswersKept} accepted answer(s) not in the pack`;
+      const { acceptedAnswersKept: kept } = await importPack(
+        pool,
+        await readPack(dir),
+        structureOnly,
+      );
+      // FR-229, #251: name each answer accepted from a report that the pack lacks.
+      return [
+        `Imported ${dir}; kept ${kept.length} accepted answer(s) not in the pack`,
+        ...kept.map((k) => `  lesson ${k.lesson} exercise ${k.exercise}: ${k.text}`),
+      ].join('\n');
     };
   }
   if (group === 'pack' && name === 'export') {

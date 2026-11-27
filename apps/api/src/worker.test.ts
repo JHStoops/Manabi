@@ -28,8 +28,11 @@ describeWithDb('worker process', () => {
     let stdout = '';
     let stderr = '';
     child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
+    // 'close', not 'exit': 'exit' can fire while stdout still holds unread lines, which made
+    // the last line read 'worker stopping' instead of 'worker stopped' (#235). 'close' fires
+    // only after the process has exited and its stdio streams have ended.
     const exited = new Promise<{ code: number | null; signal: string | null }>((resolve) =>
-      child.on('exit', (code, signal) => resolve({ code, signal })),
+      child.on('close', (code, signal) => resolve({ code, signal })),
     );
     await new Promise<void>((resolve, reject) => {
       child.stdout.on('data', (chunk: Buffer) => {
