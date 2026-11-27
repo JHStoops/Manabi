@@ -10,8 +10,9 @@ import { seedUser } from '../../test/fixtures';
 import { SESSION_COOKIE } from '../auth/guard';
 import { hashPassword } from '../auth/passwords';
 
-// API tests for item-level pins in reviews (issue #241): FR-114, FR-229, SDD section 6. A pin is
-// one candidate among the generated exercises of its facet, and takes its own original's place.
+// API tests for pins in reviews (issues #241, #254, #255): FR-114, FR-229, SDD section 6. A pin
+// (item level, or in a lesson that teaches only the item) is one candidate among the generated
+// exercises of its facet, and takes the place of the generated original it was pinned from.
 
 // Japanese, where a word's one facet is reviewed by a choice or a typed answer, one of each.
 jest.mock('../../plugins', () => {
@@ -109,6 +110,14 @@ describeWithDb('item-level pins in reviews (#241)', () => {
       payload,
     ]);
 
+  /** A pin made from the generated `original`, as accepting a report records it (#254). */
+  const pinFrom = (original: object, payload: object, at: { lessonId?: number } = {}) =>
+    sql(
+      `INSERT INTO exercises (item_id, lesson_id, type, payload, origin, original_payload)
+       VALUES ($1, $2, 'typed_answer', $3, $4, $5::jsonb - 'accept')`,
+      [at.lessonId ? null : itemId, at.lessonId ?? null, payload, 'pinned', original],
+    );
+
   /**
    * The exercise a fresh review session serves when Math.random picks the type slot with `slot`,
    * then the exercise within it with `within` (and 0 after that).
@@ -203,6 +212,18 @@ describeWithDb('item-level pins in reviews (#241)', () => {
     );
     for (const random of [0, 0.99]) {
       expect(await served(random)).toEqual({ type: 'typed_answer', payload: authored });
+    }
+  });
+
+  it('keeps an edited pin in place of its recorded original (#254)', async () => {
+    const original = typedPayload('ja:word:mizu', ['water']);
+    const edited = { ...typedPayload('ja:word:mizu', ['water', 'aqua']), prompt: 'Fixed prompt' };
+    await pinFrom(original, edited);
+
+    // Slots: [choice], [the pin alone]: its generated original is never served next to it.
+    for (const within of [0, 0.99]) {
+      expect(await served(0.99, within)).toEqual({ type: 'typed_answer', payload: edited });
+      expect((await served(0, within)).type).toBe('choice');
     }
   });
 });

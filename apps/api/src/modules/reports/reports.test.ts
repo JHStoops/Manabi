@@ -91,7 +91,7 @@ describeWithDb('answer reports API', () => {
     return query<R>(pool(), text, params);
   }
 
-  function call(who: Who, method: 'GET' | 'POST', url: string, payload?: object) {
+  function call(who: Who, method: 'GET' | 'POST' | 'PATCH', url: string, payload?: object) {
     return app.inject({ method, url: `/api/v1${url}`, payload, ...who });
   }
 
@@ -304,6 +304,50 @@ describeWithDb('answer reports API', () => {
     ]);
     expect(await inbox(admin)).toEqual([]);
     expect((await inbox(admin, 'accepted')).map((r) => r.id)).toEqual([first.id, other.id]);
+  });
+
+  it('keeps an edited pin tied to its generated original in lessons and reports (#254)', async () => {
+    const admin = await signIn('admin', 'admin');
+    const learner = await signIn('learner');
+    const second = await signIn('second');
+    const session = await startLesson(learner);
+    const exercise = generatedTyped(session);
+    // A session built before the pin, which still holds the generated original.
+    const older = await startLesson(second);
+    const filed = (await report(learner, session.id, exercise, 'H2O')).json();
+    const { exerciseId } = (
+      await call(admin, 'POST', `/authoring/reports/${filed.id}/accept`, {})
+    ).json<AnswerReport>();
+    // The pin records the generated original it was made from, without its accept list.
+    const question = { ...exercise.payload };
+    delete question.accept;
+    expect(await sql(`SELECT original_payload FROM exercises WHERE id = $1`, [exerciseId])).toEqual(
+      [{ original_payload: question }],
+    );
+
+    // The author fixes the pin's prompt.
+    const [row] = await sql<{ payload: Record<string, unknown> }>(
+      `SELECT payload FROM exercises WHERE id = $1`,
+      [exerciseId],
+    );
+    const edited = { ...row!.payload, prompt: 'What does mizu mean?' };
+    const patched = await call(admin, 'PATCH', `/authoring/exercises/${exerciseId}`, {
+      payload: edited,
+    });
+    expect(patched.statusCode).toBe(200);
+
+    // A new session serves the edited pin once, and never its generated original next to it.
+    await sql(`DELETE FROM lesson_sessions WHERE id = $1`, [session.id]);
+    const next = await startLesson(learner);
+    const base = next.exercises.filter(
+      (e) => e.type === 'typed_answer' && e.payload.answerLanguage === 'base',
+    );
+    expect(base.map((e) => e.payload.prompt)).toEqual(['What does mizu mean?']);
+
+    // A report filed on the original from an older session extends the edited pin, not a new one.
+    const again = (await report(second, older.id, exercise, 'aqua')).json();
+    expect((await inbox(admin)).find((r) => r.id === again.id)).toMatchObject({ exerciseId });
+    expect(await sql(`SELECT id FROM exercises WHERE origin = 'pinned'`)).toHaveLength(1);
   });
 
   it('accepts a report on a stored exercise into its accept list', async () => {

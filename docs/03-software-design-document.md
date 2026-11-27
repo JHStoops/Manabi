@@ -123,7 +123,7 @@ One PostgreSQL database holds content, accounts and progress. There is no ORM: e
 | `level_list_words` | course_id, level_code, written, reading | Words of the JLPT level lists up to the level ceiling, written by the level-list import; the vocabulary import filters on them with the supplementary words |
 | `blocked_words` | id, lang, word | Admin-editable blocklist per language; empty at start |
 | `sentence_items` | sentence_id, item_id | For "example sentences using this item" |
-| `exercises` | id, lesson_id (nullable), item_id (nullable), type, payload (JSONB), origin, key, position, archived_at | Origin: authored, generated or pinned; item-level exercises feed reviews and drills; authored exercises from a pack have a key unique within their lesson and a position, and are archived instead of deleted when dropped from the pack |
+| `exercises` | id, lesson_id (nullable), item_id (nullable), type, payload (JSONB), origin, key, position, archived_at, original_payload (JSONB, pins only) | Origin: authored, generated or pinned; a pin records its generated original (section 6); item-level exercises feed reviews and drills; authored exercises from a pack have a key unique within their lesson and a position, and are archived instead of deleted when dropped from the pack |
 | `audio_assets` | id, owner_type, owner_id, voice, path, origin, text_hash | Generated on first request or uploaded; hash of the reading sent detects stale audio; voice is null only for uploaded clips |
 | `stroke_data` | item_id, strokes (JSONB) | Hanzi Writer character data converted from KanjiVG: an outline and a median per stroke |
 
@@ -189,7 +189,9 @@ Each exercise type is one registry entry with four parts, so adding a type touch
 
 Sending accept lists to the client trades cheat resistance for responsiveness and offline tolerance, which is the right trade for an invite-only family app; the server re-grade keeps recorded progress honest.
 
-Review sessions use the same engine: for each due item and facet the API picks an item-level exercise (stored or generated) of a type suited to the facet. An authored stored exercise wins; a pinned one (a generated exercise kept with a longer accept list, FR-229) is one candidate among the generated ones and takes the place of its own generated original, so the facet keeps its variety of exercise types. Stroke exercises are graded entirely in the browser by Hanzi Writer's stroke matcher, and the server records the reported result.
+Review sessions use the same engine: for each due item and facet the API picks an item-level exercise (stored or generated) of a type suited to the facet; the stored exercises of a lesson that teaches only that item count as the item's own. An authored stored exercise wins; a pinned item-level one (a generated exercise kept with a longer accept list, FR-229) is one candidate among the generated ones and takes the place of its own generated original, so the facet keeps its variety of exercise types (one slot per exercise type).
+
+A pin records the generated original it was made from (`exercises.original_payload`: the original's payload without its accept list; the type is the pin's, which never changes). Lesson and review building, and finding the stored exercise a new answer report is about, match a pin to its original on that record, not on the pin's live payload, so an author can edit a pin (fix its prompt, say) and the original still is not served next to it. When the generator's output changes (new prompt wording in the plugin, an item data override), the pin's recorded original is no longer generated: the pin then stays a candidate in its exercise type's slot in reviews and is served as a stored exercise in lessons, next to the changed generated exercise, until an author edits or removes it. Stroke exercises are graded entirely in the browser by Hanzi Writer's stroke matcher, and the server records the reported result.
 
 ## 7. Progress logic
 

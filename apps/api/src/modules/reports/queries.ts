@@ -72,7 +72,8 @@ export function findReviewSession(
  * (`lessonId`), or else a review or test-out of `itemId`. First an active exercise of the course
  * (of the lesson, for a lesson) with an equal payload (jsonb equality ignores key order). Else one
  * that differs only in its accept list: the copy an accepted report pinned, or an authored
- * exercise whose list the author extended since the session was built. For a review or test-out
+ * exercise whose list the author extended since the session was built; or a pin made from this
+ * generated exercise and edited since (its recorded original, #254). For a review or test-out
  * that second match is among the item's own item-level exercises, so a pin in some lesson is
  * never extended for a review, nor the other way round.
  */
@@ -102,7 +103,8 @@ export async function findStoredExercise(
          ORDER BY id LIMIT 1)
        UNION ALL
        (SELECT id, 1 FROM course_exercises
-         WHERE (payload - 'accept') = ($5::jsonb - 'accept')
+         WHERE ((payload - 'accept') = ($5::jsonb - 'accept')
+                OR original_payload = ($5::jsonb - 'accept'))
            AND ($2::bigint IS NOT NULL OR (lesson_id IS NULL AND item_id = $3))
          ORDER BY origin = 'pinned' DESC, id LIMIT 1)
      ) found
@@ -237,8 +239,8 @@ export function insertItemExercise(
 ): Promise<ExerciseRow> {
   return insertReturning<ExerciseRow>(
     db,
-    `INSERT INTO exercises (item_id, type, origin, payload)
-     VALUES ($1, $2, 'pinned', $3)
+    `INSERT INTO exercises (item_id, type, origin, payload, original_payload)
+     VALUES ($1, $2, 'pinned', $3, $3::jsonb - 'accept')
      RETURNING *`,
     [e.itemId, e.type, e.payload],
   );

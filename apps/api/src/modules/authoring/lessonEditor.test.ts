@@ -184,12 +184,13 @@ describeWithDb('lesson editor API', () => {
       payload,
     });
     expect(exercise).toMatchObject({ type: 'choice', origin: 'pinned', payload });
-    const [row] = await query<{ origin: string; key: string }>(
+    const [row] = await query<{ origin: string; key: string; original_payload: unknown }>(
       pool(),
-      `SELECT origin, key FROM exercises WHERE id = $1`,
+      `SELECT origin, key, original_payload FROM exercises WHERE id = $1`,
       [exercise.id],
     );
-    expect(row).toEqual({ origin: 'pinned', key: `ex-${exercise.id}` });
+    // #254: the pin records the generated payload it was made from.
+    expect(row).toEqual({ origin: 'pinned', key: `ex-${exercise.id}`, original_payload: payload });
 
     const editor = await ok<LessonEditor>('DELETE', `/authoring/exercises/${exercise.id}`);
     expect(editor.exercises).toEqual([]);

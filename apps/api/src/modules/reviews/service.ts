@@ -27,7 +27,7 @@ import { languagePlugins } from '../../plugins';
 import type { ScopedUserId } from '../auth/service';
 import type { ExerciseRow, ItemRow } from '../content/rows';
 import { awardXp } from '../courses/service';
-import { questionKey, toItem } from '../lessons/service';
+import { originalKey, questionKey, toItem } from '../lessons/service';
 import * as q from './queries';
 import type { ReviewSessionRow, Stage } from './rows';
 
@@ -112,7 +112,7 @@ function toSession(row: ReviewSessionRow, state: ReviewSessionState): ReviewSess
  * FR-114, NFR-02: the learner's unexpired review session, or a new one of up to 20 due items,
  * oldest due first. Each due facet of an item gets one exercise of a type suited to it: an
  * authored stored one when there is one, else one of the generated ones or the item's pins, a pin
- * taking the place of its own generated original (#241). 409 when nothing due can be reviewed.
+ * taking the place of the generated original it was pinned from (#241, #254). 409 when nothing due can be reviewed.
  */
 export async function startSession(
   db: Pool,
@@ -174,7 +174,8 @@ async function buildState(db: Queryable, userId: number, now: Date): Promise<Rev
           own
             .filter(isPin)
             .map((e): [string, SessionExercise] => [
-              questionKey(e),
+              // #254: keyed by the original it was pinned from, not by its (editable) payload.
+              originalKey(e),
               { type: e.type, payload: e.payload },
             ])
             .filter(([, e]) => usesTaughtOnly(e)),
