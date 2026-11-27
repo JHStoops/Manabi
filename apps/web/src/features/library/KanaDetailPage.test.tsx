@@ -50,15 +50,19 @@ const kana = (character: string, romaji: string): LibraryItemDetail =>
     sentences: [],
   }) as LibraryItemDetail;
 
+const requested: unknown[] = [];
 function mount(found: LibraryItemDetail | Error, plugin = japanese) {
   const api = {
-    GET: () => (found instanceof Error ? Promise.reject(found) : Promise.resolve(found)),
+    GET: (_url: string, init: unknown) => (
+      requested.push(init),
+      found instanceof Error ? Promise.reject(found) : Promise.resolve(found)
+    ),
   } as unknown as ApiClient;
   render(
     <ApiContext.Provider value={api}>
       <AppThemeProvider>
         <ActivePluginContext.Provider value={plugin}>
-          <MemoryRouter initialEntries={['/library/kana/x']}>
+          <MemoryRouter initialEntries={['/library/kana/ja%3Akana%3A%E3%81%82']}>
             <Routes>
               <Route path="/library/kana/:key" element={<KanaDetailPage />} />
             </Routes>
@@ -74,9 +78,16 @@ describe('KanaDetailPage', () => {
     mount(kana('あ', 'a'));
     await screen.findByRole('heading', { name: 'a', level: 1 });
     screen.getByText('Hiragana · Stage 3');
+    expect(requested[0]).toEqual({ params: { path: { key: 'ja:kana:あ' } } });
     expect(screen.getByRole('link', { name: 'あめ' }).getAttribute('href')).toBe(
       '/library/words/ja%3Aword%3Aa',
     );
+  });
+
+  it('shows a katakana kana that is not started', async () => {
+    const item = kana('ア', 'a');
+    mount({ ...item, stage: null, data: { ...item.data, script: 'katakana' } });
+    await screen.findByText('Katakana · Not started');
   });
 
   it('switches the stroke canvas between animation and trace', async () => {

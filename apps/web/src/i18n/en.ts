@@ -64,7 +64,6 @@ export const en = {
     // The kana detail page (#238).
     notKana: 'This item is not a kana.',
     script: { hiragana: 'Hiragana', katakana: 'Katakana' },
-    romaji: 'Romaji: {{romaji}}',
     grammar: 'Grammar',
     notStarted: 'Not started',
     stage: 'Stage {{stage}}',

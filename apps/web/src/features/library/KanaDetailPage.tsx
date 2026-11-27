@@ -3,6 +3,7 @@ import styled from '@emotion/styled';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { LibraryItem, LibraryItemDetail } from '@manabi/core';
+import { tapTarget } from '../../theme';
 import { useApi } from '../../state/session';
 import { ActivePluginContext } from '../../state/plugins';
 import { apiErrorMessage } from '../auth/ui';
@@ -26,6 +27,12 @@ const Page = styled.article`
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+  /* IF-03: word links are tappable at 44 px. */
+  li a {
+    ${({ theme }) => tapTarget(theme)};
+    display: inline-flex;
+    align-items: center;
   }
 `;
 
@@ -79,6 +86,7 @@ export default function KanaDetailPage() {
   if (item.type !== 'kana') return <p role="alert">{t('library.notKana')}</p>;
 
   const kana = kanaOf(item);
+  if (typeof kana.character !== 'string') return <p role="alert">{t('library.notKana')}</p>;
   const stage =
     item.stage === null ? t('library.notStarted') : t('library.stage', { stage: item.stage });
   const words = item.links
@@ -90,7 +98,7 @@ export default function KanaDetailPage() {
 
   return (
     <Page>
-      <Link to="/library/kanji">{t('characters.title.kana')}</Link>
+      <Link to="/library">{t('area.library')}</Link>
       <Header>
         <Glyph lang="ja">{kana.character}</Glyph>
         <div>
