@@ -74,8 +74,9 @@ export function findReviewSession(
  * that differs only in its accept list: the copy an accepted report pinned, or an authored
  * exercise whose list the author extended since the session was built; or a pin made from this
  * generated exercise and edited since (its recorded original, #254). For a review or test-out
- * that second match is among the item's own item-level exercises, so a pin in some lesson is
- * never extended for a review, nor the other way round.
+ * that second match is among the exercises reviews serve for the item: its item-level ones and
+ * those of a lesson that teaches only that item (#255), so a pin in another lesson is never
+ * extended for a review.
  */
 export async function findStoredExercise(
   db: Queryable,
@@ -105,7 +106,12 @@ export async function findStoredExercise(
        (SELECT id, 1 FROM course_exercises
          WHERE ((payload - 'accept') = ($5::jsonb - 'accept')
                 OR original_payload = ($5::jsonb - 'accept'))
-           AND ($2::bigint IS NOT NULL OR (lesson_id IS NULL AND item_id = $3))
+           AND ($2::bigint IS NOT NULL
+                OR (lesson_id IS NULL AND item_id = $3)
+                -- #255: reviews also serve the exercises of a lesson teaching only this item.
+                OR lesson_id IN (SELECT lesson_id FROM lesson_items
+                                  GROUP BY lesson_id
+                                 HAVING count(*) = 1 AND min(item_id) = $3))
          ORDER BY origin = 'pinned' DESC, id LIMIT 1)
      ) found
      ORDER BY rank LIMIT 1`,

@@ -303,4 +303,27 @@ describeWithDb('item-level pins in reviews (#241)', () => {
         payload: typedPayload('ja:word:mizu', ['water']),
       });
   });
+
+  it('counts an edited pin once in its slot (#254)', async () => {
+    const edited = { ...typedPayload('ja:word:mizu', ['water', 'aqua']), prompt: 'Fixed prompt' };
+    await pinFrom(typedPayload('ja:word:mizu', ['water']), edited);
+    const stale = { ...typedPayload('ja:word:mizu', ['water', 'H2O']), prompt: 'Old prompt' };
+    await pin(stale);
+
+    // The typed slot is [edited pin, stale pin]: each half of the draw, not two thirds to one.
+    expect(await served(0.99, 0.49)).toEqual({ type: 'typed_answer', payload: edited });
+    expect(await served(0.99, 0.5)).toEqual({ type: 'typed_answer', payload: stale });
+  });
+
+  it('serves two pins of one original as one, with both accept lists (#254, #255)', async () => {
+    const lessonId = await lesson('ja-en:mizu', [itemId]);
+    const original = typedPayload('ja:word:mizu', ['water']);
+    await pinFrom(original, typedPayload('ja:word:mizu', ['water', 'aqua']), { lessonId });
+    await pinFrom(original, typedPayload('ja:word:mizu', ['water', 'H2O']));
+    for (const within of [0, 0.99])
+      expect(await served(0.99, within)).toEqual({
+        type: 'typed_answer',
+        payload: typedPayload('ja:word:mizu', ['water', 'aqua', 'H2O']),
+      });
+  });
 });

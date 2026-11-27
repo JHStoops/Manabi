@@ -197,6 +197,29 @@ describeWithDb('lesson editor API', () => {
     expect(await count('exercises')).toBe(0);
   });
 
+  it('records the generated payload a pin was made from, before the author edited it (#254)', async () => {
+    const original = {
+      prompt: 'water',
+      options: ['a', 'b', 'c', 'd'].map((text) => ({ text })),
+      correct: 1,
+    };
+    const payload = { ...original, prompt: 'Which one is water?' };
+    const { exercise } = await ok<ExerciseWrite>('POST', '/authoring/exercises', {
+      lessonId,
+      type: 'choice',
+      origin: 'pinned',
+      payload,
+      original,
+    });
+    expect(exercise.payload).toEqual(payload);
+    const [row] = await query<{ original_payload: unknown }>(
+      pool(),
+      `SELECT original_payload FROM exercises WHERE id = $1`,
+      [exercise.id],
+    );
+    expect(row).toEqual({ original_payload: original });
+  });
+
   it('segments authored answer text on save and keeps edited tiles', async () => {
     // EX-04 typed answer: the accept list comes without tiles.
     const created = await ok<ExerciseWrite>('POST', '/authoring/exercises', {

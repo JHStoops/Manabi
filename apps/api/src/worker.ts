@@ -17,8 +17,9 @@ async function main(): Promise<void> {
   // Node's default (exit by signal); the stop then runs as soon as the worker is up.
   let worker: RunningWorker | undefined;
   let requested: NodeJS.Signals | undefined;
-  // Flush buffered log lines before exiting, so the last line ("worker stopped") is not lost
-  // when stdout is a pipe (#235).
+  // Flush the logger before exiting (#235). pino's default stdout destination writes synchronously,
+  // so this is a safeguard for a buffered destination rather than the fix itself: the flaky test
+  // read stdout on 'exit', before the pipe had delivered the last line ('close' is the fix).
   const exit = (code: number): void => {
     log.flush(() => process.exit(code));
   };

@@ -491,6 +491,33 @@ describeWithDb('answer reports API', () => {
     ]);
   });
 
+  it('extends the pin of a single-item lesson for a review report, as reviews serve it (#255)', async () => {
+    const admin = await signIn('admin', 'admin');
+    const learner = await signIn('learner');
+    const session = await startLesson(learner);
+    const exercise = generatedTyped(session);
+    const lessonReport = (await report(learner, session.id, exercise, 'H2O')).json();
+    const { exerciseId } = (
+      await call(admin, 'POST', `/authoring/reports/${lessonReport.id}/accept`, {})
+    ).json<AnswerReport>();
+
+    // The lesson now teaches only the first item (a session needs two to start), so reviews serve
+    // its pin. A review built before the pin served the generated original; its report goes to
+    // the pin.
+    await sql(`DELETE FROM lesson_items WHERE lesson_id = $1 AND item_id <> $2`, [
+      lessonId,
+      itemId,
+    ]);
+    const reviewReport = await reviewReportOf(learner, exercise, 'aqua');
+    const accepted = (
+      await call(admin, 'POST', `/authoring/reports/${reviewReport}/accept`, {})
+    ).json<AnswerReport>();
+    expect(accepted).toMatchObject({ exerciseId, currentAccept: ['water', 'H2O', 'aqua'] });
+    expect(await sql(`SELECT id FROM exercises WHERE origin = 'pinned'`)).toEqual([
+      { id: exerciseId },
+    ]);
+  });
+
   /** Files a report from a review session holding `exercise` for the first item; its id. */
   async function reviewReportOf(who: Who, exercise: SessionExercise, answer: string) {
     const [user] = await sql(`SELECT id FROM users WHERE username = 'learner'`);

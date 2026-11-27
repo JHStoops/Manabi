@@ -67,6 +67,11 @@ export const createExerciseRequestSchema = z.object({
   type: typeIdSchema,
   origin: z.enum(['authored', 'pinned']),
   payload: jsonObjectSchema,
+  /**
+   * #254: for a pin, the generated payload it was made from, before the author edited it; lesson
+   * and review building match the pin to that original. Defaults to `payload`.
+   */
+  original: jsonObjectSchema.optional(),
   resegment: resegmentSchema,
 });
 export type CreateExerciseRequest = z.input<typeof createExerciseRequestSchema>;

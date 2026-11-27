@@ -22,6 +22,7 @@ type Editing = {
   origin: 'authored' | 'pinned';
   id?: number;
   payload?: Record<string, unknown>;
+  original?: Record<string, unknown>;
 } | null;
 
 export default function LessonEditorPage() {
@@ -134,6 +135,7 @@ export default function LessonEditorPage() {
             origin={editing.origin}
             exerciseId={editing.id}
             payload={editing.payload}
+            original={editing.original}
             onSaved={(write) => {
               // Later saves edit what the first one created.
               setEditing(write.exercise);
@@ -173,7 +175,14 @@ export default function LessonEditorPage() {
                 <strong>{e.type}</strong> {summary(e)}{' '}
                 <Button
                   aria-label={t('lessonEditor.pinEntry', { n: i + 1 })}
-                  onClick={() => open({ type: e.type, origin: 'pinned', payload: e.payload })}
+                  onClick={() =>
+                    open({
+                      type: e.type,
+                      origin: 'pinned',
+                      payload: e.payload,
+                      original: e.payload,
+                    })
+                  }
                 >
                   {t('lessonEditor.pin')}
                 </Button>

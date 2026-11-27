@@ -11667,6 +11667,9 @@ export interface paths {
             payload: {
               [key: string]: unknown;
             };
+            original?: {
+              [key: string]: unknown;
+            };
             /** @default false */
             resegment?: boolean;
           };

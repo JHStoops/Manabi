@@ -92,7 +92,14 @@ describe('ExerciseForm', () => {
     blockedWords,
   });
 
-  function show(props: { exerciseId?: number; payload?: Record<string, unknown> } = {}) {
+  function show(
+    props: {
+      exerciseId?: number;
+      payload?: Record<string, unknown>;
+      origin?: 'authored' | 'pinned';
+      original?: Record<string, unknown>;
+    } = {},
+  ) {
     const api = {
       POST: jest.fn((_path: string, { body }: { body: { payload: object } }) =>
         Promise.resolve(write(body.payload, ['飲む'])),
@@ -174,6 +181,49 @@ describe('ExerciseForm', () => {
       target: { value: '火' },
     });
     expect(screen.queryByRole('group', { name: 'tiles 1' })).toBeNull();
+  });
+
+  it("shows a report-accepted answer's marker as a checkbox that drops it (#251)", async () => {
+    const payload = {
+      prompt: 'water',
+      answerLanguage: 'base',
+      accept: [
+        { text: 'water', tiles: [] },
+        { text: 'H2O', tiles: [], source: 'report' },
+      ],
+    };
+    const { api } = show({ exerciseId: 9, payload });
+    const first = within(group('accept 1')).getByRole('checkbox', { name: 'source: report' });
+    const second = within(group('accept 2')).getByRole('checkbox', { name: 'source: report' });
+    expect((first as HTMLInputElement).checked).toBe(false);
+    expect((second as HTMLInputElement).checked).toBe(true);
+    // No free-text field for it.
+    expect(screen.queryByRole('textbox', { name: 'source' })).toBeNull();
+
+    fireEvent.click(second);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.PATCH).toHaveBeenCalledTimes(1));
+    expect(api.PATCH.mock.calls[0]![1]).toMatchObject({
+      body: { payload: { accept: [{ text: 'water' }, { text: 'H2O', tiles: [] }] } },
+    });
+    const sent = (api.PATCH.mock.calls[0]![1] as { body: { payload: { accept: object[] } } }).body
+      .payload.accept[1];
+    expect(sent).not.toHaveProperty('source');
+  });
+
+  it('sends the generated payload a new pin is made from, unedited (#254)', async () => {
+    const original = {
+      prompt: 'water',
+      answerLanguage: 'base',
+      accept: [{ text: 'water', tiles: [] }],
+    };
+    const { api } = show({ origin: 'pinned', payload: original, original });
+    fireEvent.change(screen.getByLabelText('prompt'), { target: { value: 'Meaning of 水?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.POST).toHaveBeenCalledTimes(1));
+    expect(api.POST.mock.calls[0]![1]).toMatchObject({
+      body: { origin: 'pinned', payload: { prompt: 'Meaning of 水?' }, original },
+    });
   });
 
   it('lists the payload problems the server finds', async () => {

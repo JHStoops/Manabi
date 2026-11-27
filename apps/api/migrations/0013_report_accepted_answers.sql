@@ -5,6 +5,10 @@
 -- Backfill: answers accepted before the marker existed are found through their accepted report
 -- (same exercise, same answer text) and marked. Payloads only; no table changes, and no progress
 -- table is touched. Idempotent: a marked answer is unchanged by `|| '{"source":"report"}'`.
+-- Limit: an answer the pack itself lists with exactly a reported text, where accepting the report
+-- added nothing (the grader already took it), is marked too, since the two cannot be told apart
+-- afterwards. Such entries are rare; an author gives one back to the pack by clearing its
+-- "source: report" checkbox in the lesson editor.
 -- NFR-52: forward-only. This file has no Down Migration section on purpose.
 UPDATE exercises e
    SET payload = jsonb_set(
