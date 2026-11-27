@@ -83,6 +83,8 @@ export const en = {
     sentences: 'Example sentences',
     example: 'Example',
     notAWord: 'This item is not a word.',
+    wordUnavailable:
+      'Words need an active course in a supported language. Choose one on the Learn tab.',
     partOfSpeech: '({{pos}})',
   },
   // FR-075: the kanji and kana grid.

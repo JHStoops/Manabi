@@ -4,10 +4,11 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { STAGE_BANDS } from '@manabi/core';
 import type { LibraryItem, LibraryItemsQuery, StageBand } from '@manabi/core';
-import { ActivePluginContext } from '../../state/plugins';
+import { ActivePluginContext, ActivePluginStatusContext } from '../../state/plugins';
 import { useApi, useSettings } from '../../state/session';
 import { tapTarget } from '../../theme';
 import { apiErrorMessage } from '../auth/ui';
+import { BackLink } from './BackLink';
 import { ItemTile, bandOf } from './ItemTile';
 import { VirtualGrid } from './VirtualGrid';
 
@@ -183,6 +184,7 @@ export default function CharacterLibraryPage() {
   const api = useApi();
   const { activeCourseId } = useSettings();
   const plugin = useContext(ActivePluginContext);
+  const pluginStatus = useContext(ActivePluginStatusContext);
   const [kind, setKind] = useState<Kind>('kanji');
   const [filters, setFilters] = useState<Filters>(noFilters);
   const [search, setSearch] = useState('');
@@ -253,7 +255,10 @@ export default function CharacterLibraryPage() {
     } else fetchNext();
   };
 
-  // FR-241: only a course whose plugin has character study has this screen.
+  // FR-241: only a course whose plugin has character study has this screen. With no plugin at all
+  // (no active course, an unknown plugin, or courses that failed to load) it is off, not loading.
+  if (plugin === null && pluginStatus === 'none')
+    return <p>{t(activeCourseId === null ? 'characters.noCourse' : 'characters.unavailable')}</p>;
   if (plugin === null) return <p>{t('app.loading')}</p>;
   if (!plugin.features.characterStudy) return <p>{t('characters.unavailable')}</p>;
 
@@ -269,7 +274,7 @@ export default function CharacterLibraryPage() {
 
   return (
     <>
-      <Link to="/library">{t('area.library')}</Link>
+      <BackLink to="/library">{t('area.library')}</BackLink>
       <h1>{t(`characters.title.${kind}`)}</h1>
       <Controls role="search" onSubmit={(e) => e.preventDefault()}>
         <Kinds>

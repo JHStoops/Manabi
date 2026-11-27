@@ -11,6 +11,7 @@ import { SpeechProvider } from '../audio/speech';
 import { apiErrorMessage } from '../auth/ui';
 import { ChoiceButton } from '../exercises/ui';
 import { StrokeCanvas } from '../strokes/StrokeCanvas';
+import { BackLink } from './BackLink';
 import { AnnotatedText } from '../text/AnnotatedText';
 
 // FR-070, FR-071, FR-241, Product Spec section 5 (Kanji detail page): one kanji from GET /items/:key.
@@ -41,13 +42,6 @@ const Page = styled.article`
     display: inline-flex;
     align-items: center;
   }
-`;
-
-// IF-03: the back link is a 44 px tap target.
-const BackLink = styled(Link)`
-  ${({ theme }) => tapTarget(theme)};
-  display: inline-flex;
-  align-items: center;
 `;
 
 const Glyph = styled.span`

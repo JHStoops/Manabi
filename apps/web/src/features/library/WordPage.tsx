@@ -1,4 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
+import styled from '@emotion/styled';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { LibraryItemDetail } from '@manabi/core';
@@ -6,28 +7,46 @@ import { SpeakerButton } from '../audio/SpeakerButton';
 import { SpeechProvider } from '../audio/speech';
 import { apiErrorMessage } from '../auth/ui';
 import { AnnotatedText } from '../text/AnnotatedText';
-import { ActivePluginContext } from '../../state/plugins';
+import { ActivePluginContext, ActivePluginStatusContext } from '../../state/plugins';
+import { tapTarget } from '../../theme';
 import { useApi } from '../../state/session';
 
 // FR-100: reading, meanings, part of speech, audio, an example sentence and links to the
 // word's kanji, plus the learner's stage (FR-102). Rules: Product Spec section 8.
+// IF-03: the kanji links are 44 px tap targets.
+const KanjiList = styled.ul`
+  li a {
+    ${({ theme }) => tapTarget(theme)};
+    display: inline-flex;
+    align-items: center;
+  }
+`;
+
 export default function WordPage() {
   const { t } = useTranslation();
   const api = useApi();
   const plugin = useContext(ActivePluginContext);
+  const pluginStatus = useContext(ActivePluginStatusContext);
   const { key = '' } = useParams();
   const [item, setItem] = useState<LibraryItemDetail | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
 
   useEffect(() => {
+    let current = true;
     setItem(null);
     setProblem(null);
-    api
-      .GET('/api/v1/items/{key}', { params: { path: { key } } })
-      .then(setItem, (err) => setProblem(apiErrorMessage(t, err)));
+    api.GET('/api/v1/items/{key}', { params: { path: { key } } }).then(
+      (found) => current && setItem(found),
+      (err) => current && setProblem(apiErrorMessage(t, err)),
+    );
+    return () => {
+      current = false;
+    };
   }, [api, key, t]);
 
   if (problem) return <p role="alert">{problem}</p>;
+  // The page needs the course plugin (its voice and reading annotations); without one it says so.
+  if (plugin === null && pluginStatus === 'none') return <p>{t('library.wordUnavailable')}</p>;
   if (!item || !plugin) return <p>{t('app.loading')}</p>;
   // A key of another item type (a stale link) has no word data to show.
   if (item.type !== 'word') return <p role="alert">{t('library.notAWord')}</p>;
@@ -72,7 +91,7 @@ export default function WordPage() {
       {kanji.length > 0 && (
         <section aria-labelledby="word-kanji">
           <h2 id="word-kanji">{t('library.kanji')}</h2>
-          <ul>
+          <KanjiList>
             {kanji.map(({ item: k }) => (
               <li key={k.key}>
                 <Link to={`/library/kanji/${encodeURIComponent(k.key)}`} lang={plugin.code}>
@@ -80,7 +99,7 @@ export default function WordPage() {
                 </Link>
               </li>
             ))}
-          </ul>
+          </KanjiList>
         </section>
       )}
     </SpeechProvider>

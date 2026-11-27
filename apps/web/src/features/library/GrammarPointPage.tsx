@@ -9,6 +9,8 @@ import { SpeechProvider } from '../audio/speech';
 import { SpeakerButton } from '../audio/SpeakerButton';
 import { apiErrorMessage } from '../auth/ui';
 import { AnnotatedText } from '../text/AnnotatedText';
+import { tapTarget } from '../../theme';
+import { BackLink } from './BackLink';
 import { grammarOf, stageName } from './grammar';
 import { Markdown } from './Markdown';
 
@@ -16,6 +18,16 @@ import { Markdown } from './Markdown';
 // related points (Product Spec section 6).
 // shortcut: the matched pattern is not highlighted in examples (sentences store no match span),
 // and word tap cards are not built; add both when sentences carry detection spans.
+
+// IF-03: related point links are 44 px tap targets. Links inside the explanation's running text
+// are exempt, as inline links are under WCAG 2.5.8.
+const LinkList = styled.ul`
+  li a {
+    ${({ theme }) => tapTarget(theme)};
+    display: inline-flex;
+    align-items: center;
+  }
+`;
 
 const Table = styled.table`
   border-collapse: collapse;
@@ -69,9 +81,7 @@ function GrammarPoint() {
   ];
   return (
     <>
-      <p>
-        <Link to="/library/grammar">{t('grammar.title')}</Link>
-      </p>
+      <BackLink to="/library/grammar">{t('grammar.title')}</BackLink>
       <header>
         <h1 lang={plugin?.code}>{pattern}</h1>
         {meaning && <p>{meaning}</p>}
@@ -134,7 +144,7 @@ function GrammarPoint() {
       {related.length > 0 && (
         <section>
           <h2>{t('grammar.related')}</h2>
-          <ul>
+          <LinkList>
             {related.map((point) => (
               <li key={point.key}>
                 <Link to={`/library/grammar/${encodeURIComponent(point.key)}`}>
@@ -142,7 +152,7 @@ function GrammarPoint() {
                 </Link>
               </li>
             ))}
-          </ul>
+          </LinkList>
         </section>
       )}
     </>

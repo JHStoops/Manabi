@@ -9,6 +9,7 @@ import { ActivePluginContext, ActivePluginStatusContext } from '../../state/plug
 import { apiErrorMessage } from '../auth/ui';
 import { ChoiceButton } from '../exercises/ui';
 import { StrokeCanvas } from '../strokes/StrokeCanvas';
+import { BackLink } from './BackLink';
 
 // FR-070, FR-071, FR-241, Product Spec section 5 (Kanji library: "The same stroke animation, trace
 // and draw features apply to kana"): one kana from GET /items/:key, with the kanji page's canvas.
@@ -34,13 +35,6 @@ const Page = styled.article`
     display: inline-flex;
     align-items: center;
   }
-`;
-
-// IF-03: the back link is a 44 px tap target.
-const BackLink = styled(Link)`
-  ${({ theme }) => tapTarget(theme)};
-  display: inline-flex;
-  align-items: center;
 `;
 
 const Glyph = styled.span`

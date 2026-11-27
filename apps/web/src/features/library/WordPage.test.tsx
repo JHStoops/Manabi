@@ -5,12 +5,20 @@ import { learnerSettingsSchema } from '@manabi/core';
 import type { User } from '@manabi/core';
 import { japanese } from '@manabi/lang-ja';
 import '../../i18n';
+import { AppThemeProvider } from '../../theme';
 import { ActivePluginContext } from '../../state/plugins';
 import { ApiContext, SessionProvider } from '../../state/session';
 import WordPage from './WordPage';
 
 // FR-100: reading, meanings, part of speech, example sentence and kanji links; FR-102: stage.
 
+beforeAll(() => {
+  window.matchMedia = (() => ({
+    matches: false,
+    addEventListener() {},
+    removeEventListener() {},
+  })) as unknown as typeof window.matchMedia;
+});
 afterEach(cleanup);
 
 const user = { id: 1, role: 'learner', settings: learnerSettingsSchema.parse({}) } as User;
@@ -50,11 +58,13 @@ function mount(body: unknown) {
     <ApiContext.Provider value={{ GET } as unknown as ApiClient}>
       <SessionProvider>
         <ActivePluginContext.Provider value={japanese}>
-          <MemoryRouter initialEntries={['/library/words/ja:word:日本:にほん']}>
-            <Routes>
-              <Route path="/library/words/:key" element={<WordPage />} />
-            </Routes>
-          </MemoryRouter>
+          <AppThemeProvider>
+            <MemoryRouter initialEntries={['/library/words/ja:word:日本:にほん']}>
+              <Routes>
+                <Route path="/library/words/:key" element={<WordPage />} />
+              </Routes>
+            </MemoryRouter>
+          </AppThemeProvider>
         </ActivePluginContext.Provider>
       </SessionProvider>
     </ApiContext.Provider>,
