@@ -1,13 +1,13 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ApiRequestError } from '@manabi/api-client';
 import type { ApiClient } from '@manabi/api-client';
-import type { AuthoringItem } from '@manabi/core';
+import type { AuthoringItem, EditorExercise } from '@manabi/core';
 import '../../i18n';
 import { ApiContext } from '../../state/session';
 import { AppThemeProvider } from '../../theme';
 import { ItemEditor } from './ItemEditor';
 
-// Component tests for the item editor (#42): FR-221, DR-06, DR-09.
+// Component tests for the item editor (#42, #241): FR-221, FR-229, DR-06, DR-09.
 
 const data = {
   character: '水',
@@ -41,27 +41,30 @@ function water(overrides: Record<string, unknown> = {}): AuthoringItem {
   };
 }
 
-async function open(item: AuthoringItem) {
+async function open(item: AuthoringItem, exercises: EditorExercise[] = []) {
   const api = {
     GET: jest.fn((path: string) =>
       Promise.resolve(
-        path === '/api/v1/authoring/items'
-          ? {
-              items: [
-                {
-                  id: 3,
-                  key: item.key,
-                  type: 'kanji',
-                  levelCode: 'N5',
-                  source: 'kanjidic2',
-                  overridden: Object.keys(item.overrides).length > 0,
-                },
-              ],
-            }
-          : item,
+        path === '/api/v1/authoring/items/{id}/exercises'
+          ? { exercises }
+          : path === '/api/v1/authoring/items'
+            ? {
+                items: [
+                  {
+                    id: 3,
+                    key: item.key,
+                    type: 'kanji',
+                    levelCode: 'N5',
+                    source: 'kanjidic2',
+                    overridden: Object.keys(item.overrides).length > 0,
+                  },
+                ],
+              }
+            : item,
       ),
     ),
     PATCH: jest.fn(),
+    DELETE: jest.fn(),
   };
   render(
     <ApiContext.Provider value={api as unknown as ApiClient}>
@@ -159,7 +162,11 @@ describe('ItemEditor', () => {
       ],
       related: [],
     };
-    const api = { GET: jest.fn(), POST: jest.fn().mockResolvedValue(point), PATCH: jest.fn() };
+    const api = {
+      GET: jest.fn().mockResolvedValue({ exercises: [] }),
+      POST: jest.fn().mockResolvedValue(point),
+      PATCH: jest.fn(),
+    };
     render(
       <ApiContext.Provider value={api as unknown as ApiClient}>
         <AppThemeProvider>
@@ -203,5 +210,89 @@ describe('ItemEditor', () => {
         },
       }),
     );
+  });
+
+  describe('item-level exercises (#241)', () => {
+    const accept = (texts: string[]) => texts.map((text) => ({ text, tiles: [] }));
+    const pinned = (id: number, texts: string[]): EditorExercise => ({
+      id,
+      type: 'typed_answer',
+      origin: 'pinned',
+      key: null,
+      payload: { prompt: `Meaning of 水 ${id}`, answerLanguage: 'base', accept: accept(texts) },
+    });
+    const list = () => screen.getByRole('region', { name: /^Item-level exercises/ });
+
+    it('lists the item-level exercises, or says there are none', async () => {
+      const api = await open(water(), [pinned(11, ['water', 'aqua']), pinned(12, ['water'])]);
+      expect(api.GET).toHaveBeenCalledWith('/api/v1/authoring/items/{id}/exercises', {
+        params: { path: { id: '3' } },
+      });
+      const items = await within(list()).findAllByRole('listitem');
+      expect(items.map((li) => li.textContent)).toEqual([
+        expect.stringContaining('typed_answer (pinned) Meaning of 水 11'),
+        expect.stringContaining('typed_answer (pinned) Meaning of 水 12'),
+      ]);
+    });
+
+    it('says when the item has none', async () => {
+      await open(water());
+      expect(await within(list()).findByText('No item-level exercises.')).toBeTruthy();
+    });
+
+    it('edits an item-level exercise through the exercise form', async () => {
+      const api = await open(water(), [pinned(11, ['water', 'aqua'])]);
+      fireEvent.click(await screen.findByRole('button', { name: 'Edit Meaning of 水 11' }));
+      const form = screen.getByRole('form', { name: 'typed_answer exercise' });
+      fireEvent.change(within(form).getByLabelText('prompt'), { target: { value: 'Meaning?' } });
+      api.PATCH.mockResolvedValueOnce({
+        exercise: { ...pinned(11, ['water', 'aqua']), payload: { prompt: 'Meaning?' } },
+        blockedWords: [],
+      });
+      fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+
+      await waitFor(() =>
+        expect(api.PATCH).toHaveBeenCalledWith('/api/v1/authoring/exercises/{id}', {
+          params: { path: { id: '11' } },
+          body: {
+            resegment: false,
+            payload: {
+              prompt: 'Meaning?',
+              answerLanguage: 'base',
+              accept: accept(['water', 'aqua']),
+            },
+          },
+        }),
+      );
+      // The list is read again after the save.
+      await waitFor(() =>
+        expect(
+          api.GET.mock.calls.filter(([path]) => path === '/api/v1/authoring/items/{id}/exercises'),
+        ).toHaveLength(2),
+      );
+    });
+
+    it('removes an item-level exercise after confirming', async () => {
+      const api = await open(water(), [pinned(11, ['water', 'aqua']), pinned(12, ['water'])]);
+      const confirm = jest.spyOn(window, 'confirm');
+      const remove = await screen.findByRole('button', { name: 'Delete Meaning of 水 11' });
+
+      confirm.mockReturnValueOnce(false);
+      fireEvent.click(remove);
+      expect(api.DELETE).not.toHaveBeenCalled();
+
+      confirm.mockReturnValueOnce(true);
+      api.DELETE.mockResolvedValueOnce({ exercises: [pinned(12, ['water'])] });
+      fireEvent.click(remove);
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: 'Edit Meaning of 水 11' })).toBeNull(),
+      );
+      expect(api.DELETE).toHaveBeenCalledWith(
+        '/api/v1/authoring/items/{id}/exercises/{exerciseId}',
+        { params: { path: { id: '3', exerciseId: '11' } } },
+      );
+      expect(screen.getByRole('button', { name: 'Edit Meaning of 水 12' })).toBeTruthy();
+      confirm.mockRestore();
+    });
   });
 });

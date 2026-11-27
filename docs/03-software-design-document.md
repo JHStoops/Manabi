@@ -189,7 +189,7 @@ Each exercise type is one registry entry with four parts, so adding a type touch
 
 Sending accept lists to the client trades cheat resistance for responsiveness and offline tolerance, which is the right trade for an invite-only family app; the server re-grade keeps recorded progress honest.
 
-Review sessions use the same engine: for each due item and facet the API picks an item-level exercise (stored or generated) of a type suited to the facet. Stroke exercises are graded entirely in the browser by Hanzi Writer's stroke matcher, and the server records the reported result.
+Review sessions use the same engine: for each due item and facet the API picks an item-level exercise (stored or generated) of a type suited to the facet. An authored stored exercise wins; a pinned one (a generated exercise kept with a longer accept list, FR-229) is one candidate among the generated ones and takes the place of its own generated original, so the facet keeps its variety of exercise types. Stroke exercises are graded entirely in the browser by Hanzi Writer's stroke matcher, and the server records the reported result.
 
 ## 7. Progress logic
 

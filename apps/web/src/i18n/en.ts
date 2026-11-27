@@ -290,6 +290,11 @@ export const en = {
       grammar: { key: 'Grammar point key', level: 'Grammar point level', pattern: 'Pattern' },
       create: 'Create grammar point',
       related: 'Related item keys (one per line)',
+      // #241: item-level exercises, such as review exercises pinned from answer reports.
+      exercises: 'Item-level exercises of {{key}}',
+      exercisesHint:
+        'Reviews use these alongside generated ones; a pinned one replaces its generated original.',
+      noExercises: 'No item-level exercises.',
     },
     // FR-059, FR-236, FR-238, DR-11: the sentence editor.
     sentences: {

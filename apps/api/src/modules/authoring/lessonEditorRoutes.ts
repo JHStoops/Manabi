@@ -112,7 +112,7 @@ export const lessonEditorRoutes: FastifyPluginAsyncZod = async (app) => {
     '/authoring/exercises/:id',
     {
       schema: {
-        summary: "Replace an exercise's payload",
+        summary: "Replace a lesson's or an item-level exercise's payload",
         description:
           'Tiles sent are kept; answer text without tiles is segmented, and resegment ' +
           're-segments every answer text. Blocklist words found come back as a warning.',

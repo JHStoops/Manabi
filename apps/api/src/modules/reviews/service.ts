@@ -25,9 +25,9 @@ import { withTransaction } from '../../db/db';
 import { AppError } from '../../errors';
 import { languagePlugins } from '../../plugins';
 import type { ScopedUserId } from '../auth/service';
-import type { ItemRow } from '../content/rows';
+import type { ExerciseRow, ItemRow } from '../content/rows';
 import { awardXp } from '../courses/service';
-import { toItem } from '../lessons/service';
+import { questionKey, toItem } from '../lessons/service';
 import * as q from './queries';
 import type { ReviewSessionRow, Stage } from './rows';
 
@@ -110,8 +110,9 @@ function toSession(row: ReviewSessionRow, state: ReviewSessionState): ReviewSess
 
 /**
  * FR-114, NFR-02: the learner's unexpired review session, or a new one of up to 20 due items,
- * oldest due first. Each due facet of an item gets one exercise of a type suited to it: a stored
- * one when there is one, else generated. 409 when nothing due can be reviewed.
+ * oldest due first. Each due facet of an item gets one exercise of a type suited to it: an
+ * authored stored one when there is one, else one of the generated ones or the item's pins, a pin
+ * taking the place of its own generated original (#241). 409 when nothing due can be reviewed.
  */
 export async function startSession(
   db: Pool,
@@ -161,10 +162,26 @@ async function buildState(db: Queryable, userId: number, now: Date): Promise<Rev
             (plugin.testsFacet?.({ type: e.type, payload: e.payload }, item.type, row.facet) ??
               true),
         );
-        const storedPick = pickRandom(own);
+        // #241: an item-level pin is a generated exercise kept with a longer accept list (FR-229),
+        // so it competes with the generated ones instead of always winning, like authored ones do.
+        const isPin = (e: ExerciseRow) => e.origin === 'pinned' && e.lesson_id === null;
+        const storedPick = pickRandom(own.filter((e) => !isPin(e)));
         if (storedPick) return { type: storedPick.type, payload: storedPick.payload };
-        // FR-048: generated exercises use the learner's items only.
-        for (const type of [...types].sort(() => Math.random() - 0.5)) {
+        const usesTaughtOnly = (e: SessionExercise) =>
+          payloadItemIds(e.payload).every((id) => taught.has(id));
+        const pins = new Map(
+          own
+            .filter(isPin)
+            .map((e): [string, SessionExercise] => [
+              questionKey(e),
+              { type: e.type, payload: e.payload },
+            ])
+            .filter(([, e]) => usesTaughtOnly(e)),
+        );
+        // FR-048: generated exercises use the learner's items only. One candidate per type; a
+        // generated question that is a pin's original is replaced by that pin.
+        const candidates: SessionExercise[] = [];
+        for (const type of types) {
           const generate = Object.hasOwn(plugin.generators, type) ? plugin.generators[type] : null;
           const made = (generate?.(item, {
             sectionLevel,
@@ -172,10 +189,14 @@ async function buildState(db: Queryable, userId: number, now: Date): Promise<Rev
             sentences: [],
             facet: row.facet,
           }) ?? []) as SessionExercise[];
-          const fit = made.find((e) => payloadItemIds(e.payload).every((id) => taught.has(id)));
-          if (fit) return fit;
+          const fit = made.filter(usesTaughtOnly).map((e) => pins.get(questionKey(e)) ?? e);
+          const pick = fit.find((e) => pins.has(questionKey(e))) ?? fit[0];
+          if (pick) candidates.push(pick);
         }
-        return undefined;
+        // Pins whose original the generators no longer make are candidates of their own.
+        const served = new Set(candidates.map(questionKey));
+        for (const [key, pin] of pins) if (!served.has(key)) candidates.push(pin);
+        return pickRandom(candidates);
       });
       // FR-112: an item is reviewed on all its due facets or not at all.
       if (picked.some((e) => e === undefined)) continue;

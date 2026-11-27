@@ -203,12 +203,18 @@ function Field(props: {
   );
 }
 
+/** A one-line summary of an exercise: its prompt, else its payload. */
+export function exerciseSummary({ payload }: { payload: Record<string, unknown> }): string {
+  return typeof payload.prompt === 'string' ? payload.prompt : JSON.stringify(payload);
+}
+
 /**
  * Writes one exercise: a new one (`exerciseId` absent) or an edit. On save it shows the blocklist
  * warning the server returns (FR-237); "Re-segment" replaces every answer text's tiles (FR-238).
  */
 export function ExerciseForm(props: {
-  lessonId: number;
+  /** The lesson a new exercise is added to; an edit needs none (#241: item-level exercises). */
+  lessonId?: number;
   type: string;
   origin: 'authored' | 'pinned';
   exerciseId?: number;
@@ -237,7 +243,7 @@ export function ExerciseForm(props: {
           })
         : await api.POST('/api/v1/authoring/exercises', {
             body: {
-              lessonId: props.lessonId,
+              lessonId: props.lessonId!,
               type: props.type,
               origin: props.origin,
               payload,

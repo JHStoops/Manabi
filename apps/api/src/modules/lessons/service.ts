@@ -67,7 +67,7 @@ export function stableJson(value: unknown): string {
  * that pin's original: accepting an answer report (FR-229) pins a copy with a longer accept list,
  * which replaces its original instead of being served next to it.
  */
-function questionKey(e: SessionExercise): string {
+export function questionKey(e: SessionExercise): string {
   const payload = { ...e.payload };
   delete payload.accept;
   return stableJson({ type: e.type, payload });

@@ -11,6 +11,7 @@ import type {
   EditorExercise,
   ExerciseWrite,
   GeneratedExercises,
+  ItemExercises,
   LanguagePlugin,
   LessonEditor,
   LessonPreview,
@@ -150,7 +151,7 @@ async function fillTiles(
 /** FR-223: the payload with its tiles filled in, validated by its exercise type's schema. */
 async function preparePayload(
   db: Queryable,
-  lesson: q.EditorLessonRow,
+  lesson: Pick<q.EditorLessonRow, 'plugin' | 'course_id' | 'target_lang'>,
   type: string,
   body: { payload: JsonObject; resegment?: boolean | undefined },
 ): Promise<{ payload: JsonObject; blockedWords: string[] }> {
@@ -210,15 +211,25 @@ export async function createExercise(
   return { exercise: toEditorExercise(row), blockedWords };
 }
 
-/** FR-223: replaces an exercise's payload; its type stays. */
+async function activeItem(db: Queryable, id: number) {
+  return (await q.findEditorItem(db, id)) ?? notFound('Item');
+}
+
+/**
+ * FR-223: replaces an exercise's payload; its type stays. A lesson's exercise, or an item-level
+ * one such as a review pin (#241, Product Spec section 11).
+ */
 export async function updateExercise(
   pool: Pool,
   id: number,
   body: UpdateExerciseRequest,
 ): Promise<ExerciseWrite> {
-  const row = (await q.findLessonExercise(pool, id)) ?? notFound('Exercise');
-  const lesson = await activeLesson(pool, row.lesson_id!);
-  const { payload, blockedWords } = await preparePayload(pool, lesson, row.type, body);
+  const lessonRow = await q.findLessonExercise(pool, id);
+  const row = lessonRow ?? (await q.findItemExercise(pool, id)) ?? notFound('Exercise');
+  const owner = lessonRow
+    ? await activeLesson(pool, row.lesson_id!)
+    : await activeItem(pool, row.item_id!);
+  const { payload, blockedWords } = await preparePayload(pool, owner, row.type, body);
   const updated = await q.updateExercisePayload(pool, id, payload);
   return { exercise: toEditorExercise(updated), blockedWords };
 }
@@ -236,4 +247,29 @@ export async function deleteExercise(pool: Pool, id: number): Promise<LessonEdit
     return row.lesson_id!;
   });
   return getLessonEditor(pool, lessonId);
+}
+
+/** #241, Product Spec section 11: an item's item-level exercises, such as review pins (FR-229). */
+export async function listItemExercises(db: Queryable, itemId: number): Promise<ItemExercises> {
+  await activeItem(db, itemId);
+  return { exercises: (await q.listItemExercises(db, itemId)).map(toEditorExercise) };
+}
+
+/** #241: removes an item-level exercise; archived instead when an answer report refers to it. */
+export async function deleteItemExercise(
+  pool: Pool,
+  itemId: number,
+  id: number,
+): Promise<ItemExercises> {
+  await withTransaction(pool, async (db) => {
+    await activeItem(db, itemId);
+    const row = await q.findItemExercise(db, id);
+    if (row?.item_id !== itemId) notFound('Exercise');
+    await deleteOrArchive(
+      db,
+      () => q.deleteExercise(db, id),
+      () => q.archiveExercise(db, id),
+    );
+  });
+  return listItemExercises(pool, itemId);
 }

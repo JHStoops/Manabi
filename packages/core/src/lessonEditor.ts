@@ -1,7 +1,13 @@
 import { z } from 'zod';
 import { exerciseOriginSchema, itemSchema, lessonSchema } from './content';
 import { lessonSessionSchema, sessionExerciseSchema } from './lessonSession';
-import { idSchema, jsonObjectSchema, nonEmptyTextSchema, typeIdSchema } from './primitives';
+import {
+  idParamSchema,
+  idSchema,
+  jsonObjectSchema,
+  nonEmptyTextSchema,
+  typeIdSchema,
+} from './primitives';
 
 /**
  * The lesson editor (`/authoring/lessons/:id/...`, `/authoring/exercises`; FR-223, FR-224,
@@ -85,3 +91,14 @@ export type ExerciseWrite = z.infer<typeof exerciseWriteSchema>;
  */
 export const lessonPreviewSchema = lessonSessionSchema.omit({ id: true, expiresAt: true });
 export type LessonPreview = z.infer<typeof lessonPreviewSchema>;
+
+/**
+ * `GET /authoring/items/:id/exercises`: an item's item-level exercises, such as generated review
+ * exercises pinned by accepting an answer report (FR-229, Product Spec section 11), oldest first.
+ * They are edited with `PATCH /authoring/exercises/:id`.
+ */
+export const itemExercisesSchema = z.object({ exercises: z.array(editorExerciseSchema) });
+export type ItemExercises = z.infer<typeof itemExercisesSchema>;
+
+/** `DELETE /authoring/items/:id/exercises/:exerciseId`. */
+export const itemExerciseParamsSchema = z.object({ id: idParamSchema, exerciseId: idParamSchema });

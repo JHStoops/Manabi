@@ -54,6 +54,48 @@ export function findLessonExercise(db: Queryable, id: number): Promise<ExerciseR
   );
 }
 
+/** What an item-level exercise's edits need from its item's course (#241). */
+export interface EditorItemRow {
+  id: number;
+  course_id: number;
+  plugin: string;
+  target_lang: string;
+}
+
+/** An active item, with its course's plugin and language. */
+export function findEditorItem(db: Queryable, id: number): Promise<EditorItemRow | null> {
+  return queryOne(
+    db,
+    `SELECT i.id, i.course_id, c.plugin, c.target_lang
+       FROM items i JOIN courses c ON c.id = i.course_id
+      WHERE i.id = $1 AND i.archived_at IS NULL`,
+    [id],
+  );
+}
+
+/** An active item-level exercise (one of no lesson), such as a review pin (FR-229). */
+export function findItemExercise(db: Queryable, id: number): Promise<ExerciseRow | null> {
+  return queryOne<ExerciseRow>(
+    db,
+    `SELECT * FROM exercises
+      WHERE id = $1 AND lesson_id IS NULL AND item_id IS NOT NULL AND archived_at IS NULL
+        AND origin IN ('authored', 'pinned')`,
+    [id],
+  );
+}
+
+/** An item's active item-level exercises, oldest first. */
+export function listItemExercises(db: Queryable, itemId: number): Promise<ExerciseRow[]> {
+  return query<ExerciseRow>(
+    db,
+    `SELECT * FROM exercises
+      WHERE item_id = $1 AND lesson_id IS NULL AND archived_at IS NULL
+        AND origin IN ('authored', 'pinned')
+      ORDER BY id`,
+    [itemId],
+  );
+}
+
 /**
  * A new exercise at the end of the lesson. Its key, `ex-<id>`, names it in a pack export (DR-02);
  * pack keys are author-chosen, so a clash fails the unique constraint instead of overwriting.
