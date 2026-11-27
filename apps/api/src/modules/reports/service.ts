@@ -16,6 +16,7 @@ import type {
   AnswerReportReceipt,
   AnswerReportsQuery,
   CreateAnswerReportRequest,
+  LanguagePlugin,
   SessionExercise,
 } from '@manabi/core';
 import type { Queryable } from '../../db/db';
@@ -24,7 +25,7 @@ import { AppError } from '../../errors';
 import { languagePlugins } from '../../plugins';
 import type { ScopedUserId } from '../auth/service';
 import type { JsonObject } from '../content/rows';
-import { fillTiles } from '../authoring/lessonEditorService';
+import { segment } from '../authoring/lessonEditorService';
 import { insertExercise } from '../authoring/lessonEditorQueries';
 import { stableJson } from '../lessons/service';
 import * as q from './queries';
@@ -139,7 +140,7 @@ export async function fileReport(
 
     const exerciseId = await q.findStoredExercise(
       db,
-      played.courseId,
+      { courseId: played.courseId, lessonId: played.lessonId, itemId: played.itemId },
       exercise.type,
       exercise.payload,
     );
@@ -228,8 +229,9 @@ async function openReport(db: Queryable, id: number): Promise<q.AnswerReportRow>
 /**
  * The stored exercise the report's answer goes into, locked. A generated exercise is pinned
  * first, so the accept list persists: into the lesson it was played in, or at item level (where
- * reviews find it) for a review or test-out, or when that lesson is gone. The other open reports
- * of the same generated exercise are pointed at the pinned one.
+ * reviews find it) for a review or test-out, or when that lesson is gone. A copy already pinned in
+ * that context is extended instead of pinning another, and the other open reports of the same
+ * generated exercise in that context are pointed at the pinned one.
  */
 async function targetExercise(db: Queryable, report: q.AnswerReportRow) {
   if (report.exercise_id !== null) {
@@ -240,22 +242,38 @@ async function targetExercise(db: Queryable, report: q.AnswerReportRow) {
     return exercise;
   }
   const pin = { type: report.exercise_type, payload: report.exercise_payload };
-  let pinned;
-  if (report.lesson_id !== null && (await q.isActiveLesson(db, report.lesson_id))) {
-    pinned = await insertExercise(db, { lessonId: report.lesson_id, origin: 'pinned', ...pin });
-  } else if (report.item_id !== null && (await q.isActiveItem(db, report.item_id))) {
-    pinned = await q.insertItemExercise(db, { itemId: report.item_id, ...pin });
-  } else {
+  const inLesson = report.lesson_id !== null && (await q.isActiveLesson(db, report.lesson_id));
+  const context = {
+    lessonId: inLesson ? report.lesson_id : null,
+    itemId: inLesson ? null : report.item_id,
+  };
+  if (!inLesson && (context.itemId === null || !(await q.isActiveItem(db, context.itemId)))) {
     throw new AppError('conflict', "The exercise's lesson and item were removed; dismiss it");
   }
-  await q.linkOpenReports(db, { ...pin, exerciseId: pinned.id });
-  return (await q.lockExercise(db, pinned.id))!;
+  const { course_id: courseId } = (await q.findInboxReport(db, report.id))!;
+  const existing = await q.findStoredExercise(db, { courseId, ...context }, pin.type, pin.payload);
+  const exerciseId =
+    existing ??
+    (context.lessonId !== null
+      ? await insertExercise(db, { lessonId: context.lessonId, origin: 'pinned', ...pin })
+      : await q.insertItemExercise(db, { itemId: context.itemId!, ...pin })
+    ).id;
+  await q.linkOpenReports(db, {
+    ...pin,
+    lessonId: report.lesson_id,
+    itemId: report.item_id,
+    exerciseId,
+  });
+  return (await q.lockExercise(db, exerciseId))!;
 }
 
 /**
- * FR-229: accepts the report: its answer joins the exercise's accept list (tiles segmented as the
- * lesson editor does, DR-12), and the report closes. An answer already on the list is not added
- * twice. One transaction.
+ * FR-229: accepts the report: its answer joins the exercise's accept list, and the report closes.
+ * An answer the grader already accepts with the current list (an earlier report added it, or it
+ * matches after normalisation) is not added again. A course-language answer gets its tiles
+ * segmented as the lesson editor does (DR-12); an answer in the base language has none, like the
+ * generated ones. One transaction; resolving is serialized, so concurrent accepts of one
+ * generated exercise pin it once.
  */
 export async function acceptReport(
   pool: Pool,
@@ -263,14 +281,17 @@ export async function acceptReport(
   id: number,
 ): Promise<AnswerReport> {
   await withTransaction(pool, async (db) => {
+    await q.lockResolving(db);
     const report = await openReport(db, id);
     const exercise = await targetExercise(db, report);
     const payload = structuredClone(exercise.payload);
     const accept = Array.isArray(payload.accept) ? (payload.accept as JsonObject[]) : null;
     if (!accept) throw new AppError('conflict', 'The exercise no longer has an accept list');
-    if (!accept.some((a) => a.text === report.given_answer)) {
-      accept.push({ text: report.given_answer });
-      await fillTiles(languagePlugins.get(exercise.plugin), exercise.type, payload, false);
+    const plugin = languagePlugins.get(exercise.plugin);
+    if (!alreadyAccepted(exercise, report.given_answer, plugin)) {
+      const tiles =
+        payload.answerLanguage === 'base' ? [] : await segment(plugin, report.given_answer);
+      accept.push({ text: report.given_answer, tiles });
       const parsed = getExerciseType(exercise.type).payloadSchema.safeParse(payload);
       if (!parsed.success) {
         throw new AppError('conflict', 'The answer does not fit the exercise', parsed.error.issues);
@@ -287,6 +308,20 @@ export async function acceptReport(
   return getReport(pool, id);
 }
 
+/** Whether the stored exercise's grader already takes the answer (a near-miss counts). */
+function alreadyAccepted(
+  exercise: { type: string; payload: JsonObject },
+  answer: string,
+  plugin: LanguagePlugin,
+): boolean {
+  try {
+    return gradeResponse(exercise, { attempts: [answer] }, plugin).result !== 'wrong';
+  } catch {
+    // A payload or answer the grader rejects: add the answer, and let the schema decide.
+    return false;
+  }
+}
+
 /** FR-229: dismisses the report; the exercise stays as it is. */
 export async function dismissReport(
   pool: Pool,
@@ -294,6 +329,7 @@ export async function dismissReport(
   id: number,
 ): Promise<AnswerReport> {
   await withTransaction(pool, async (db) => {
+    await q.lockResolving(db);
     await openReport(db, id);
     await q.resolveReport(db, { id, status: 'dismissed', resolvedBy: adminId });
   });

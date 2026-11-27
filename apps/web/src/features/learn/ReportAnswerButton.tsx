@@ -26,17 +26,23 @@ const Report = styled.button`
 const Note = styled.p`
   margin: 0 0 ${({ theme }) => theme.spacing(3)};
   font-size: ${({ theme }) => theme.fontSizes.small};
+  &:empty {
+    margin: 0;
+  }
 `;
 
 /**
  * FR-054, Product Spec section 4: "my answer should be accepted" on a wrong answer's feedback
  * bar. It files a report for the author naming the session the exercise was served in; the
- * server reports its own copy of the exercise. One report per presentation.
+ * server reports its own copy of the exercise. One report per presentation. The thanks is
+ * announced through a live region that is there from the start, and `onSent` moves focus on
+ * (to Continue), since the focused button goes away.
  */
 export function ReportAnswerButton(props: {
   session: { kind: 'lesson' | 'review'; id: number };
   exercise: SessionExercise;
   answer: string;
+  onSent?: () => void;
 }) {
   const { t } = useTranslation();
   const api = useApi();
@@ -56,18 +62,21 @@ export function ReportAnswerButton(props: {
         },
       });
       setState('sent');
+      props.onSent?.();
     } catch (err) {
       setError(apiErrorMessage(t, err));
       setState('idle');
     }
   }
 
-  if (state === 'sent') return <Note role="status">{t('player.reported')}</Note>;
   return (
     <>
-      <Report type="button" aria-disabled={state === 'sending'} onClick={() => void send()}>
-        {t('player.reportAnswer')}
-      </Report>
+      {state !== 'sent' && (
+        <Report type="button" aria-disabled={state === 'sending'} onClick={() => void send()}>
+          {t('player.reportAnswer')}
+        </Report>
+      )}
+      <Note aria-live="polite">{state === 'sent' ? t('player.reported') : ''}</Note>
       {error && <Note role="alert">{error}</Note>}
     </>
   );

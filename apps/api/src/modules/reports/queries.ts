@@ -68,13 +68,17 @@ export function findReviewSession(
 }
 
 /**
- * The course's active stored exercise of this type whose payload equals `payload` (jsonb
- * equality ignores key order), or else the exercise an earlier report of the same exercise was
- * linked to when accepting it pinned it.
+ * The stored exercise a report on `payload` is about, in the context it was played in: a lesson
+ * (`lessonId`), or else a review or test-out of `itemId`. First an active exercise of the course
+ * (of the lesson, for a lesson) with an equal payload (jsonb equality ignores key order). Else one
+ * that differs only in its accept list: the copy an accepted report pinned, or an authored
+ * exercise whose list the author extended since the session was built. For a review or test-out
+ * that second match is among the item's own item-level exercises, so a pin in some lesson is
+ * never extended for a review, nor the other way round.
  */
 export async function findStoredExercise(
   db: Queryable,
-  courseId: number,
+  c: { courseId: number; lessonId: number | null; itemId: number | null },
   type: string,
   payload: JsonObject,
 ): Promise<number | null> {
@@ -87,20 +91,23 @@ export async function findStoredExercise(
          LEFT JOIN sections s ON s.id = u.section_id
          LEFT JOIN items i ON i.id = e.item_id
         WHERE e.archived_at IS NULL AND e.origin IN ('authored', 'pinned')
-          AND coalesce(s.course_id, i.course_id) = $1
+          AND l.archived_at IS NULL AND u.archived_at IS NULL AND s.archived_at IS NULL
+          AND i.archived_at IS NULL
+          AND coalesce(s.course_id, i.course_id) = $1 AND e.type = $4
+          AND ($2::bigint IS NULL OR e.lesson_id = $2)
      )
      SELECT id FROM (
        (SELECT id, 0 AS rank FROM course_exercises
-         WHERE type = $2 AND payload = $3::jsonb
+         WHERE payload = $5::jsonb
          ORDER BY id LIMIT 1)
        UNION ALL
-       (SELECT r.exercise_id, 1 FROM answer_reports r
-          JOIN course_exercises e ON e.id = r.exercise_id
-         WHERE r.exercise_type = $2 AND r.exercise_payload = $3::jsonb
-         ORDER BY r.id LIMIT 1)
+       (SELECT id, 1 FROM course_exercises
+         WHERE (payload - 'accept') = ($5::jsonb - 'accept')
+           AND ($2::bigint IS NOT NULL OR (lesson_id IS NULL AND item_id = $3))
+         ORDER BY origin = 'pinned' DESC, id LIMIT 1)
      ) found
      ORDER BY rank LIMIT 1`,
-    [courseId, type, payload],
+    [c.courseId, c.lessonId, c.itemId, type, payload],
   );
   return row?.id ?? null;
 }
@@ -238,20 +245,34 @@ export function insertItemExercise(
 }
 
 /**
- * Points the other open reports of the same generated exercise at the exercise that pinned it, so
+ * Points the other open reports of the same generated exercise, played in the same context (the
+ * same lesson, or else the same item outside lessons), at the exercise that pinned it, so
  * accepting them extends that exercise instead of pinning it again.
  */
 export async function linkOpenReports(
   db: Queryable,
-  r: { type: string; payload: JsonObject; exerciseId: number },
+  r: {
+    type: string;
+    payload: JsonObject;
+    lessonId: number | null;
+    itemId: number | null;
+    exerciseId: number;
+  },
 ): Promise<void> {
   await query(
     db,
-    `UPDATE answer_reports SET exercise_id = $3
+    `UPDATE answer_reports SET exercise_id = $5
       WHERE exercise_id IS NULL AND status = 'open'
-        AND exercise_type = $1 AND exercise_payload = $2::jsonb`,
-    [r.type, r.payload, r.exerciseId],
+        AND exercise_type = $1 AND exercise_payload = $2::jsonb
+        AND lesson_id IS NOT DISTINCT FROM $3
+        AND ($3::bigint IS NOT NULL OR item_id = $4)`,
+    [r.type, r.payload, r.lessonId, r.itemId, r.exerciseId],
   );
+}
+
+/** Serializes resolving reports, so two accepts of one generated exercise pin it once. */
+export async function lockResolving(db: Queryable): Promise<void> {
+  await query(db, `SELECT pg_advisory_xact_lock(hashtextextended('answer_report:resolve', 0))`);
 }
 
 export function updateExercisePayload(

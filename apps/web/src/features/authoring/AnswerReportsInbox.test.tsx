@@ -94,6 +94,8 @@ describe('AnswerReportsInbox', () => {
       body: {},
     });
     expect(screen.queryByRole('button', { name: 'Accept answer 1' })).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe('answer 1 was added to the accept list.');
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Answer reports' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss answer 2' }));
     expect(await screen.findByText('The report of answer 2 was dismissed.')).toBeTruthy();

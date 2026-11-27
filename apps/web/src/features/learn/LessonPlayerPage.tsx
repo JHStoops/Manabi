@@ -9,6 +9,7 @@ import {
   UnknownLanguagePluginError,
   acceptsAnswerReports,
   gradeResponse,
+  payloadItemIds,
 } from '@manabi/core';
 import type {
   AnswerText,
@@ -654,7 +655,11 @@ export default function LessonPlayerPage({
     'id' in session &&
     !!exercise &&
     acceptsAnswerReports(exercise) &&
-    typeof lastAnswer === 'string';
+    typeof lastAnswer === 'string' &&
+    // A test-out has no lesson to pin into: a generated exercise there needs an item to pin at.
+    // shortcut: this also hides authored test-out exercises that name no item; keep each
+    // exercise's lesson in the test-out state if those need reports.
+    !('unitId' in session && payloadItemIds(exercise.payload).length === 0);
 
   // FR-135: hear the answer after feedback; choice exercises have no tiles, so no button yet.
   const answerReading =
@@ -699,6 +704,7 @@ export default function LessonPlayerPage({
             session={{ kind: review ? 'review' : 'lesson', id: session.id }}
             exercise={exercise}
             answer={lastAnswer}
+            onSent={() => actionRef.current?.focus()}
           />
         )}
         {answerReading && (

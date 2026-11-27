@@ -19,17 +19,26 @@ import { hashPassword } from '../auth/passwords';
 
 // API tests for answer reports (issue #63): FR-054, FR-229, Product Spec sections 4 and 11.
 
-// Japanese, with generators that make 4 choices and one English typed answer per item. The typed
-// answer names no item in its payload, as the real generator's English answers do not.
+// Japanese, with generators that make 3 choices and two typed answers per item: one in Japanese
+// whose prompt is the same for every item (only the accept list differs, as for synonyms), and one
+// in English that names no item in its payload, as the real generator's English answers do not.
 jest.mock('../../plugins', () => {
   const core = jest.requireActual<typeof Core>('@manabi/core');
   const { japanese } = jest.requireActual<typeof LangJa>('@manabi/lang-ja');
   const choice: ExerciseGenerator = (item) =>
-    Array.from({ length: 4 }, (_, variant) => ({
+    Array.from({ length: 3 }, (_, variant) => ({
       type: 'choice',
       payload: { prompt: item.key, variant },
     }));
   const typed: ExerciseGenerator = (item) => [
+    {
+      type: 'typed_answer',
+      payload: {
+        prompt: 'Type the word',
+        answerLanguage: 'target',
+        accept: [{ text: item.key, tiles: [] }],
+      },
+    },
     {
       type: 'typed_answer',
       payload: {
@@ -107,7 +116,7 @@ describeWithDb('answer reports API', () => {
       [course!.id],
     );
     lessonId = lesson!.id;
-    // Two items, so the session (1 stored, 4 + 1 + 4 generated) has a generated typed answer.
+    // Two items, so the session (1 stored, then 3 + 2 + 3 + 1 generated) has both typed answers.
     const items = await sql(
       `INSERT INTO items (course_id, key, type, level_code)
        VALUES ($1, 'ja:word:mizu', 'word', 'N5'), ($1, 'ja:word:yama', 'word', 'N5')
@@ -166,6 +175,8 @@ describeWithDb('answer reports API', () => {
     const learner = await signIn('learner');
     const session = await startLesson(learner);
     const exercise = generatedTyped(session);
+    // Generated questions that differ only in their accept lists are both kept.
+    expect(session.exercises.filter((e) => e.payload.prompt === 'Type the word')).toHaveLength(2);
 
     const filed = await report(learner, session.id, exercise, '  H2O ');
     expect(filed.statusCode).toBe(201);
@@ -266,8 +277,11 @@ describeWithDb('answer reports API', () => {
     );
     expect(pinned).toEqual([expect.objectContaining({ lesson_id: lessonId, origin: 'pinned' })]);
     const accept = (pinned[0]!.payload as { accept: { text: string; tiles: unknown[] }[] }).accept;
-    expect(accept.map((a) => a.text)).toEqual(['water', 'H2O']);
-    expect(accept.every((a) => Array.isArray(a.tiles))).toBe(true);
+    // An English answer gets no tiles, like the generated ones.
+    expect(accept).toEqual([
+      { text: 'water', tiles: [] },
+      { text: 'H2O', tiles: [] },
+    ]);
 
     // The other open report of the same exercise now points at the pinned one, so accepting it
     // extends that exercise instead of pinning a second copy.
@@ -348,6 +362,119 @@ describeWithDb('answer reports API', () => {
     expect(await inbox(admin)).toEqual([]);
     expect((await inbox(admin, 'dismissed')).map((r) => r.id)).toEqual([filed.id]);
   });
+
+  it('links a report from a session built before the author extended the exercise', async () => {
+    const learner = await signIn('learner');
+    const session = await startLesson(learner);
+    const authored = session.exercises.find((e) => e.payload.prompt === AUTHORED.prompt)!;
+    await sql(`UPDATE exercises SET payload = $2 WHERE id = $1`, [
+      authoredId,
+      { ...AUTHORED, accept: [...AUTHORED.accept, { text: '水', tiles: [] }] },
+    ]);
+    expect((await report(learner, session.id, authored, 'お水')).statusCode).toBe(201);
+    expect(await reportRows()).toEqual([
+      { exercise_id: authoredId, item_id: null, lesson_id: lessonId },
+    ]);
+  });
+
+  it('pins one copy when two reports of a generated exercise are accepted at once', async () => {
+    const admin = await signIn('admin', 'admin');
+    const learner = await signIn('learner');
+    const second = await signIn('second');
+    const session = await startLesson(learner);
+    const exercise = generatedTyped(session);
+    const first = (await report(learner, session.id, exercise, 'H2O')).json();
+    const other = (await report(second, (await startLesson(second)).id, exercise, 'aqua')).json();
+    // Not yet linked: the race is between two pins.
+    await sql(`UPDATE answer_reports SET exercise_id = NULL`);
+
+    const responses = await Promise.all(
+      [first.id, other.id].map((id) => call(admin, 'POST', `/authoring/reports/${id}/accept`, {})),
+    );
+    expect(responses.map((r) => r.statusCode)).toEqual([200, 200]);
+    const pins = await sql<{ payload: { accept: { text: string }[] } }>(
+      `SELECT payload FROM exercises WHERE origin = 'pinned'`,
+    );
+    expect(pins).toHaveLength(1);
+    expect(pins[0]!.payload.accept.map((a) => a.text).sort()).toEqual(['H2O', 'aqua', 'water']);
+  });
+
+  it('does not add an answer the grader already takes', async () => {
+    const admin = await signIn('admin', 'admin');
+    const learner = await signIn('learner');
+    const second = await signIn('second');
+    const session = await startLesson(learner);
+    const exercise = generatedTyped(session);
+    const first = (await report(learner, session.id, exercise, 'H2O')).json();
+    const other = (await report(second, (await startLesson(second)).id, exercise, 'h2o')).json();
+    await call(admin, 'POST', `/authoring/reports/${first.id}/accept`, {});
+    const accepted = (
+      await call(admin, 'POST', `/authoring/reports/${other.id}/accept`, {})
+    ).json<AnswerReport>();
+    expect(accepted).toMatchObject({ status: 'accepted', currentAccept: ['water', 'H2O'] });
+  });
+
+  it('keeps a review pin and a lesson pin of the same question apart', async () => {
+    const admin = await signIn('admin', 'admin');
+    const learner = await signIn('learner');
+    const session = await startLesson(learner);
+    const exercise = generatedTyped(session);
+    const lessonReport = (await report(learner, session.id, exercise, 'H2O')).json();
+    const reviewReport = await reviewReportOf(learner, exercise, 'aqua');
+
+    // Accepting the review report pins at item level and leaves the lesson report alone.
+    await call(admin, 'POST', `/authoring/reports/${reviewReport}/accept`, {});
+    expect(await reportRows()).toEqual([
+      { exercise_id: null, item_id: null, lesson_id: lessonId },
+      { exercise_id: expect.any(Number), item_id: itemId, lesson_id: null },
+    ]);
+    const lessonAccepted = (
+      await call(admin, 'POST', `/authoring/reports/${lessonReport.id}/accept`, {})
+    ).json<AnswerReport>();
+    expect(lessonAccepted.currentAccept).toEqual(['water', 'H2O']);
+    expect(
+      await sql(
+        `SELECT lesson_id, item_id FROM exercises WHERE origin = 'pinned' ORDER BY lesson_id`,
+      ),
+    ).toEqual([
+      { lesson_id: lessonId, item_id: null },
+      { lesson_id: null, item_id: itemId },
+    ]);
+  });
+
+  /** Files a report from a review session holding `exercise` for the first item; its id. */
+  async function reviewReportOf(who: Who, exercise: SessionExercise, answer: string) {
+    const [user] = await sql(`SELECT id FROM users WHERE username = 'learner'`);
+    const [course] = await sql(`SELECT id FROM courses`);
+    const [session] = await sql(
+      `INSERT INTO review_sessions (user_id, state, expires_at)
+       VALUES ($1, $2, now() + interval '1 day') RETURNING id`,
+      [
+        user!.id,
+        {
+          exercises: [
+            {
+              type: exercise.type,
+              payload: exercise.payload,
+              itemId,
+              facet: 'meaning',
+              plugin: 'ja',
+              courseId: course!.id,
+              correct: null,
+              retry: false,
+            },
+          ],
+        },
+      ],
+    );
+    const filed = await call(who, 'POST', '/answer-reports', {
+      session: { kind: 'review', id: session!.id },
+      exercise: { type: exercise.type, payload: exercise.payload },
+      answer,
+    });
+    expect(filed.statusCode).toBe(201);
+    return filed.json<{ id: number }>().id;
+  }
 
   it('pins a reported review exercise at item level when accepted', async () => {
     const admin = await signIn('admin', 'admin');

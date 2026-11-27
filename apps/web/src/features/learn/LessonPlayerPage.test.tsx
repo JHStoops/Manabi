@@ -568,6 +568,8 @@ describe('LessonPlayerPage answer reports', () => {
       },
     });
     expect(screen.queryByRole('button', { name: 'My answer should be accepted' })).toBeNull();
+    // The focused button is gone, so focus moves to Continue.
+    expect(document.activeElement).toBe(button('Continue'));
 
     // The next exercise starts without a report.
     fireEvent.click(button('Continue'));

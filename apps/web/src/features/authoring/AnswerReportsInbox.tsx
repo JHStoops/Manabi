@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AnswerReport } from '@manabi/core';
 import { useApi } from '../../state/session';
@@ -26,8 +26,12 @@ export function AnswerReportsInbox() {
   const [busy, setBusy] = useState<number | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   async function load(cursor?: string) {
+    if (loading) return;
+    setLoading(true);
     try {
       const page = await api.GET('/api/v1/authoring/reports', {
         params: { query: cursor ? { status: 'open', cursor } : { status: 'open' } },
@@ -36,6 +40,8 @@ export function AnswerReportsInbox() {
       setNextCursor(page.nextCursor);
     } catch (err) {
       setError(apiErrorMessage(t, err));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -54,6 +60,8 @@ export function AnswerReportsInbox() {
         ? api.POST('/api/v1/authoring/reports/{id}/accept', init)
         : api.POST('/api/v1/authoring/reports/{id}/dismiss', init));
       setReports((shown) => shown?.filter((r) => r.id !== report.id) ?? null);
+      // The focused button goes with its report; the heading keeps keyboard users in the inbox.
+      headingRef.current?.focus();
       setMessage(
         t(action === 'accept' ? 'authoring.reports.accepted' : 'authoring.reports.dismissed', {
           answer: report.givenAnswer,
@@ -68,8 +76,11 @@ export function AnswerReportsInbox() {
 
   return (
     <Section aria-labelledby="answer-reports">
-      <h2 id="answer-reports">{t('authoring.reports.heading')}</h2>
-      {message && <p role="status">{message}</p>}
+      <h2 id="answer-reports" ref={headingRef} tabIndex={-1}>
+        {t('authoring.reports.heading')}
+      </h2>
+      {/* One live region, there from the start, so each outcome is announced. */}
+      <p role="status">{message}</p>
       {error && <p role="alert">{error}</p>}
       {reports?.length === 0 && <p>{t('authoring.reports.none')}</p>}
       {reports && reports.length > 0 && (
@@ -115,7 +126,7 @@ export function AnswerReportsInbox() {
         </ul>
       )}
       {nextCursor && (
-        <Button type="button" onClick={() => void load(nextCursor)}>
+        <Button type="button" aria-disabled={loading} onClick={() => void load(nextCursor)}>
           {t('authoring.reports.more')}
         </Button>
       )}
