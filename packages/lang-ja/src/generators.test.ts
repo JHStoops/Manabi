@@ -263,10 +263,22 @@ describe('kanji exercises (Product Spec section 5)', () => {
     expect(e!.payload).toMatchObject({
       prompt: 'Type the reading of 休 in 休み.',
       answerLanguage: 'target',
-      accept: [{ text: 'やす' }],
+      accept: [{ text: 'やす' }, { text: 'ヤス' }],
     });
     const noWord = context('N5', meaningKanji);
     expect(generators.typed_answer!(rest, { ...noWord, facet: 'reading' })).toEqual([]);
+  });
+
+  it('accept a typed reading in katakana, as teaching cards show on readings', () => {
+    const dayOff = word('休日', 'きゅうじつ', 'day off');
+    const [e] = generators.typed_answer!(rest, {
+      ...context('N5', [rest, dayOff]),
+      facet: 'reading',
+    });
+    expect(e!.payload).toMatchObject({ prompt: 'Type the reading of 休 in 休日.' });
+    for (const answer of ['きゅう', 'キュウ']) {
+      expect(gradeResponse(e!, { attempts: [answer] }, japanese)).toEqual({ result: 'correct' });
+    }
   });
 
   it('prefer look-alike kanji of the same level as distractors', () => {

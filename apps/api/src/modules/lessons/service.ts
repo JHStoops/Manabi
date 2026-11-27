@@ -6,6 +6,7 @@ import {
   GRAMMAR_EXERCISE_ORDER,
   LESSON_MAX_EXERCISES,
   LESSON_MIN_EXERCISES,
+  STROKE_TRACE_TYPE,
   SecondAttemptError,
   TEST_OUT_EXERCISES,
   TEST_OUT_PASS_ACCURACY,
@@ -321,7 +322,10 @@ async function buildTestOutState(
     { sectionLevel: unit.level_code, taughtItems, sentences },
     [...newItems.values()],
     stored.sort((a, b) => a.turn - b.turn).map((s) => s.exercise),
-    [...new Set(lessons.flatMap((l) => lessonRecipes[l.type]))],
+    // A guided trace (EX-11) tests nothing a test-out should: it shows every stroke.
+    [...new Set(lessons.flatMap((l) => lessonRecipes[l.type]))].filter(
+      (type) => type !== STROKE_TRACE_TYPE,
+    ),
     TEST_OUT_EXERCISES,
     TEST_OUT_EXERCISES,
     drawing,
@@ -426,12 +430,15 @@ function fillExercises(
 }
 
 /**
- * Product Spec section 5, SDD section 6: a session that follows a lesson flow (kanji lessons), up
- * to a session's maximum. First the `everyItem` steps for every new item (a kanji's trace and its
- * draw from memory), then the stored exercises, then the other steps in turn (each step's targets
- * in rotation) until the session is full or a pass adds nothing. The exercises are then ordered by
- * step; a stored exercise goes to the first step of its type, or before the last step. Taught-only,
- * no duplicates and drawing off (FR-074) as in `fillExercises`.
+ * Product Spec section 5, SDD section 6: a session that follows a lesson flow (kanji lessons).
+ * The stored exercises come first, as in other lessons (up to a session's maximum). Then the steps
+ * fill what is left, by priority: for every new item, the `everyItem` steps that are not optional
+ * (draw from memory), then one exercise of each facet step (meaning, then reading); then the
+ * optional `everyItem` steps (trace); then the `containing` steps over the taught items that contain
+ * the new items (words). Up to 15 exercises; then, only while the session is under 10, more rounds
+ * of the facet and word steps. The exercises are ordered by step at the end; a stored exercise goes
+ * to the step it fits (`storedStep`). Taught-only, no duplicates, drawing off (FR-074) and stroke
+ * data (FR-072) as in `fillExercises`.
  */
 function fillFlow(
   plugin: LanguagePlugin,
@@ -465,16 +472,12 @@ function fillFlow(
           ...(step.facet ? { facet: step.facet } : {}),
         }) as SessionExercise[])
       : [];
-  const steps = flow.map((step, index) => ({ step, index }));
+  /** Adds the first new exercise of the first of these steps that makes one for the item. */
+  const addOne = (steps: { step: LessonFlowStep; index: number }[], item: Item) =>
+    steps.some(({ step, index }) => generate(step, item).some((e) => add(e, index)));
 
-  for (const { step, index } of steps.filter((s) => s.step.everyItem)) {
-    for (const item of newItems) generate(step, item).forEach((e) => add(e, index));
-  }
-  const storedStep = (type: string) => {
-    const index = flow.findIndex((s) => s.type === type);
-    return index >= 0 ? index : flow.length - 1.5;
-  };
-  // Stored exercises keep the lesson's own rules (drawing off becomes EX-01), capped at what is left.
+  // Stored exercises keep the lesson's own rules (drawing off becomes EX-01).
+  const newIds = new Set(newItems.map((i) => i.id));
   for (const exercise of fillExercises(
     plugin,
     context,
@@ -482,37 +485,78 @@ function fillFlow(
     stored,
     [],
     0,
-    max - placed.length,
+    max,
     drawing,
     strokeKeys,
   )) {
-    add(exercise, storedStep(exercise.type));
+    add(exercise, storedStep(flow, exercise, newIds));
   }
 
-  const rest = steps.filter((s) => !s.step.everyItem);
+  const steps = flow.map((step, index) => ({ step, index }));
+  const required = steps.filter((s) => s.step.everyItem && !s.step.optional);
+  const optional = steps.filter((s) => s.step.everyItem && s.step.optional);
+  const forNew = steps.filter((s) => !s.step.everyItem && s.step.targets !== 'containing');
+  const forContaining = steps.filter((s) => s.step.targets === 'containing');
+  // One exercise per facet (meaning, reading), each from the first of its steps that makes one.
+  const facets = [...new Set(forNew.map((s) => s.step.facet))].map((facet) =>
+    forNew.filter((s) => s.step.facet === facet),
+  );
   const containers = [
     ...new Map(newItems.flatMap((i) => containing.get(i.id) ?? []).map((c) => [c.id, c])).values(),
   ];
-  const targetsOf = (step: LessonFlowStep) =>
-    step.targets === 'containing' ? containers : newItems;
-  const longest = Math.max(0, ...rest.map(({ step }) => targetsOf(step).length));
-  const visits = rest.map(() => 0);
-  // Each round visits every step once, each step taking its next target (offset by the step, so
-  // steps start on different items); `longest` rounds give every step every target.
-  for (let added = true; added && placed.length < max;) {
+
+  for (const step of required) for (const item of newItems) addOne([step], item);
+  for (const facetSteps of facets) for (const item of newItems) addOne(facetSteps, item);
+  for (const step of optional) for (const item of newItems) addOne([step], item);
+  for (const step of forContaining) for (const item of containers) addOne([step], item);
+
+  // A short session (few new items, or few words) gets more of the facet and word steps, in turn.
+  const rounds = [
+    ...forNew.flatMap((s) => newItems.map((item) => () => addOne([s], item))),
+    ...forContaining.flatMap((s) => containers.map((item) => () => addOne([s], item))),
+  ];
+  for (let added = true; added && placed.length < LESSON_MIN_EXERCISES;) {
     added = false;
-    for (let round = 0; round < longest && placed.length < max; round++) {
-      rest.forEach(({ step, index }, s) => {
-        const targets = targetsOf(step);
-        if (targets.length === 0 || placed.length >= max) return;
-        const visit = visits[s]!;
-        visits[s] = visit + 1;
-        const item = targets[(visit + s) % targets.length]!;
-        for (const e of generate(step, item)) if (add(e, index)) added = true;
-      });
+    for (const next of rounds) {
+      if (placed.length >= LESSON_MIN_EXERCISES) break;
+      if (next()) added = true;
     }
   }
   return placed.sort((a, b) => a.step - b.step).map((p) => p.exercise);
+}
+
+/**
+ * The flow step a stored exercise belongs to: a step of its type, for the new items when the
+ * exercise names one (else for the containing items), and of the facet a typed answer tests (in
+ * the base language: meaning; in the target language: reading), the facet winning when no target
+ * fits. A type the flow does not use goes before the last step.
+ */
+function storedStep(
+  flow: readonly LessonFlowStep[],
+  exercise: SessionExercise,
+  newIds: ReadonlySet<number>,
+): number {
+  const candidates = flow
+    .map((step, index) => ({ step, index }))
+    .filter(({ step }) => step.type === exercise.type);
+  if (candidates.length === 0) return flow.length - 1.5;
+  const targets = payloadItemIds(exercise.payload).some((id) => newIds.has(id))
+    ? 'new'
+    : 'containing';
+  const facet =
+    exercise.payload.answerLanguage === 'base'
+      ? 'meaning'
+      : exercise.payload.answerLanguage === 'target'
+        ? 'reading'
+        : undefined;
+  const fits = (s: LessonFlowStep) => (s.targets ?? 'new') === targets;
+  return (
+    candidates.find(({ step }) => fits(step) && (!facet || step.facet === facet)) ??
+    // An authored exercise may name no item in its payload; its facet still places it.
+    (facet ? candidates.find(({ step }) => step.facet === facet) : undefined) ??
+    candidates.find(({ step }) => fits(step)) ??
+    candidates[0]!
+  ).index;
 }
 
 /** FR-053: how many responses the shared grader counts right; near-misses count as right. */

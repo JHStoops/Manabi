@@ -154,7 +154,13 @@ async function buildState(db: Queryable, userId: number, now: Date): Promise<Rev
 
       const picked = facets.map((row): SessionExercise | undefined => {
         const types = plugin.reviewFacets(item.type)[row.facet] ?? [];
-        const own = stored.filter((e) => e.for_item_id === itemId && types.includes(e.type));
+        const own = stored.filter(
+          (e) =>
+            e.for_item_id === itemId &&
+            types.includes(e.type) &&
+            (plugin.testsFacet?.({ type: e.type, payload: e.payload }, item.type, row.facet) ??
+              true),
+        );
         const storedPick = pickRandom(own);
         if (storedPick) return { type: storedPick.type, payload: storedPick.payload };
         // FR-048: generated exercises use the learner's items only.

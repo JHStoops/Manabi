@@ -5,7 +5,7 @@ import {
   REORDER_TYPE,
   TYPED_ANSWER_TYPE,
 } from '@manabi/core';
-import type { LanguagePlugin } from '@manabi/core';
+import type { ChoicePayload, LanguagePlugin, TypedAnswerPayload } from '@manabi/core';
 
 // FR-110, Product Spec section 7: review facets per item type, each with its exercise types.
 // shortcut: word reading waits for a reading exercise (#225), and word listening for EX-07/EX-08
@@ -20,3 +20,23 @@ const FACETS: Record<string, Record<string, readonly string[]>> = {
 
 export const reviewFacets: LanguagePlugin['reviewFacets'] = (itemType) =>
   Object.hasOwn(FACETS, itemType) ? FACETS[itemType]! : {};
+
+/**
+ * A stored exercise reviews a kanji's meaning only when it plainly asks for it: a typed answer in
+ * English, or a choice among items (generated meaning choices name their options' items; an
+ * authored choice of readings does not). Other facets take any exercise of their types.
+ */
+export const testsFacet: NonNullable<LanguagePlugin['testsFacet']> = (
+  exercise,
+  itemType,
+  facet,
+) => {
+  if (itemType !== 'kanji' || facet !== 'meaning') return true;
+  if (exercise.type === TYPED_ANSWER_TYPE) {
+    return (exercise.payload as TypedAnswerPayload).answerLanguage === 'base';
+  }
+  if (exercise.type === CHOICE_TYPE) {
+    return (exercise.payload as ChoicePayload).options.every((o) => typeof o.itemId === 'number');
+  }
+  return true;
+};

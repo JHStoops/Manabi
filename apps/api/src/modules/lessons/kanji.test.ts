@@ -80,11 +80,11 @@ describeWithDb('kanji lessons API', () => {
   }
 
   /**
-   * A Japanese N5 unit: a vocabulary lesson (休み, 本, 日本 and three more), a kanji lesson teaching 体, 木, 雨
-   * and 電 (distractors), then the kanji lesson under test teaching 休 and 本, which the words
-   * contain. Every kanji has stroke data.
+   * A Japanese N5 unit: a vocabulary lesson (休み, 本, 日本, 山, 川, 火 and three more), a kanji
+   * lesson teaching 体, 木, 雨 and 電 (distractors), then the kanji lesson under test teaching 休
+   * and 本, and `extra` more of 山, 川 and 火; the words contain them. Every kanji has stroke data.
    */
-  async function seed() {
+  async function seed(extra = 0) {
     const [course] = await sql(
       `INSERT INTO courses (key, target_lang, base_lang, plugin, title, status)
        VALUES ('ja-en', 'ja', 'en', 'ja', 'Japanese', 'published') RETURNING id`,
@@ -138,6 +138,19 @@ describeWithDb('kanji lessons API', () => {
        VALUES ($1, $4, 'contains'), ($2, $5, 'contains'), ($3, $5, 'contains')`,
       [items['w:休み'], items['w:本'], items['w:日本'], items['k:休'], items['k:本']],
     );
+    const more: [string, string, string, string, string, number][] = [
+      ['山', 'mountain', 'サン', 'やま', 'peak', 3],
+      ['川', 'river', 'セン', 'かわ', 'stream', 3],
+      ['火', 'fire', 'カ', 'ひ', 'flame', 4],
+    ];
+    for (const [i, [char, meaning, on, kun, gloss, strokes]] of more.slice(0, extra).entries()) {
+      await add(`w:${char}`, 'word', word(char, kun, gloss), 'v', 6 + i);
+      await add(`k:${char}`, 'kanji', kanji(char, meaning, [on], [kun], strokes), 'k', 2 + i);
+      await sql(
+        `INSERT INTO item_links (from_item_id, to_item_id, kind) VALUES ($1, $2, 'contains')`,
+        [items[`w:${char}`], items[`k:${char}`]],
+      );
+    }
     await sql(
       `INSERT INTO stroke_data (item_id, strokes)
        SELECT id, '{}' FROM items WHERE type = 'kanji' AND course_id = $1`,
@@ -321,5 +334,163 @@ describeWithDb('kanji lessons API', () => {
     expect(exercises.find((e) => e.itemId === items['k:休'] && e.facet === 'reading')?.type).toBe(
       'reading_in_context',
     );
+  });
+
+  /** What the session practises for one kanji: draw, meaning and reading exercises, by prompt. */
+  function coverage(body: LessonSession, character: string, meaning: string) {
+    const prompt = (e: SessionExercise) => String(e.payload.prompt ?? '');
+    const about = (e: SessionExercise) =>
+      prompt(e).includes(character) || prompt(e).includes(`“${meaning}”`);
+    const isKanjiStep = (e: SessionExercise, steps: number[]) =>
+      steps.includes(stepOf(e, new Set(payloadItemIds(e.payload))));
+    return {
+      draw: body.exercises.some(
+        (e) => e.type === 'draw_memory' && e.payload.character === character,
+      ),
+      meaning: body.exercises.some(
+        (e) =>
+          ['choice', 'typed_answer'].includes(e.type) &&
+          e.payload.answerLanguage !== 'target' &&
+          !prompt(e).includes(' read') &&
+          about(e) &&
+          !isKanjiStep(e, [5]),
+      ),
+      reading: body.exercises.some(
+        (e) =>
+          (e.type === 'reading_in_context' || e.payload.answerLanguage === 'target') &&
+          prompt(e).includes(character),
+      ),
+      trace: body.exercises.some(
+        (e) => e.type === 'stroke_trace' && e.payload.character === character,
+      ),
+    };
+  }
+
+  it.each([
+    [3, 1],
+    [5, 3],
+  ])(
+    'gives each of %i kanji its draw, a meaning and a reading exercise within 15 (owner decision on #53)',
+    async (count, extra) => {
+      const { courseId, lesson, items } = await seed(extra);
+      const { userId, session } = await learner(courseId);
+      await completeEarlier(userId, lesson);
+
+      const body = (await start(lesson.k!, session)).json<LessonSession>();
+      const kanjiList: [string, string][] = (
+        [
+          ['休', 'rest'],
+          ['本', 'origin'],
+          ['山', 'mountain'],
+          ['川', 'river'],
+          ['火', 'fire'],
+        ] as [string, string][]
+      ).slice(0, count);
+      expect(body.exercises.length).toBeLessThanOrEqual(15);
+      expect(body.exercises.length).toBeGreaterThanOrEqual(10);
+      for (const [character, meaning] of kanjiList) {
+        expect({ character, ...coverage(body, character, meaning) }).toMatchObject({
+          character,
+          draw: true,
+          meaning: true,
+          reading: true,
+        });
+      }
+      const kanjiIds = new Set(kanjiList.map(([c]) => items[`k:${c}`]!));
+      const steps = body.exercises.map((e) => stepOf(e, kanjiIds));
+      expect(steps).toEqual([...steps].sort((a, b) => a - b));
+      const traces = body.exercises.filter((e) => e.type === 'stroke_trace').length;
+      if (count === 3) {
+        // 9 required; the traces and a word exercise fit too.
+        expect(traces).toBe(3);
+        expect(steps.some((step) => step >= 5 && step <= 6)).toBe(true);
+      } else {
+        // 15 required: no room for traces or words.
+        expect(body.exercises).toHaveLength(15);
+        expect(traces).toBe(0);
+      }
+    },
+  );
+
+  it('keeps stored exercises first and puts each in the step it tests', async () => {
+    const { courseId, lesson, items } = await seed();
+    await sql(
+      `INSERT INTO exercises (lesson_id, item_id, key, position, type, payload, origin)
+       VALUES ($1, $2, 'r', 0, 'typed_answer', $3, 'authored')`,
+      [
+        lesson.k,
+        items['k:休'],
+        {
+          prompt: 'Authored: read 休 in 休み',
+          answerLanguage: 'target',
+          accept: [{ text: 'やす', tiles: [] }],
+        },
+      ],
+    );
+    const { userId, session } = await learner(courseId);
+    await completeEarlier(userId, lesson);
+
+    const body = (await start(lesson.k!, session)).json<LessonSession>();
+    const kanjiIds = new Set([items['k:休']!, items['k:本']!]);
+    const at = body.exercises.findIndex((e) => e.payload.prompt === 'Authored: read 休 in 休み');
+    expect(at).toBeGreaterThanOrEqual(0);
+    const steps = body.exercises.map((e) => stepOf(e, kanjiIds));
+    expect(steps).toEqual([...steps].sort((a, b) => a - b));
+    // It sits with the reading exercises, after every meaning exercise.
+    const readingStep = KANJI_LESSON_FLOW.findIndex(
+      (st) => st.type === 'typed_answer' && st.facet === 'reading',
+    );
+    expect(steps[at]).toBe(readingStep);
+  });
+
+  it('leaves the guided stroke trace out of test-outs (FR-024)', async () => {
+    const { courseId } = await seed(3);
+    const { session } = await learner(courseId);
+    const [unit] = await sql(`SELECT id FROM units`);
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/units/${unit!.id}/test-out`,
+      ...session,
+    });
+    expect(response.statusCode).toBe(200);
+    const types = response.json<{ exercises: SessionExercise[] }>().exercises.map((e) => e.type);
+    expect(types).not.toContain('stroke_trace');
+    expect(types).toContain('draw_memory');
+  });
+
+  it("does not review a kanji's meaning with a stored exercise asking its reading (FR-112)", async () => {
+    const { courseId, lesson, items } = await seed();
+    await sql(
+      `INSERT INTO exercises (lesson_id, item_id, key, position, type, payload, origin)
+       VALUES ($1, $2, 'r', 0, 'typed_answer', $3, 'pinned')`,
+      [
+        lesson.k,
+        items['k:休'],
+        {
+          prompt: 'Type the reading of 休 in 休み.',
+          answerLanguage: 'target',
+          accept: [{ text: 'やす', tiles: [] }],
+        },
+      ],
+    );
+    const { userId, session } = await learner(courseId);
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       VALUES ($1, $2, 'meaning', 2, now() - interval '1 hour'),
+              ($1, $3, 'meaning', 2, now() + interval '1 day')`,
+      [userId, items['k:休'], items['w:休み']],
+    );
+    for (let run = 0; run < 5; run++) {
+      await sql(`DELETE FROM review_sessions`);
+      const reviews = await app.inject({
+        method: 'POST',
+        url: '/api/v1/reviews/sessions',
+        ...session,
+      });
+      expect(reviews.statusCode).toBe(200);
+      const [exercise] = reviews.json<ReviewSession>().exercises;
+      expect(exercise).toMatchObject({ itemId: items['k:休'], facet: 'meaning' });
+      expect(exercise!.payload.answerLanguage).not.toBe('target');
+    }
   });
 });

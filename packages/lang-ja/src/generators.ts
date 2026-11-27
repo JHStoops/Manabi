@@ -250,6 +250,10 @@ function kanjiUses(kanji: KanjiData, taughtItems: readonly Item[]) {
   });
 }
 
+/** Hiragana as katakana (the reverse of `toHiragana`). */
+const toKatakana = (text: string) =>
+  text.replace(/[ぁ-ゖ]/gu, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
+
 /** EX-04 for a kanji's `reading` facet: type how the kanji is read in a taught word that uses it. */
 function typedKanjiReading(item: Item, kanji: KanjiData, context: GeneratorContext) {
   const use = kanjiUses(kanji, context.taughtItems)[0];
@@ -257,12 +261,11 @@ function typedKanjiReading(item: Item, kanji: KanjiData, context: GeneratorConte
   const payload: TypedAnswerPayload = {
     prompt: `Type the reading of ${kanji.character} in ${use.written}.`,
     answerLanguage: 'target',
-    accept: [
-      {
-        text: use.reading,
-        tiles: [{ surface: use.reading, base: use.reading, reading: use.reading, itemId: item.id }],
-      },
-    ],
+    // Teaching cards show on readings in katakana, as KANJIDIC writes them; both scripts count.
+    accept: [use.reading, toKatakana(use.reading)].map((text) => ({
+      text,
+      tiles: [{ surface: text, base: text, reading: use.reading, itemId: item.id }],
+    })),
   };
   return [{ type: TYPED_ANSWER_TYPE, payload }];
 }

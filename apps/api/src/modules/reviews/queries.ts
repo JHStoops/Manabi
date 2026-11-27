@@ -90,7 +90,9 @@ export async function insertReviewEntries(
 /**
  * FR-110: for every learner's item in reviews, an entry for each of these facets of its course's
  * plugin and item type that it lacks, copying the stage and due time of its lowest-stage entry
- * (earliest due among equals; a retired item stays retired).
+ * (earliest due among equals; a retired item stays retired). Archived items are left out.
+ * Policy: a facet a plugin adds starts at the item's current stage, as the learner already knows
+ * the item; a facet that should start over must not rely on this.
  */
 export async function insertMissingFacets(
   db: Queryable,
@@ -101,7 +103,7 @@ export async function insertMissingFacets(
     `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
      SELECT DISTINCT ON (p.user_id, p.item_id, f.facet) p.user_id, p.item_id, f.facet, p.stage, p.due_at
        FROM item_progress p
-       JOIN items i ON i.id = p.item_id
+       JOIN items i ON i.id = p.item_id AND i.archived_at IS NULL
        JOIN courses c ON c.id = i.course_id
        JOIN unnest($1::text[], $2::text[], $3::text[]) AS f (plugin, item_type, facet)
          ON f.plugin = c.plugin AND f.item_type = i.type

@@ -218,6 +218,12 @@ export interface LanguagePlugin {
    */
   reviewFacets(itemType: string): Record<ReviewFacet, readonly string[]>;
   /**
+   * FR-112: whether a stored exercise of one of the facet's types tests that facet of an item of
+   * this type, for a review to use it (a typed answer can ask a kanji's meaning or its reading).
+   * Absent: every stored exercise of the facet's types does.
+   */
+  testsFacet?(exercise: Exercise, itemType: string, facet: ReviewFacet): boolean;
+  /**
    * FR-075, FR-092: what the library searches and filters an item by, from its merged data. The
    * API stores the result on the item at every write. Invalid data gives no terms.
    */

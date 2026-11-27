@@ -45,22 +45,27 @@ export const lessonRecipes: Readonly<Record<LessonType, readonly string[]>> = {
  * One step of a lesson flow: an exercise type, the facet it tests (passed to the generator as
  * `GeneratorContext.facet`) and what it is made for: the lesson's new items, or the taught items
  * that contain them (item links of kind `contains`, such as words that use a kanji). `everyItem`
- * steps are made for every new item before the other steps fill the session.
+ * steps are made for every new item.
  */
 export interface LessonFlowStep {
   type: string;
   facet?: string;
   targets?: 'new' | 'containing';
   everyItem?: boolean;
+  /** An `everyItem` step that comes after one exercise of each facet when the session is short. */
+  optional?: boolean;
 }
 
 /**
  * Product Spec section 5 (Kanji lesson flow), FR-040, FR-049: a kanji lesson's exercises in this
  * order: stroke trace (EX-11); meaning (EX-01, EX-04); reading (EX-09, EX-04); words that use the
  * kanji (EX-01, EX-02); and draw from memory (EX-12) for every kanji before the lesson ends.
+ * A session holds at most 15, so when there are too many kanji the trace and the word exercises
+ * give way first: every kanji keeps its draw from memory and one meaning and one reading exercise
+ * (owner decision on #53).
  */
 export const KANJI_LESSON_FLOW: readonly LessonFlowStep[] = [
-  { type: 'stroke_trace', everyItem: true },
+  { type: 'stroke_trace', everyItem: true, optional: true },
   { type: 'choice', facet: 'meaning' },
   { type: 'typed_answer', facet: 'meaning' },
   { type: 'reading_in_context', facet: 'reading' },

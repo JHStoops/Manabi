@@ -24,12 +24,13 @@ import { getExerciseRenderer } from '../exercises/registry';
 import { WordBankAlternative } from '../exercises/WordBankAlternative';
 import { LessonResults } from './LessonResults';
 
+import { initialPlayerState, lessonPlayerReducer } from './lessonPlayer';
+import type { PlayerAction, PlayerCompletion, PlayerSession } from './lessonPlayer';
+
 // FR-071: Hanzi Writer loads only when a teaching card animates strokes (NFR-04 first load).
 const StrokeCanvas = lazy(() =>
   import('../strokes/StrokeCanvas').then((m) => ({ default: m.StrokeCanvas })),
 );
-import { initialPlayerState, lessonPlayerReducer } from './lessonPlayer';
-import type { PlayerAction, PlayerCompletion, PlayerSession } from './lessonPlayer';
 
 // NFR-31: every feedback color comes with an icon (and text).
 const icons = { close: '✕', correct: '✓', tryAgain: '!', wrong: '✗' };
@@ -227,8 +228,8 @@ function TeachingCard(props: {
         </table>
       )}
       {props.card.words.length > 0 && (
-        <section aria-label={t('player.wordsUsing', { term })}>
-          <h3>{t('player.wordsUsing', { term })}</h3>
+        <section aria-labelledby={`words-${props.card.item.id}`}>
+          <h3 id={`words-${props.card.item.id}`}>{t('player.wordsUsing', { term })}</h3>
           <WordList>
             {props.card.words.map((word) => {
               const fields = props.plugin.teachingCard(word, props.sectionLevel);
