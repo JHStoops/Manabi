@@ -179,7 +179,8 @@ export function listLearnedItems(
 
 /**
  * SDD section 6: the stored exercises that review an item: its item-level exercises, and those of
- * a lesson that teaches only that item (a grammar point's pool). Active ones only.
+ * a lesson that teaches only that item (a grammar point's pool). Active ones only: archived
+ * lessons, units and sections are skipped (FR-227), as findStoredExercise does.
  */
 export function listStoredReviewExercises(
   db: Queryable,
@@ -195,6 +196,8 @@ export function listStoredReviewExercises(
        FROM (SELECT lesson_id, min(item_id) AS item_id FROM lesson_items
               GROUP BY lesson_id HAVING count(*) = 1) sole
        JOIN lessons l ON l.id = sole.lesson_id AND l.archived_at IS NULL
+       JOIN units u ON u.id = l.unit_id AND u.archived_at IS NULL
+       JOIN sections s ON s.id = u.section_id AND s.archived_at IS NULL
        JOIN exercises e ON e.lesson_id = sole.lesson_id AND e.item_id IS NULL
                        AND e.archived_at IS NULL
       WHERE sole.item_id = ANY($1::bigint[])
