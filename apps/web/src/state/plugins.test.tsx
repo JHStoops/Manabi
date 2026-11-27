@@ -52,4 +52,39 @@ describe('ActivePluginProvider status', () => {
     mount(() => Promise.reject(new Error('offline')));
     await screen.findByText('status:none');
   });
+
+  it('never shows the last course as ready, or none, for a course that is not looked up yet', async () => {
+    activeCourseId = 1;
+    const api = {
+      GET: () =>
+        Promise.resolve({
+          courses: [
+            { id: 1, plugin: 'ja' },
+            { id: 2, plugin: 'xx' },
+          ],
+        }),
+    } as unknown as ApiClient;
+    // A new element each time: re-rendering the same element would bail out.
+    const tree = () => (
+      <ApiContext.Provider value={api}>
+        <ActivePluginProvider>
+          <Probe />
+        </ActivePluginProvider>
+      </ApiContext.Provider>
+    );
+    const { rerender } = render(tree());
+    await screen.findByText('status:ready');
+    activeCourseId = 2;
+    rerender(tree());
+    // The very first render for course 2 is loading, not course 1's ready.
+    screen.getByText('status:loading');
+    await screen.findByText('status:none');
+    activeCourseId = null;
+    rerender(tree());
+    screen.getByText('status:none');
+    activeCourseId = 1;
+    rerender(tree());
+    screen.getByText('status:loading');
+    await screen.findByText('status:ready');
+  });
 });

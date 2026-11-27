@@ -305,7 +305,7 @@ describeWithDb('item-level pins in reviews (#241)', () => {
   });
 
   it.each(['units', 'sections'])(
-    'skips the stored exercises of a single-item lesson whose %s row is archived (#261, FR-227)',
+    'skips the stored exercises of a single-item lesson whose %s row is archived (#261, FR-232)',
     async (table) => {
       const lessonId = await lesson('ja-en:mizu', [itemId]);
       const pinned = typedPayload('ja:word:mizu', ['water', 'aqua']);

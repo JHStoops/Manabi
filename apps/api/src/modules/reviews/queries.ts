@@ -180,7 +180,7 @@ export function listLearnedItems(
 /**
  * SDD section 6: the stored exercises that review an item: its item-level exercises, and those of
  * a lesson that teaches only that item (a grammar point's pool). Active ones only: archived
- * lessons, units and sections are skipped (FR-227), as findStoredExercise does.
+ * lessons, units and sections are skipped (FR-232), as findStoredExercise does.
  */
 export function listStoredReviewExercises(
   db: Queryable,

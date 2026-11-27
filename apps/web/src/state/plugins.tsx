@@ -25,37 +25,35 @@ export function ActivePluginProvider({ children }: { children: ReactNode }) {
   const api = useApi();
   // Enrolling dispatches the new active course to the session (LearnPage), so this follows it.
   const { activeCourseId } = useSettings();
-  const [plugin, setPlugin] = useState<LanguagePlugin | null>(null);
-  const [status, setStatus] = useState<ActivePluginStatus>('loading');
+  // The lookup's outcome for one course; derived below, so a changed course never shows the last one's.
+  const [looked, setLooked] = useState<{ courseId: number; plugin: LanguagePlugin | null } | null>(
+    null,
+  );
 
   useEffect(() => {
     let current = true;
-    if (activeCourseId === null) {
-      setPlugin(null);
-      setStatus('none');
-      return;
-    }
-    setPlugin(null);
-    setStatus('loading');
+    if (activeCourseId === null) return;
     api.GET('/api/v1/courses').then(
       ({ courses }) => {
         const code = courses.find((c) => c.id === activeCourseId)?.plugin;
-        if (!current) return;
-        const found = code && plugins.has(code) ? plugins.get(code) : null;
-        setPlugin(found);
-        setStatus(found ? 'ready' : 'none');
+        if (current)
+          setLooked({
+            courseId: activeCourseId,
+            plugin: code && plugins.has(code) ? plugins.get(code) : null,
+          });
       },
       // Features stay off when courses cannot be loaded; the Learn tab shows the error.
-      () => {
-        if (!current) return;
-        setPlugin(null);
-        setStatus('none');
-      },
+      () => current && setLooked({ courseId: activeCourseId, plugin: null }),
     );
     return () => {
       current = false;
     };
   }, [api, activeCourseId]);
+
+  const known = activeCourseId !== null && looked?.courseId === activeCourseId;
+  const plugin = known ? looked.plugin : null;
+  const status: ActivePluginStatus =
+    activeCourseId === null ? 'none' : !known ? 'loading' : plugin ? 'ready' : 'none';
 
   return (
     <ActivePluginStatusContext.Provider value={status}>
