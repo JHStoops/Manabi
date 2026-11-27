@@ -277,10 +277,10 @@ describeWithDb('answer reports API', () => {
     );
     expect(pinned).toEqual([expect.objectContaining({ lesson_id: lessonId, origin: 'pinned' })]);
     const accept = (pinned[0]!.payload as { accept: { text: string; tiles: unknown[] }[] }).accept;
-    // An English answer gets no tiles, like the generated ones.
+    // An English answer gets no tiles, like the generated ones. #251: marked as report-accepted.
     expect(accept).toEqual([
       { text: 'water', tiles: [] },
-      { text: 'H2O', tiles: [] },
+      { text: 'H2O', tiles: [], source: 'report' },
     ]);
 
     // The other open report of the same exercise now points at the pinned one, so accepting it
@@ -325,8 +325,13 @@ describeWithDb('answer reports API', () => {
       `SELECT payload FROM exercises WHERE id = $1`,
       [authoredId],
     );
-    // The new answer is segmented into tiles, as the lesson editor does (DR-12).
+    // The new answer is segmented into tiles, as the lesson editor does (DR-12), and marked as
+    // report-accepted so a pack re-import keeps it (#251); the pack's own answer is not.
     expect(row!.payload.accept[1]!.tiles.length).toBeGreaterThan(0);
+    expect(row!.payload.accept.map((a) => (a as { source?: string }).source)).toEqual([
+      undefined,
+      'report',
+    ]);
     expect(await sql(`SELECT id FROM exercises WHERE origin = 'pinned'`)).toEqual([]);
     // Resolved reports cannot be resolved again.
     expect(

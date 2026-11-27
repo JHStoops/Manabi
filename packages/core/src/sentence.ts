@@ -25,11 +25,17 @@ export const tileSchema = z
   .strict();
 export type Tile = z.infer<typeof tileSchema>;
 
-/** DR-12: authored answer text together with its tiles, as stored in an exercise payload. */
+/**
+ * DR-12: authored answer text together with its tiles, as stored in an exercise payload.
+ * `source: 'report'` marks an answer added by accepting an answer report (FR-229): a content
+ * pack re-import keeps such an answer when the pack lacks it, and drops any other stored answer
+ * the pack no longer lists (FR-227).
+ */
 export const answerTextSchema = z
   .object({
     text: nonEmptyTextSchema,
     tiles: z.array(tileSchema),
+    source: z.literal('report').optional(),
   })
   .strict();
 export type AnswerText = z.infer<typeof answerTextSchema>;

@@ -223,10 +223,10 @@ describeWithDb('content packs', () => {
   describe('authored exercises (DR-12, FR-238)', () => {
     const exercises = (pack: ContentPack) => pack.units[1]!.lessons[0]!.exercises;
     const typeWater = () =>
-      queryOne<{ id: number; payload: { accept: { text: string; tiles: unknown[] }[] } }>(
-        pool(),
-        `SELECT id, payload FROM exercises WHERE key = 'type-water'`,
-      );
+      queryOne<{
+        id: number;
+        payload: { accept: { text: string; tiles: unknown[]; source?: string }[] };
+      }>(pool(), `SELECT id, payload FROM exercises WHERE key = 'type-water'`);
 
     it('resolves item keys, segments answer text without tiles and exports both back', async () => {
       const pack = await readPack(FIXTURE);
@@ -278,13 +278,14 @@ describeWithDb('content packs', () => {
       expect((await typeWater())!.payload.accept[0]!.tiles).not.toEqual(edited);
     });
 
-    it('keeps accepted answers the pack lacks on re-import, without duplicates (FR-229)', async () => {
+    it('keeps report-accepted answers the pack lacks on re-import, without duplicates (FR-229)', async () => {
       const pack = await readPack(FIXTURE);
-      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: 0 });
-      // What accepting an answer report does to an authored exercise.
+      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: [] });
+      // What accepting an answer report does to an authored exercise (#251: marked).
       const accepted = {
         text: 'みず',
         tiles: [{ surface: 'みず', base: 'みず', reading: 'みず' }],
+        source: 'report',
       };
       await query(
         pool(),
@@ -293,35 +294,74 @@ describeWithDb('content packs', () => {
         [JSON.stringify([accepted])],
       );
 
-      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: 1 });
+      const kept = [{ lesson: 'ja-en:n5:ordering:words', exercise: 'type-water', text: 'みず' }];
+      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: kept });
       const texts = async () => (await typeWater())!.payload.accept.map((a) => a.text);
       expect(await texts()).toEqual(['水', 'みず']);
       expect((await typeWater())!.payload.accept[1]).toEqual(accepted);
       // A second import keeps it again and adds no copy.
-      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: 1 });
+      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: kept });
       expect(await texts()).toEqual(['水', 'みず']);
 
-      // A pack that now lists the answer itself takes over: nothing is kept or duplicated.
+      // Export keeps the marker, so the answer survives a move to another server.
+      const exported = await exportPack(pool(), 'ja-en');
+      expect((exercises(exported)[1]!.payload.accept as unknown[])[1]).toEqual(accepted);
+
+      // A pack that now lists the answer itself takes over: nothing is kept or duplicated, and
+      // the pack's entry (here without the marker) is what is stored.
       exercises(pack)[1]!.payload.accept = [{ text: '水' }, { text: 'みず' }];
-      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: 0 });
+      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: [] });
       expect(await texts()).toEqual(['水', 'みず']);
+      expect((await typeWater())!.payload.accept[1]!.source).toBeUndefined();
+      // Now the pack owns it, so deleting it from the pack removes it.
+      exercises(pack)[1]!.payload.accept = [{ text: '水' }];
+      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: [] });
+      expect(await texts()).toEqual(['水']);
+    });
+
+    it('drops a stored answer the pack no longer lists, unless a report accepted it (#251)', async () => {
+      const pack = await readPack(FIXTURE);
+      exercises(pack)[1]!.payload.accept = [{ text: '水' }, { text: 'みす' }];
+      await importPack(pool(), pack);
+      const texts = async () => (await typeWater())!.payload.accept.map((a) => a.text);
+      expect(await texts()).toEqual(['水', 'みす']);
+      const reported = { text: 'お水', tiles: [], source: 'report' };
+      await query(
+        pool(),
+        `UPDATE exercises SET payload = jsonb_set(payload, '{accept}', payload->'accept' || $1::jsonb)
+         WHERE key = 'type-water'`,
+        [JSON.stringify([reported])],
+      );
+
+      // The author corrects みす to みず in the pack: the old entry goes, the reported one stays.
+      exercises(pack)[1]!.payload.accept = [{ text: '水' }, { text: 'みず' }];
+      expect(await importPack(pool(), pack)).toEqual({
+        acceptedAnswersKept: [
+          { lesson: 'ja-en:n5:ordering:words', exercise: 'type-water', text: 'お水' },
+        ],
+      });
+      expect(await texts()).toEqual(['水', 'みず', 'お水']);
     });
 
     it('drops stored accepted answers when the exercise changes type, and skips malformed ones', async () => {
       const pack = await readPack(FIXTURE);
       await importPack(pool(), pack);
-      const stored = [{ text: 'みず', tiles: [] }, { tiles: [] }, 'みず'];
+      const stored = [
+        { text: 'みず', tiles: [], source: 'report' },
+        { tiles: [], source: 'report' },
+        'みず',
+      ];
       await query(
         pool(),
         `UPDATE exercises SET payload = jsonb_set(payload, '{accept}', payload->'accept' || $1::jsonb)
          WHERE key = 'type-water'`,
         [JSON.stringify(stored)],
       );
-      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: 1 });
+      expect((await importPack(pool(), pack)).acceptedAnswersKept).toHaveLength(1);
       expect((await typeWater())!.payload.accept.map((a) => a.text)).toEqual(['水', 'みず']);
 
       await query(pool(), `UPDATE exercises SET type = 'other' WHERE key = 'type-water'`);
-      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: 0 });
+      expect(await importPack(pool(), pack)).toEqual({ acceptedAnswersKept: [] });
       expect((await typeWater())!.payload.accept.map((a) => a.text)).toEqual(['水']);
     });
 
