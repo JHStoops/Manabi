@@ -57,17 +57,40 @@ export interface LessonFlowStep {
 }
 
 /**
- * Product Spec section 5 (Kanji lesson flow), FR-040, FR-049: a kanji lesson's exercises in this
- * order: stroke trace (EX-11); meaning (EX-01, EX-04); reading (EX-09, EX-04); words that use the
- * kanji (EX-01, EX-02); and draw from memory (EX-12) for every kanji before the lesson ends.
+ * Product Spec section 5: what a teaching card teaches. A kanji gets a `meaning` card first and a
+ * `reading` card after its meaning exercises; other items get one card (no facet) with both.
+ */
+export const teachingCardFacetSchema = z.enum(['meaning', 'reading']);
+export type TeachingCardFacet = z.infer<typeof teachingCardFacetSchema>;
+
+/**
+ * A lesson flow step that shows a teaching card of this facet for each new item (#237), at its
+ * place among the exercises, instead of making exercises.
+ */
+export interface LessonFlowCard {
+  card: TeachingCardFacet;
+}
+
+/** One entry of a lesson flow: exercises, or the teaching cards shown before the next ones. */
+export type LessonFlowEntry = LessonFlowStep | LessonFlowCard;
+
+export const isFlowCard = (entry: LessonFlowEntry): entry is LessonFlowCard => 'card' in entry;
+
+/**
+ * Product Spec section 5 (Kanji lesson flow), FR-040, FR-049: a kanji lesson in this order: the
+ * meaning card (kanji, meaning, stroke animation); stroke trace (EX-11); meaning (EX-01, EX-04);
+ * the reading card (main reading, 1 to 3 words that use it); reading (EX-09, EX-04); words that
+ * use the kanji (EX-01, EX-02); and draw from memory (EX-12) for every kanji before the lesson ends.
  * A session holds at most 15, so when there are too many kanji the trace and the word exercises
  * give way first: every kanji keeps its draw from memory and one meaning and one reading exercise
  * (owner decision on #53).
  */
-export const KANJI_LESSON_FLOW: readonly LessonFlowStep[] = [
+export const KANJI_LESSON_FLOW: readonly LessonFlowEntry[] = [
+  { card: 'meaning' },
   { type: 'stroke_trace', everyItem: true, optional: true },
   { type: 'choice', facet: 'meaning' },
   { type: 'typed_answer', facet: 'meaning' },
+  { card: 'reading' },
   { type: 'reading_in_context', facet: 'reading' },
   { type: 'typed_answer', facet: 'reading' },
   { type: 'choice', targets: 'containing' },
@@ -76,7 +99,7 @@ export const KANJI_LESSON_FLOW: readonly LessonFlowStep[] = [
 ];
 
 /** Lesson types whose sessions follow a flow, step by step, instead of the round-robin recipe. */
-export const lessonFlows: Readonly<Partial<Record<LessonType, readonly LessonFlowStep[]>>> = {
+export const lessonFlows: Readonly<Partial<Record<LessonType, readonly LessonFlowEntry[]>>> = {
   kanji: KANJI_LESSON_FLOW,
 };
 
@@ -101,9 +124,11 @@ export const GRAMMAR_EXERCISE_ORDER: readonly string[] = [
 export const lessonIdParamsSchema = z.object({ id: idParamSchema });
 
 /**
- * FR-041, Product Spec sections 4 and 6: one teaching card per new item of the lesson, in lesson
+ * FR-041, Product Spec sections 4 and 6: a teaching card per new item of the lesson, in lesson
  * order, with example sentences (their tiles for audio) and translations: one for most items,
- * two for a grammar point, fewer when fewer fit.
+ * two for a grammar point, fewer when fewer fit. Product Spec section 5: a kanji has two cards,
+ * meaning then reading, and the reading card comes mid-lesson (`before`). Cards are in the order
+ * they are shown, so `before` never goes down.
  */
 export const teachingCardSchema = z.object({
   item: itemSchema,
@@ -125,6 +150,13 @@ export const teachingCardSchema = z.object({
   words: z.array(itemSchema).max(TEACHING_CARD_MAX_WORDS).default([]),
   /** FR-071: play the item's stroke-order animation (it has stroke data and the course draws). */
   strokeAnimation: z.boolean().default(false),
+  /** What the card teaches; null for a card that shows everything (and sessions before #237). */
+  facet: teachingCardFacetSchema.nullable().default(null),
+  /**
+   * The index of the exercise the card comes before: 0 for the cards before every exercise (and
+   * sessions before #237), the exercise count for a card after the last one.
+   */
+  before: z.number().int().min(0).default(0),
 });
 export type TeachingCard = z.infer<typeof teachingCardSchema>;
 

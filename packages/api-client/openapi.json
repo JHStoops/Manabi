@@ -3547,9 +3547,28 @@
                               "additionalProperties": false
                             }
                           },
-                          "strokeAnimation": { "default": false, "type": "boolean" }
+                          "strokeAnimation": { "default": false, "type": "boolean" },
+                          "facet": {
+                            "default": null,
+                            "nullable": true,
+                            "type": "string",
+                            "enum": ["meaning", "reading"]
+                          },
+                          "before": {
+                            "default": 0,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
                         },
-                        "required": ["item", "examples", "words", "strokeAnimation"],
+                        "required": [
+                          "item",
+                          "examples",
+                          "words",
+                          "strokeAnimation",
+                          "facet",
+                          "before"
+                        ],
                         "additionalProperties": false
                       }
                     },
@@ -17361,9 +17380,28 @@
                               "additionalProperties": false
                             }
                           },
-                          "strokeAnimation": { "default": false, "type": "boolean" }
+                          "strokeAnimation": { "default": false, "type": "boolean" },
+                          "facet": {
+                            "default": null,
+                            "nullable": true,
+                            "type": "string",
+                            "enum": ["meaning", "reading"]
+                          },
+                          "before": {
+                            "default": 0,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
                         },
-                        "required": ["item", "examples", "words", "strokeAnimation"],
+                        "required": [
+                          "item",
+                          "examples",
+                          "words",
+                          "strokeAnimation",
+                          "facet",
+                          "before"
+                        ],
                         "additionalProperties": false
                       }
                     },

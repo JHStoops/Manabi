@@ -175,6 +175,11 @@ const WordList = styled.ul`
   }
 `;
 
+/** The distinct items of these teaching cards, in card order. */
+const newItems = (cards: readonly TeachingCardData[]) => [
+  ...new Map(cards.map((c) => [c.item.id, c.item])).values(),
+];
+
 /** Product Spec sections 4 and 6: one new item, as the course's plugin shows it (FR-141). */
 function TeachingCard(props: {
   card: TeachingCardData;
@@ -182,9 +187,11 @@ function TeachingCard(props: {
   sectionLevel: string;
 }) {
   const { t } = useTranslation();
+  // Product Spec section 5: a kanji's meaning and reading cards each show their part (#237).
   const { term, reading, meaning, spoken, formation } = props.plugin.teachingCard(
     props.card.item,
     props.sectionLevel,
+    { facet: props.card.facet, words: props.card.words },
   );
   const lang = props.plugin.code;
   return (
@@ -232,8 +239,10 @@ function TeachingCard(props: {
         </table>
       )}
       {props.card.words.length > 0 && (
-        <section aria-labelledby={`words-${props.card.item.id}`}>
-          <h3 id={`words-${props.card.item.id}`}>{t('player.wordsUsing', { term })}</h3>
+        <section aria-labelledby={`words-${props.card.item.id}-${props.card.facet}`}>
+          <h3 id={`words-${props.card.item.id}-${props.card.facet}`}>
+            {t('player.wordsUsing', { term })}
+          </h3>
           <WordList>
             {props.card.words.map((word) => {
               const fields = props.plugin.teachingCard(word, props.sectionLevel);
@@ -547,14 +556,16 @@ export default function LessonPlayerPage({
     );
     actionLabel = t('player.start');
   } else if (phase === 'intro' && session && 'teachingCards' in session && plugin) {
-    // Product Spec section 4: the lesson's title, type and the items it will teach.
+    // Product Spec section 4: the lesson's title, type and the items it will teach (a kanji has
+    // two cards, one item).
+    const items = newItems(session.teachingCards);
     content = (
       <>
         <h1>{session.lessonTitle}</h1>
         <p>{t(`learn.lessonType.${session.lessonType}`)}</p>
-        <p>{t('player.intro', { count: session.teachingCards.length })}</p>
+        <p>{t('player.intro', { count: items.length })}</p>
         <ul lang={plugin.code}>
-          {session.teachingCards.map(({ item }) => (
+          {items.map((item) => (
             <li key={item.id}>{plugin.teachingCard(item, session.sectionLevel).term}</li>
           ))}
         </ul>
@@ -563,11 +574,28 @@ export default function LessonPlayerPage({
     actionLabel = t('player.start');
   } else if (phase === 'teaching' && session && 'teachingCards' in session && plugin) {
     const cards = session.teachingCards;
+    const card = cards[state.card]!;
+    // A reading card comes back to an item already introduced; its heading says so.
+    const n = newItems(cards.slice(0, state.card + 1)).length;
+    const total = newItems(cards).length;
     content = (
       <>
-        <h1>{t('player.newItem', { n: state.card + 1, total: cards.length })}</h1>
+        <h1>
+          {card.facet === 'reading' ? (
+            <>
+              {t('player.readingOf')}{' '}
+              <span lang={plugin.code}>
+                {plugin.teachingCard(card.item, session.sectionLevel).term}
+              </span>
+            </>
+          ) : (
+            t('player.newItem', { n, total })
+          )}
+        </h1>
         <TeachingCard
-          card={cards[state.card]!}
+          // A fresh card each time, so its stroke animation and audio start over.
+          key={state.card}
+          card={card}
           plugin={plugin}
           sectionLevel={session.sectionLevel}
         />

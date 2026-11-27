@@ -546,6 +546,9 @@ export const en = {
     intro: 'This lesson teaches {{count}} new items.',
     start: 'Start',
     newItem: 'New item {{n}} of {{total}}',
+    // Product Spec section 5: a kanji's reading card, after its meaning exercises.
+    // The term follows, in its own language.
+    readingOf: 'How to read',
     reading: 'Reading',
     meaning: 'Meaning',
     example: 'Example',

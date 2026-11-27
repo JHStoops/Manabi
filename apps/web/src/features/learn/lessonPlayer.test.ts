@@ -18,6 +18,8 @@ const session = (cards: number, exercises: number): LessonSession => ({
     examples: [],
     words: [],
     strokeAnimation: false,
+    facet: null,
+    before: 0,
   })),
   exercises: Array.from({ length: exercises }, (_, i) => ({ type: 'test_echo', payload: { i } })),
 });
@@ -125,6 +127,127 @@ describe('lessonPlayerReducer', () => {
     state = reduce(state, { type: 'completed', completion: completion as never });
     expect(state).toMatchObject({ phase: 'results', completion });
     expect(reduce(state, next)).toBe(state);
+  });
+
+  describe('mid-lesson teaching cards (Product Spec section 5, #237)', () => {
+    /** A kanji lesson: two meaning cards before exercise 0, two reading cards before exercise 2. */
+    const kanji = (exercises = 4): LessonSession => {
+      const base = session(4, exercises);
+      return {
+        ...base,
+        lessonType: 'kanji',
+        teachingCards: base.teachingCards.map((c, i) => ({
+          ...c,
+          item: { ...item, id: (i % 2) + 1 },
+          facet: i < 2 ? 'meaning' : 'reading',
+          before: i < 2 ? 0 : 2,
+        })),
+      };
+    };
+    const loaded = (s: LessonSession) => reduce(initialPlayerState, { type: 'loaded', session: s });
+    const right = (state: PlayerState) =>
+      reduce(reduce(reduce(state, answered('a')), correct), next);
+    const miss = (state: PlayerState) => {
+      const once = reduce(reduce(state, answered('x')), wrong);
+      return reduce(reduce(reduce(once, answered('y')), wrong), next);
+    };
+
+    it('shows the cards placed before an exercise when it comes up, then plays on', () => {
+      let state = reduce(loaded(kanji()), next);
+      expect(state).toMatchObject({ phase: 'teaching', card: 0 });
+      state = reduce(state, next);
+      expect(state).toMatchObject({ phase: 'teaching', card: 1 });
+      state = reduce(state, next);
+      expect(state).toMatchObject({ phase: 'answering', card: 2, queue: [0, 1, 2, 3] });
+      state = right(state);
+      expect(state).toMatchObject({ phase: 'answering', queue: [1, 2, 3] });
+      // After exercise 1, the reading cards come before exercise 2.
+      state = right(state);
+      expect(state).toMatchObject({ phase: 'teaching', card: 2, queue: [2, 3], step: 2 });
+      expect(state.grade).toBeNull();
+      state = reduce(state, next);
+      expect(state).toMatchObject({ phase: 'teaching', card: 3 });
+      state = reduce(state, next);
+      expect(state).toMatchObject({ phase: 'answering', card: 4, queue: [2, 3] });
+      state = right(right(state));
+      expect(state.phase).toBe('completing');
+      expect(state.responses).toEqual(Array.from({ length: 4 }, () => ({ attempts: ['a'] })));
+    });
+
+    it('records a miss before the card and replays it in the retry round without the cards again', () => {
+      let state = reduce(reduce(reduce(loaded(kanji()), next), next), next);
+      state = right(state);
+      state = miss(state); // exercise 1, wrong twice: back at the end
+      expect(state).toMatchObject({ phase: 'teaching', card: 2, queue: [2, 3, 1] });
+      state = reduce(reduce(state, next), next);
+      state = right(right(state));
+      // The retry round: exercise 1 again, and no card comes back.
+      expect(state).toMatchObject({ phase: 'answering', card: 4, queue: [1] });
+      state = right(state);
+      expect(state.phase).toBe('completing');
+      expect(state.responses[1]).toEqual({ attempts: ['x', 'y'] });
+    });
+
+    it('shows a card placed after the last exercise before completing', () => {
+      const s = kanji(2);
+      let state = reduce(reduce(reduce(loaded(s), next), next), next);
+      state = right(right(state));
+      expect(state).toMatchObject({ phase: 'teaching', card: 2, queue: [] });
+      state = reduce(reduce(state, next), next);
+      expect(state.phase).toBe('completing');
+    });
+
+    it('shows a card placed after the last exercise before the retry round', () => {
+      let state = reduce(reduce(reduce(loaded(kanji(2)), next), next), next);
+      state = miss(right(state));
+      expect(state).toMatchObject({ phase: 'teaching', card: 2, queue: [1] });
+      state = reduce(reduce(state, next), next);
+      expect(state).toMatchObject({ phase: 'answering', card: 4, queue: [1] });
+      expect(right(state).phase).toBe('completing');
+    });
+
+    it('shows every card first in a session saved before #237 (all before 0)', () => {
+      const old = kanji();
+      old.teachingCards = old.teachingCards.map((c) => ({ ...c, facet: null, before: 0 }));
+      let state = reduce(loaded(old), next);
+      for (const card of [1, 2, 3]) {
+        state = reduce(state, next);
+        expect(state).toMatchObject({ phase: 'teaching', card });
+      }
+      state = reduce(state, next);
+      expect(state).toMatchObject({ phase: 'answering', queue: [0, 1, 2, 3] });
+      for (let i = 0; i < 4; i++) state = right(state);
+      expect(state.phase).toBe('completing');
+    });
+
+    it('sorts cards into showing order', () => {
+      const s = kanji();
+      s.teachingCards = [...s.teachingCards].reverse();
+      const state = loaded(s);
+      expect(
+        'teachingCards' in state.session! && state.session.teachingCards.map((c) => c.before),
+      ).toEqual([0, 0, 2, 2]);
+    });
+
+    it('keeps a card before the same exercise when listening exercises are dropped (FR-135)', () => {
+      const s = kanji();
+      s.exercises[0] = { type: 'listen_choose', payload: {} };
+      let state = reduce(loaded(s), { type: 'canSpeak', canSpeak: false });
+      expect(state.session!.exercises).toHaveLength(3);
+      expect(
+        'teachingCards' in state.session! && state.session.teachingCards.map((c) => c.before),
+      ).toEqual([0, 0, 1, 1]);
+      state = reduce(reduce(reduce(state, next), next), next);
+      state = right(state);
+      expect(state).toMatchObject({ phase: 'teaching', card: 2, queue: [1, 2] });
+    });
+
+    it('ignores a late voice change once an exercise has been played', () => {
+      let state = reduce(reduce(reduce(loaded(kanji()), next), next), next);
+      state = right(right(state));
+      expect(state.phase).toBe('teaching');
+      expect(reduce(state, { type: 'canSpeak', canSpeak: false })).toBe(state);
+    });
   });
 
   it('records a load failure', () => {
