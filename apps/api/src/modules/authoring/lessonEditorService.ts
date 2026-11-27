@@ -124,7 +124,7 @@ const segment = async (plugin: LanguagePlugin, text: string): Promise<Tile[]> =>
  * the author may have edited them. A word bank whose tiles change gets their order as its only
  * accepted order, since accepted orders index the tiles.
  */
-async function fillTiles(
+export async function fillTiles(
   plugin: LanguagePlugin,
   type: string,
   payload: JsonObject,

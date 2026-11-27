@@ -530,3 +530,79 @@ describe('LessonPlayerPage test-out', () => {
     expect(screen.getByText('Accuracy 80%')).toBeTruthy();
   });
 });
+
+// FR-054, Product Spec section 4: "my answer should be accepted" on a wrong answer's feedback bar.
+describe('LessonPlayerPage answer reports', () => {
+  // The dummy type grades against `answer`; an `accept` list makes it reportable like EX-04.
+  const typed = (i: number) => ({
+    type: TEST_EXERCISE_TYPE,
+    payload: { prompt: `Type a${i}`, answer: `a${i}`, accept: [{ text: `a${i}`, tiles: [] }] },
+  });
+  const withAccept = { ...session, exercises: session.exercises.map((_, i) => typed(i)) };
+
+  function respond(start: object, report: () => Promise<unknown> = () => Promise.resolve({})) {
+    return jest.fn((path: string) =>
+      path === '/api/v1/answer-reports'
+        ? report()
+        : Promise.resolve(path.endsWith('/sessions') || path.endsWith('/preview') ? start : {}),
+    );
+  }
+
+  async function missTwice() {
+    await startExercises();
+    await answer('nope');
+    expect(screen.queryByRole('button', { name: 'My answer should be accepted' })).toBeNull();
+    await answer('still nope');
+  }
+
+  it('reports the final wrong answer with the session and exercise, once', async () => {
+    const api = show(respond(withAccept));
+    await missTwice();
+    fireEvent.click(button('My answer should be accepted'));
+    expect(await screen.findByText('Thanks! An author will look at your answer.')).toBeTruthy();
+    expect(api.POST).toHaveBeenCalledWith('/api/v1/answer-reports', {
+      body: {
+        session: { kind: 'lesson', id: 7 },
+        exercise: typed(0),
+        answer: 'still nope',
+      },
+    });
+    expect(screen.queryByRole('button', { name: 'My answer should be accepted' })).toBeNull();
+
+    // The next exercise starts without a report.
+    fireEvent.click(button('Continue'));
+    await answer('a1');
+    expect(screen.queryByText('Thanks! An author will look at your answer.')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'My answer should be accepted' })).toBeNull();
+  });
+
+  it('says why a report failed and lets the learner try again', async () => {
+    const failing = jest
+      .fn<Promise<unknown>, []>()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({});
+    show(respond(withAccept, failing));
+    await missTwice();
+    fireEvent.click(button('My answer should be accepted'));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    fireEvent.click(button('My answer should be accepted'));
+    expect(await screen.findByText('Thanks! An author will look at your answer.')).toBeTruthy();
+    expect(failing).toHaveBeenCalledTimes(2);
+  });
+
+  it('offers no report on exercises without an accept list', async () => {
+    show(respond(session));
+    await missTwice();
+    expect(screen.getByText(/The answer is: a0/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'My answer should be accepted' })).toBeNull();
+  });
+
+  it('offers no report in a preview, which has no session', async () => {
+    const preview: Partial<LessonSession> = { ...withAccept };
+    delete preview.id;
+    show(respond(preview), '/authoring/lessons/3/preview');
+    await missTwice();
+    expect(screen.getByText(/The answer is: a0/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'My answer should be accepted' })).toBeNull();
+  });
+});

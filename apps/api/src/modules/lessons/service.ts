@@ -54,12 +54,23 @@ import * as q from './queries';
 // FR-050, FR-051 to FR-053, FR-056; SDD sections 6 and 7).
 
 /** JSON with object keys sorted, so equal values compare equal (jsonb reorders keys). */
-function stableJson(value: unknown): string {
+export function stableJson(value: unknown): string {
   return JSON.stringify(value, (_key, v: unknown) =>
     v && typeof v === 'object' && !Array.isArray(v)
       ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1)))
       : v,
   );
+}
+
+/**
+ * What makes two session exercises the same question: type and payload, ignoring the accept list,
+ * so a pinned copy whose list an author extended (FR-229) replaces its generated original
+ * instead of being served next to it.
+ */
+function questionKey(e: SessionExercise): string {
+  const payload = { ...e.payload };
+  delete payload.accept;
+  return stableJson({ type: e.type, payload });
 }
 
 export function toItem(row: ItemRow): Item {
@@ -346,7 +357,7 @@ async function buildTestOutState(
 /**
  * SDD section 6: the stored exercises (up to `max`), then the recipe's generators over the new
  * items until there are `target`. Every exercise uses taught items only (FR-048), and no two are
- * identical (same type and deeply equal payload). With `drawing` off, a stored drawing exercise
+ * the same question (`questionKey`). With `drawing` off, a stored drawing exercise
  * becomes the plugin's EX-01 for the same item, and the recipe's drawing types are skipped (FR-074).
  * A drawing exercise for a character without stroke data (not in `strokeKeys`) is treated the
  * same way, since it could not be drawn (FR-072).
@@ -372,7 +383,7 @@ function fillExercises(
   const exercises: SessionExercise[] = [];
   const seen = new Set<string>();
   const add = (e: SessionExercise) => {
-    const key = stableJson(e);
+    const key = questionKey(e);
     if (seen.has(key) || exercises.length >= max) return false;
     seen.add(key);
     exercises.push(e);
@@ -459,7 +470,7 @@ function fillFlow(
   const placed: { step: number; exercise: SessionExercise }[] = [];
   const seen = new Set<string>();
   const add = (exercise: SessionExercise, step: number) => {
-    const key = stableJson(exercise);
+    const key = questionKey(exercise);
     if (placed.length >= max || seen.has(key) || !usable(exercise)) return false;
     seen.add(key);
     placed.push({ step, exercise });

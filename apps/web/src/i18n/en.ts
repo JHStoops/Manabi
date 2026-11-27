@@ -326,6 +326,23 @@ export const en = {
     },
     editLesson: 'Edit {{title}}',
     editShort: 'Edit',
+    // FR-229: the answer reports inbox.
+    reports: {
+      heading: 'Answer reports',
+      none: 'No open answer reports.',
+      summary: '{{course}} · {{type}} · reported by {{reporter}}',
+      deletedReporter: 'a deleted account',
+      answer: 'Reported answer:',
+      acceptList: 'Accepted now:',
+      generated: 'Generated exercise: accepting pins it, so the answer is kept.',
+      accept: 'Accept {{answer}}',
+      acceptShort: 'Accept',
+      dismiss: 'Dismiss {{answer}}',
+      dismissShort: 'Dismiss',
+      accepted: '{{answer}} was added to the accept list.',
+      dismissed: 'The report of {{answer}} was dismissed.',
+      more: 'Show more reports',
+    },
   },
   // FR-223, FR-224, Product Spec section 11: the lesson editor.
   lessonEditor: {
@@ -519,6 +536,9 @@ export const en = {
     retry: 'Try again',
     accuracy: 'Accuracy {{accuracy}}%',
     done: 'Done',
+    // FR-054: reporting an answer that should be accepted.
+    reportAnswer: 'My answer should be accepted',
+    reported: 'Thanks! An author will look at your answer.',
   },
   // FR-042: exercise renderers.
   exercise: {
