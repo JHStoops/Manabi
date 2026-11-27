@@ -12,10 +12,11 @@ export const plugins = createLanguagePluginRegistry([japanese]);
 export const ActivePluginContext = createContext<LanguagePlugin | null>(null);
 
 /**
- * Whether the active plugin is still being looked up, known (`ready`), or known to be absent
- * (`none`: no active course, an unknown plugin, or courses that failed to load). FR-241.
+ * Whether the active plugin is still being looked up, known (`ready`), known to be absent
+ * (`none`: no active course or an unknown plugin), or not known because the courses failed to
+ * load (`error`). FR-241.
  */
-export type ActivePluginStatus = 'loading' | 'ready' | 'none';
+export type ActivePluginStatus = 'loading' | 'ready' | 'none' | 'error';
 
 /** Without a provider the plugin is reported as still loading. */
 export const ActivePluginStatusContext = createContext<ActivePluginStatus>('loading');
@@ -26,9 +27,11 @@ export function ActivePluginProvider({ children }: { children: ReactNode }) {
   // Enrolling dispatches the new active course to the session (LearnPage), so this follows it.
   const { activeCourseId } = useSettings();
   // The lookup's outcome for one course; derived below, so a changed course never shows the last one's.
-  const [looked, setLooked] = useState<{ courseId: number; plugin: LanguagePlugin | null } | null>(
-    null,
-  );
+  const [looked, setLooked] = useState<{
+    courseId: number;
+    plugin: LanguagePlugin | null;
+    failed: boolean;
+  } | null>(null);
 
   useEffect(() => {
     let current = true;
@@ -40,10 +43,11 @@ export function ActivePluginProvider({ children }: { children: ReactNode }) {
           setLooked({
             courseId: activeCourseId,
             plugin: code && plugins.has(code) ? plugins.get(code) : null,
+            failed: false,
           });
       },
       // Features stay off when courses cannot be loaded; the Learn tab shows the error.
-      () => current && setLooked({ courseId: activeCourseId, plugin: null }),
+      () => current && setLooked({ courseId: activeCourseId, plugin: null, failed: true }),
     );
     return () => {
       current = false;
@@ -53,7 +57,15 @@ export function ActivePluginProvider({ children }: { children: ReactNode }) {
   const known = activeCourseId !== null && looked?.courseId === activeCourseId;
   const plugin = known ? looked.plugin : null;
   const status: ActivePluginStatus =
-    activeCourseId === null ? 'none' : !known ? 'loading' : plugin ? 'ready' : 'none';
+    activeCourseId === null
+      ? 'none'
+      : !known
+        ? 'loading'
+        : looked.failed
+          ? 'error'
+          : plugin
+            ? 'ready'
+            : 'none';
 
   return (
     <ActivePluginStatusContext.Provider value={status}>

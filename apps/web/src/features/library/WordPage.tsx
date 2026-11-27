@@ -9,6 +9,7 @@ import { apiErrorMessage } from '../auth/ui';
 import { AnnotatedText } from '../text/AnnotatedText';
 import { ActivePluginContext, ActivePluginStatusContext } from '../../state/plugins';
 import { tapTarget } from '../../theme';
+import { BackLink } from './BackLink';
 import { useApi } from '../../state/session';
 
 // FR-100: reading, meanings, part of speech, audio, an example sentence and links to the
@@ -47,6 +48,8 @@ export default function WordPage() {
   if (problem) return <p role="alert">{problem}</p>;
   // The page needs the course plugin (its voice and reading annotations); without one it says so.
   if (plugin === null && pluginStatus === 'none') return <p>{t('library.wordUnavailable')}</p>;
+  if (plugin === null && pluginStatus === 'error')
+    return <p role="alert">{t('app.courseLoadFailed')}</p>;
   if (!item || !plugin) return <p>{t('app.loading')}</p>;
   // A key of another item type (a stale link) has no word data to show.
   if (item.type !== 'word') return <p role="alert">{t('library.notAWord')}</p>;
@@ -61,6 +64,7 @@ export default function WordPage() {
 
   return (
     <SpeechProvider locale={plugin.ttsVoice.locale}>
+      <BackLink to="/library">{t('area.library')}</BackLink>
       <h1 lang={plugin.code}>{written}</h1>
       <p lang={plugin.code}>
         {reading} <SpeakerButton reading={reading} what="word" />

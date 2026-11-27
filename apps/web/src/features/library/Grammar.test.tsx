@@ -96,6 +96,13 @@ describe('GrammarReferencePage', () => {
     );
   });
 
+  it('gives each point link a 44 px tap target (#263, IF-03)', async () => {
+    mount(<GrammarReferencePage />, list, '/library/grammar');
+    const style = getComputedStyle(await screen.findByRole('link', { name: 'Verb + はず' }));
+    expect(style.minHeight).toBe('44px');
+    expect(style.minWidth).toBe('44px');
+  });
+
   it('searches through the API', async () => {
     mount(<GrammarReferencePage />, list, '/library/grammar');
     await screen.findByRole('heading', { name: 'N5' });

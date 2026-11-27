@@ -256,9 +256,12 @@ export default function CharacterLibraryPage() {
   };
 
   // FR-241: only a course whose plugin has character study has this screen. With no plugin at all
-  // (no active course, an unknown plugin, or courses that failed to load) it is off, not loading.
+  // (no active course or an unknown plugin) it is off, and a failed course load says so; never
+  // "Loading…" forever.
   if (plugin === null && pluginStatus === 'none')
     return <p>{t(activeCourseId === null ? 'characters.noCourse' : 'characters.unavailable')}</p>;
+  if (plugin === null && pluginStatus === 'error')
+    return <p role="alert">{t('app.courseLoadFailed')}</p>;
   if (plugin === null) return <p>{t('app.loading')}</p>;
   if (!plugin.features.characterStudy) return <p>{t('characters.unavailable')}</p>;
 
@@ -348,7 +351,6 @@ export default function CharacterLibraryPage() {
         </label>
       </Controls>
 
-      {activeCourseId === null && <p>{t('characters.noCourse')}</p>}
       {list.problem && (
         <p role="alert">
           {list.problem}{' '}

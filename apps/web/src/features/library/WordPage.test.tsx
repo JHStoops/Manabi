@@ -72,6 +72,12 @@ function mount(body: unknown) {
   return GET;
 }
 
+function expectTapTarget(link: HTMLElement) {
+  const style = getComputedStyle(link);
+  expect(style.minHeight).toBe('44px');
+  expect(style.minWidth).toBe('44px');
+}
+
 describe('WordPage', () => {
   it('shows the word with a link to each of its kanji', async () => {
     const GET = mount(detail([kanjiLink('日'), kanjiLink('本')]));
@@ -87,6 +93,12 @@ describe('WordPage', () => {
       '/library/kanji/ja%3Akanji%3A%E6%97%A5',
     );
     screen.getByRole('link', { name: '本' });
+  });
+
+  it('has 44 px back and kanji links (#263, IF-03)', async () => {
+    mount(detail([kanjiLink('日')]));
+    expectTapTarget(await screen.findByRole('link', { name: 'Library' }));
+    expectTapTarget(screen.getByRole('link', { name: '日' }));
   });
 
   it('omits the kanji section for a kana word and says when not started', async () => {

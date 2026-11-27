@@ -88,16 +88,24 @@ describe('without a course plugin (#263)', () => {
     expect(screen.queryByText('Loading…')).toBeNull();
   });
 
-  it.each<Case>(['unknown plugin', 'courses fail'])(
-    'the character grid says there is no character study: %s',
-    async (which) => {
-      mount('characters', which);
-      await screen.findByText("This course's language has no character study.");
+  it('the character grid says there is no character study for an unknown plugin', async () => {
+    mount('characters', 'unknown plugin');
+    await screen.findByText("This course's language has no character study.");
+    expect(screen.queryByText('Loading…')).toBeNull();
+  });
+
+  it.each(['characters', 'word'] as const)(
+    'the %s page says the course could not be loaded when the courses fail',
+    async (page) => {
+      mount(page, 'courses fail');
+      expect((await screen.findByRole('alert')).textContent).toBe(
+        'Your course could not be loaded. Check your connection and reload the page.',
+      );
       expect(screen.queryByText('Loading…')).toBeNull();
     },
   );
 
-  it.each<Case>(['no course', 'unknown plugin', 'courses fail'])(
+  it.each<Case>(['no course', 'unknown plugin'])(
     'the word page says it needs a course: %s',
     async (which) => {
       mount('word', which);

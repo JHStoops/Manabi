@@ -1,6 +1,9 @@
 // FR-243: English UI string catalog. Every visible string comes from here.
 export const en = {
-  app: { loading: 'Loading…' },
+  app: {
+    loading: 'Loading…',
+    courseLoadFailed: 'Your course could not be loaded. Check your connection and reload the page.',
+  },
   nav: { label: 'Main', skip: 'Skip to content' },
   // FR-135: the speaker buttons.
   audio: {
