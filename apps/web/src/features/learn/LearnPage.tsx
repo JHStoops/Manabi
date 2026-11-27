@@ -109,7 +109,7 @@ const Band = styled.section<{ bandColor: string }>`
     padding: ${({ theme }) => theme.spacing(3)} ${({ theme }) => theme.spacing(4)};
     border-radius: ${({ theme }) => theme.radii.medium};
     background: ${({ bandColor }) => bandColor};
-    color: #ffffff;
+    color: ${({ bandColor }) => readableOn(bandColor, '#ffffff', '#000000')};
     font-size: ${({ theme }) => theme.fontSizes.body};
   }
   h3 {
@@ -356,7 +356,7 @@ function PathScreen() {
   else {
     let n = 0; // node count along the whole path, so the winding continues across units
     body = (
-      <Path>
+      <div>
         {path.sections.map((section, s) => {
           const color = theme.sectionColors[s % theme.sectionColors.length]!;
           return (
@@ -385,16 +385,17 @@ function PathScreen() {
             </Band>
           );
         })}
-      </Path>
+      </div>
     );
   }
 
+  // One centered column, so the header and stats line up with the path below them.
   return (
-    <>
+    <Path>
       <CourseHeader />
       <DailyStats />
       {body}
-    </>
+    </Path>
   );
 }
 

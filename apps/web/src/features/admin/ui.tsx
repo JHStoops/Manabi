@@ -29,11 +29,14 @@ export const Form = styled.form`
 export const Table = styled.table`
   border-collapse: collapse;
   width: 100%;
+  /* Phones scroll the table sideways (Section) instead of crushing its columns. */
+  min-width: 40rem;
 
   th,
   td {
     text-align: left;
-    padding: ${({ theme }) => theme.spacing(1)};
+    padding: ${({ theme }) => theme.spacing(2)};
+    vertical-align: middle;
     border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   }
 `;

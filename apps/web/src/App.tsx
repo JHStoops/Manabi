@@ -36,46 +36,85 @@ const tabs = ['learn', 'review', 'library', 'social', 'profile'] as const;
 const Shell = styled.div<{ wide: boolean }>`
   display: flex;
   flex-direction: ${({ wide }) => (wide ? 'row' : 'column')};
-  min-height: 100vh;
-  background: ${({ theme }) => theme.colors.background};
-  color: ${({ theme }) => theme.colors.text};
-  font-family: system-ui, sans-serif;
+  min-height: 100dvh;
 `;
 
 const Nav = styled.nav<{ wide: boolean }>`
   display: flex;
   flex-direction: ${({ wide }) => (wide ? 'column' : 'row')};
   gap: ${({ theme }) => theme.spacing(1)};
-  padding: ${({ theme }) => theme.spacing(2)};
   position: sticky;
+  z-index: 1;
+  background: ${({ theme }) => theme.colors.surface};
   ${({ wide, theme }) =>
     wide
-      ? `top: 0; height: 100vh; border-right: 1px solid ${theme.colors.border};`
-      : `bottom: 0; border-top: 1px solid ${theme.colors.border};`}
-  background: ${({ theme }) => theme.colors.surface};
+      ? `top: 0;
+         flex: 0 0 auto;
+         width: 120px;
+         height: 100dvh;
+         padding: ${theme.spacing(4)} ${theme.spacing(2)};
+         border-right: 1px solid ${theme.colors.border};`
+      : `bottom: 0;
+         padding: ${theme.spacing(1)} ${theme.spacing(1)} max(${theme.spacing(1)}, env(safe-area-inset-bottom));
+         border-top: 1px solid ${theme.colors.border};
+         /* Equal shares, so six tabs still fit at 360 px. */
+         gap: 0;
+         > a { flex: 1 1 0; justify-content: center; padding: ${theme.spacing(2)} 2px; font-size: 0.75rem; }`}
 `;
 
 const Tab = styled(NavLink)`
   ${({ theme }) => tapTarget(theme)};
-  flex: 1 0 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
   padding: ${({ theme }) => theme.spacing(2)};
-  border-radius: ${({ theme }) => theme.radii.medium};
+  border-radius: ${({ theme }) => theme.radii.small};
   color: ${({ theme }) => theme.colors.textMuted};
   font-size: ${({ theme }) => theme.fontSizes.small};
+  font-weight: 600;
   text-decoration: none;
 
+  &:hover {
+    color: ${({ theme }) => theme.colors.text};
+  }
+  /* The current tab is marked by weight and a tint, not color alone (NFR-31). */
   &.active {
+    background: ${({ theme }) => theme.colors.background};
     color: ${({ theme }) => theme.colors.primary};
-    font-weight: 700;
+    font-weight: 800;
   }
 `;
 
 const Main = styled.main`
   flex: 1;
-  padding: ${({ theme }) => theme.spacing(4)};
+  min-width: 0;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: ${({ theme }) => theme.spacing(6)} ${({ theme }) => theme.spacing(4)}
+    ${({ theme }) => theme.spacing(10)};
+  @media (min-width: 768px) {
+    padding: ${({ theme }) => theme.spacing(8)} ${({ theme }) => theme.spacing(8)};
+  }
+  &:focus {
+    outline: none;
+  }
+`;
+
+// IF-03: keyboard users can jump past the rail; hidden until focused.
+const SkipLink = styled.a`
+  position: absolute;
+  left: ${({ theme }) => theme.spacing(2)};
+  top: ${({ theme }) => theme.spacing(2)};
+  z-index: 2;
+  padding: ${({ theme }) => theme.spacing(2)} ${({ theme }) => theme.spacing(4)};
+  border-radius: ${({ theme }) => theme.radii.small};
+  background: ${({ theme }) => theme.colors.primary};
+  color: ${({ theme }) => theme.colors.primaryText};
+  transform: translateY(-200%);
+  &:focus {
+    transform: none;
+  }
 `;
 
 function Loading() {
@@ -100,8 +139,9 @@ function Layout() {
   // IF-03: DOM order matches visual order, so the rail comes before main and the tab bar after.
   return (
     <Shell wide={wide}>
+      <SkipLink href="#main">{t('nav.skip')}</SkipLink>
       {wide && nav}
-      <Main>
+      <Main id="main" tabIndex={-1}>
         <Suspense fallback={<Loading />}>
           <ActivePluginProvider>
             <Outlet />

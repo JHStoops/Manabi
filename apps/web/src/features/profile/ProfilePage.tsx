@@ -35,6 +35,11 @@ type Changes = Partial<Omit<Settings, 'newItemCap' | 'reviewCap'>> & {
 
 const GOALS = dailyGoalSchema.options.map((goal) => goal.value);
 
+// A readable line length for the settings fields on wide screens.
+const Settings = styled.form`
+  max-width: 40rem;
+`;
+
 const Group = styled.fieldset`
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.medium};
@@ -168,7 +173,7 @@ function SettingsForm({ user }: { user: User }) {
   );
 
   return (
-    <form onSubmit={save} noValidate>
+    <Settings onSubmit={save} noValidate>
       {group(
         t('profile.groups.profile'),
         <>
@@ -328,7 +333,7 @@ function SettingsForm({ user }: { user: User }) {
       <Button type="submit" disabled={busy}>
         {t('profile.save')}
       </Button>
-    </form>
+    </Settings>
   );
 }
 

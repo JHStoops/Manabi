@@ -1,5 +1,5 @@
 import { themeSchema } from '@manabi/core';
-import { contrastRatio } from './contrast';
+import { contrastRatio, readableOn } from './contrast';
 import { themeFor, themes } from './themes';
 
 // FR-166, NFR-30, NFR-31: every theme in both modes.
@@ -33,6 +33,17 @@ describe('themes', () => {
       }
       for (const color of [colors.correct, colors.tryAgain, colors.wrong]) {
         expect(contrastRatio(colors.surface, color)).toBeGreaterThanOrEqual(3);
+      }
+    },
+  );
+
+  it.each(themes.map((t) => [`${t.name} ${t.mode}`, t] as const))(
+    '%s has path bands that stand out from the page and carry readable titles',
+    (_label, { colors, sectionColors }) => {
+      for (const band of sectionColors) {
+        expect(contrastRatio(band, colors.background)).toBeGreaterThanOrEqual(3);
+        const title = readableOn(band, '#ffffff', '#000000');
+        expect(contrastRatio(title, band)).toBeGreaterThanOrEqual(4.5);
       }
     },
   );

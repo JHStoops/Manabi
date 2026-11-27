@@ -85,6 +85,14 @@ describe('App shell', () => {
     expect(nav.nextElementSibling?.tagName).toBe('MAIN');
   });
 
+  it('offers a skip link to the main content before the rail (IF-03)', async () => {
+    await renderApp('/learn', 'learner', true);
+    const skip = await screen.findByRole('link', { name: 'Skip to content' });
+    const main = document.querySelector('main')!;
+    expect(skip.getAttribute('href')).toBe(`#${main.id}`);
+    expect(main.tabIndex).toBe(-1);
+  });
+
   it('hides the admin entry from learners and never loads the admin chunk for them', async () => {
     await renderApp('/admin', 'learner');
     expect(await screen.findByRole('heading', { name: 'Learn' })).toBeTruthy();
