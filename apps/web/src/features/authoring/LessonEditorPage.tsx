@@ -7,7 +7,7 @@ import { japanese } from '@manabi/lang-ja';
 import { useApi } from '../../state/session';
 import { apiErrorMessage } from '../auth/ui';
 import { Button, Form, Section } from '../admin/ui';
-import { ExerciseForm } from './ExerciseForm';
+import { ExerciseForm, exerciseSummary as summary } from './ExerciseForm';
 import { ItemPicker } from './ItemPicker';
 
 // FR-223, FR-224, FR-049, Product Spec section 11: the lesson editor. Choose the new items, then
@@ -23,11 +23,6 @@ type Editing = {
   id?: number;
   payload?: Record<string, unknown>;
 } | null;
-
-/** A one-line summary of an exercise: its prompt, else its payload. */
-function summary({ payload }: { payload: Record<string, unknown> }): string {
-  return typeof payload.prompt === 'string' ? payload.prompt : JSON.stringify(payload);
-}
 
 export default function LessonEditorPage() {
   const { t } = useTranslation();

@@ -11,6 +11,7 @@ import type {
   EditorExercise,
   ExerciseWrite,
   GeneratedExercises,
+  ItemExercises,
   LanguagePlugin,
   LessonEditor,
   LessonPreview,
@@ -120,7 +121,8 @@ export const segment = async (plugin: LanguagePlugin, text: string): Promise<Til
 
 /**
  * FR-238, DR-12: fills in the tiles of the payload's answer text (accept-list answers, and a word
- * bank's answer) that come without tiles, or all of them on `resegment`. Tiles sent are kept, as
+ * bank's answer) that come without tiles, or all of them on `resegment`; base-language answers
+ * get none. Tiles sent are kept, as
  * the author may have edited them. A word bank whose tiles change gets their order as its only
  * accepted order, since accepted orders index the tiles.
  */
@@ -130,7 +132,10 @@ async function fillTiles(
   payload: JsonObject,
   resegment: boolean,
 ): Promise<void> {
-  const accept: unknown[] = Array.isArray(payload.accept) ? payload.accept : [];
+  // Answers in the base language (an English meaning) are not segmented, as accepting an answer
+  // report leaves them (FR-229).
+  const accept: unknown[] =
+    Array.isArray(payload.accept) && payload.answerLanguage !== 'base' ? payload.accept : [];
   for (const answer of accept) {
     if (isObject(answer) && typeof answer.text === 'string' && (resegment || untiled(answer)))
       answer.tiles = await segment(plugin, answer.text);
@@ -150,7 +155,7 @@ async function fillTiles(
 /** FR-223: the payload with its tiles filled in, validated by its exercise type's schema. */
 async function preparePayload(
   db: Queryable,
-  lesson: q.EditorLessonRow,
+  lesson: Pick<q.EditorLessonRow, 'plugin' | 'course_id' | 'target_lang'>,
   type: string,
   body: { payload: JsonObject; resegment?: boolean | undefined },
 ): Promise<{ payload: JsonObject; blockedWords: string[] }> {
@@ -210,15 +215,25 @@ export async function createExercise(
   return { exercise: toEditorExercise(row), blockedWords };
 }
 
-/** FR-223: replaces an exercise's payload; its type stays. */
+async function activeItem(db: Queryable, id: number) {
+  return (await q.findEditorItem(db, id)) ?? notFound('Item');
+}
+
+/**
+ * FR-223: replaces an exercise's payload; its type stays. A lesson's exercise, or an item-level
+ * one such as a review pin (#241, Product Spec section 11).
+ */
 export async function updateExercise(
   pool: Pool,
   id: number,
   body: UpdateExerciseRequest,
 ): Promise<ExerciseWrite> {
-  const row = (await q.findLessonExercise(pool, id)) ?? notFound('Exercise');
-  const lesson = await activeLesson(pool, row.lesson_id!);
-  const { payload, blockedWords } = await preparePayload(pool, lesson, row.type, body);
+  const lessonRow = await q.findLessonExercise(pool, id);
+  const row = lessonRow ?? (await q.findItemExercise(pool, id)) ?? notFound('Exercise');
+  const owner = lessonRow
+    ? await activeLesson(pool, row.lesson_id!)
+    : await activeItem(pool, row.item_id!);
+  const { payload, blockedWords } = await preparePayload(pool, owner, row.type, body);
   const updated = await q.updateExercisePayload(pool, id, payload);
   return { exercise: toEditorExercise(updated), blockedWords };
 }
@@ -236,4 +251,30 @@ export async function deleteExercise(pool: Pool, id: number): Promise<LessonEdit
     return row.lesson_id!;
   });
   return getLessonEditor(pool, lessonId);
+}
+
+/** #241, Product Spec section 11: an item's item-level exercises, such as review pins (FR-229). */
+export async function listItemExercises(db: Queryable, itemId: number): Promise<ItemExercises> {
+  await activeItem(db, itemId);
+  return { exercises: (await q.listItemExercises(db, itemId)).map(toEditorExercise) };
+}
+
+/** #241: removes an item-level exercise; archived instead when an answer report refers to it. */
+export async function deleteItemExercise(
+  pool: Pool,
+  itemId: number,
+  id: number,
+): Promise<ItemExercises> {
+  await withTransaction(pool, async (db) => {
+    await activeItem(db, itemId);
+    // Locked, as accepting an answer report locks the exercise it extends.
+    const row = await q.findItemExercise(db, id, true);
+    if (row?.item_id !== itemId) notFound('Exercise');
+    await deleteOrArchive(
+      db,
+      () => q.deleteExercise(db, id),
+      () => q.archiveExercise(db, id),
+    );
+  });
+  return listItemExercises(pool, itemId);
 }

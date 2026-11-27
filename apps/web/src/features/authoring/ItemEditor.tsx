@@ -7,9 +7,11 @@ import type { AuthoringItem, AuthoringItemSummary, ItemField, JsonObject } from 
 import { useApi } from '../../state/session';
 import { apiErrorMessage } from '../auth/ui';
 import { Button, Form, Section } from '../admin/ui';
+import { ItemExercises } from './ItemExercises';
 
 // FR-221, DR-06, DR-09, Product Spec section 11 (Content editor): find an item, edit its fields
 // with the imported values pre-filled, and clear an override to get the imported value back.
+// #241: list, edit and remove the item's item-level exercises.
 // The form is built from the field metadata the API derives from the plugin's item schema.
 
 const Fields = styled.form`
@@ -139,6 +141,7 @@ export function ItemEditor({ courseId }: { courseId: number }) {
           onSaved={setItem}
         />
       )}
+      {item && <ItemExercises key={item.id} itemId={item.id} itemKey={item.key} />}
     </Section>
   );
 }

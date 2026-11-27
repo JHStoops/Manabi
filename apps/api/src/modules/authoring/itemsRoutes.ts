@@ -7,8 +7,11 @@ import {
   authoringItemSchema,
   createItemRequestSchema,
   emptyQuerySchema,
+  itemExerciseParamsSchema,
+  itemExercisesSchema,
   updateItemOverridesRequestSchema,
 } from '@manabi/core';
+import * as editor from './lessonEditorService';
 import * as authoring from './itemsService';
 
 const errors = {
@@ -82,5 +85,35 @@ export const itemsRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     async (request, reply) =>
       reply.status(201).send(await authoring.createItem(app.db, request.body)),
+  );
+
+  app.get(
+    '/authoring/items/:id/exercises',
+    {
+      schema: {
+        summary: "An item's item-level exercises, such as review exercises pinned from reports",
+        description: 'Oldest first. Edit one with PATCH /authoring/exercises/{id}.',
+        tags,
+        querystring: emptyQuerySchema,
+        params: authoringItemIdParamsSchema,
+        response: { 200: itemExercisesSchema, ...errors },
+      },
+    },
+    async (request) => editor.listItemExercises(app.db, request.params.id),
+  );
+
+  app.delete(
+    '/authoring/items/:id/exercises/:exerciseId',
+    {
+      schema: {
+        summary: 'Remove an item-level exercise; archived instead if an answer report refers to it',
+        tags,
+        querystring: emptyQuerySchema,
+        params: itemExerciseParamsSchema,
+        response: { 200: itemExercisesSchema, ...errors },
+      },
+    },
+    async (request) =>
+      editor.deleteItemExercise(app.db, request.params.id, request.params.exerciseId),
   );
 };
