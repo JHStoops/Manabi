@@ -22,8 +22,9 @@ export function testDatabaseUrl(): string {
   return withDatabase(adminUrl, workerDatabaseName(base, process.env.JEST_WORKER_ID ?? '1'));
 }
 
-// Empties every table except the migration bookkeeping, resetting identity sequences. Only the
-// `public` schema: pg-boss's own schema (jobs/boss.ts) is left to pg-boss.
+// Empties every table except the migration bookkeeping and the reference data migrations seed
+// (the achievement definitions, migration 0015), resetting identity sequences. Only the `public`
+// schema: pg-boss's own schema (jobs/boss.ts) is left to pg-boss.
 // The append-only tables (review_log, xp_events) reject TRUNCATE unless manabi.allow_truncate
 // holds the current transaction id (migration 0003); the DO block runs as one transaction.
 const TRUNCATE_ALL = `
@@ -33,7 +34,7 @@ BEGIN
   SELECT string_agg(format('%I.%I', schemaname, tablename), ', ')
     INTO tables
     FROM pg_tables
-   WHERE schemaname = 'public' AND tablename <> 'pgmigrations';
+   WHERE schemaname = 'public' AND tablename NOT IN ('pgmigrations', 'achievements');
   IF tables IS NOT NULL THEN
     PERFORM set_config('manabi.allow_truncate', pg_current_xact_id()::text, true);
     EXECUTE 'TRUNCATE ' || tables || ' RESTART IDENTITY CASCADE';

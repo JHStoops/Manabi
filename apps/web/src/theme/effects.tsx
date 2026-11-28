@@ -13,7 +13,13 @@ export function useMotion(): boolean {
 }
 
 // Short tones (frequency in Hz, in order) instead of audio files: nothing to load or license.
-const effects = { correct: [660, 880], wrong: [220], complete: [523, 659, 784, 1047] };
+const effects = {
+  correct: [660, 880],
+  wrong: [220],
+  complete: [523, 659, 784, 1047],
+  // FR-165: an achievement unlocked.
+  achievement: [784, 988, 1175, 1568],
+};
 
 /** Returns play(effect); it does nothing when sound effects are off or the browser has no Web Audio. */
 export function useSound(): (effect: keyof typeof effects) => void {
