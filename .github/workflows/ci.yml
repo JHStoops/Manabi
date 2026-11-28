@@ -97,14 +97,40 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      # #284: skip the suite when a change touches only documentation (docs/ and Markdown files).
+      # Tags always run it, because the release job depends on this job.
+      - name: Decide whether the suite needs to run
+        id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          base=""
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then base="";
+          elif [[ "$EVENT" == pull_request ]]; then base="$PR_BASE";
+          elif [[ -n "$PUSH_BEFORE" && ! "$PUSH_BEFORE" =~ ^0+$ ]]; then base="$PUSH_BEFORE"; fi
+          run=true
+          if [[ -n "$base" ]] && git cat-file -e "$base^{commit}" 2>/dev/null; then
+            code=$(git diff --name-only "$base" HEAD | grep -vE '^docs/|\.md$' || true)
+            if [[ -z "$code" ]]; then run=false; fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "End-to-end suite needed: $run"
       - uses: actions/setup-node@v5
+        if: steps.changes.outputs.run == 'true'
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm ci
+      - if: steps.changes.outputs.run == 'true'
+        run: npm ci
       - name: Install Playwright Chromium
+        if: steps.changes.outputs.run == 'true'
         run: npx playwright install --with-deps chromium
       - name: End-to-end tests
+        if: steps.changes.outputs.run == 'true'
         env:
           E2E_DATABASE_URL: postgres://manabi:manabi@localhost:5432/manabi_e2e
         run: npm run e2e --workspace @manabi/web -- --trace off
@@ -117,45 +143,17 @@ jobs:
           if-no-files-found: ignore
 
   # NFR-41: release images tagged by version (v0.1.0 gives 0.1.0 and latest; a pre-release such as
-  # v0.2.0-rc.1 leaves latest alone), after the check job above passes.
+  # v0.2.0-rc.1 leaves latest alone), after the check and e2e jobs above pass. The end-to-end suite
+  # runs once, in the e2e job (#284).
   release:
-    needs: check
+    needs: [check, e2e]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
-    services:
-      # Scratch database for the end-to-end test; its contents are wiped at every start.
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: manabi
-          POSTGRES_PASSWORD: manabi
-          POSTGRES_DB: manabi_e2e
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U manabi -d manabi_e2e"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      # NFR-32, NFR-60, IF-03: end to end in a real browser (smoke test and invite to first lesson)
-      # against the production build and the API. It also runs in the e2e job on every push and PR; run it
-      # locally with `npm run e2e --workspace @manabi/web` before merging web changes.
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-      - name: End-to-end tests
-        env:
-          E2E_DATABASE_URL: postgres://manabi:manabi@localhost:5432/manabi_e2e
-        run: npm run e2e --workspace @manabi/web
       - name: Build and push to GHCR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
