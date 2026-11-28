@@ -125,6 +125,10 @@ export async function playLesson(page: Page, session: LessonSession) {
   for (const exercise of session.exercises) await answer(page, exercise);
 }
 
+// Every test signs the admin in once to make its invite, and the API allows 10 login attempts
+// per 15 minutes (NFR-12), counting the successful ones. A run uses 2 per spec (desktop and
+// mobile), so a fifth spec, or --repeat-each against one server, needs a shared admin session.
+
 /** One stroke of a character as Hanzi Writer data: its median, in a 1024 x 1024 space, y up. */
 export type Median = Array<[number, number]>;
 

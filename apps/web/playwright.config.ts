@@ -14,7 +14,9 @@ export default defineConfig({
   testDir: './e2e',
   // NFR-32 allows 5 minutes; the scripted flow itself is asserted well under that.
   timeout: 90_000,
-  use: { baseURL: `http://localhost:${port}` },
+  // Deterministic by design: no retries to paper over flakiness (#64).
+  retries: 0,
+  use: { baseURL: `http://localhost:${port}`, screenshot: 'only-on-failure' },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile', use: { ...devices['Pixel 7'] } },

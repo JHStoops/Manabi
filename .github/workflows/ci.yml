@@ -79,6 +79,7 @@ jobs:
   # locally with `npm run e2e --workspace @manabi/web` before merging web changes.
   e2e:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     services:
       # Scratch database for the end-to-end test; its contents are wiped at every start.
       postgres:
@@ -107,6 +108,13 @@ jobs:
         env:
           E2E_DATABASE_URL: postgres://manabi:manabi@localhost:5432/manabi_e2e
         run: npm run e2e --workspace @manabi/web -- --trace off
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: apps/web/test-results
+          if-no-files-found: ignore
 
   # NFR-41: release images tagged by version (v0.1.0 gives 0.1.0 and latest; a pre-release such as
   # v0.2.0-rc.1 leaves latest alone), after the check job above passes.

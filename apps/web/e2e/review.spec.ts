@@ -59,7 +59,7 @@ test('review session after the first lesson', async ({ page }, testInfo) => {
   await page.getByRole('link', { name: 'Start review' }).click();
   const session = (await (await sessionResponse).json()) as ReviewSession;
   // FR-114: at most 20 items, one exercise per due facet.
-  expect(session.exercises.length).toBeGreaterThan(0);
+  expect(session.exercises).toHaveLength(due);
   await expect(page.getByText(`Questions: ${session.exercises.length}`)).toBeVisible();
 
   // FR-114: each answer is saved as it is given, so the review log grows with every Continue.
