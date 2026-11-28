@@ -30,8 +30,7 @@ export const reviewFacets: LanguagePlugin['reviewFacets'] = (itemType, item) => 
   if (itemType !== 'word' || !item) return facets;
   const word = wordDataSchema.safeParse({ ...item.data, ...item.overrides }).data;
   if (!word || !KANA_ONLY.test(word.written)) return facets;
-  const { reading: _reading, ...rest } = facets;
-  return rest;
+  return Object.fromEntries(Object.entries(facets).filter(([facet]) => facet !== 'reading'));
 };
 
 /**
