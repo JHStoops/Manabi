@@ -63,13 +63,14 @@ export const mediaRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => {
-      const clip = await resolveClip({
+      const clipRequest = {
         db: app.db,
         tts: app.tts,
         mediaDir: app.config.mediaDir,
         log: request.log,
         ...request.params,
-      });
+      };
+      let clip = await resolveClip(clipRequest);
       // #66: the browser keeps the clip and revalidates it on every play, as the URL stays the
       // same when a reading changes or an author uploads a recording; an unchanged clip costs a
       // 304 with no body. `private`: clips are only for signed-in users.
@@ -77,7 +78,17 @@ export const mediaRoutes: FastifyPluginAsyncZod = async (app) => {
       if (etagMatches(request.headers['if-none-match'], clip.etag)) {
         return reply.code(304).send();
       }
-      return reply.type('audio/ogg').send(await readClip(app.config.mediaDir, clip.path));
+      let bytes: Buffer;
+      try {
+        bytes = await readClip(app.config.mediaDir, clip.path);
+      } catch (err) {
+        // An upload replaced the clip (and removed its file) after it was looked up: look again.
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+        clip = await resolveClip(clipRequest);
+        bytes = await readClip(app.config.mediaDir, clip.path);
+        reply.header('etag', clip.etag);
+      }
+      return reply.type('audio/ogg').send(bytes);
     },
   );
 

@@ -257,6 +257,33 @@ describeWithDb('authoring audio uploads API', () => {
     expect(put.json().error.message).toMatch(/30 seconds/);
   });
 
+  it('decodes at most 30 seconds of a file whose header claims less (DoS)', async () => {
+    const admin = await as('admin');
+    const id = await seedWord();
+    // 60 s of tone in Matroska, with the header's Duration patched down to 1 s.
+    const mkv = await convert(wav(60, { rate: 8000, channels: 1 }), [
+      ...['-c:a', 'libopus', '-b:a', '6k', '-f', 'matroska'],
+    ]);
+    const at = mkv.indexOf(Buffer.from([0x44, 0x89]));
+    expect(at).toBeGreaterThan(0);
+    const size = mkv[at + 2]! & 0x7f;
+    if (size === 8) mkv.writeDoubleBE(1000, at + 3);
+    else mkv.writeFloatBE(1000, at + 3);
+    const put = await admin('PUT', `/authoring/audio/item/${id}`, {
+      type: 'audio/webm',
+      bytes: mkv,
+    });
+    expect(put.statusCode).toBe(200);
+    const [row] = await assets();
+    const { stdout } = await run('ffprobe', [
+      ...['-v', 'error', '-of', 'json', '-show_entries', 'format=duration'],
+      join(mediaDir, row!.path),
+    ]);
+    expect(
+      Number((JSON.parse(stdout) as { format: { duration: string } }).format.duration),
+    ).toBeLessThanOrEqual(30.5);
+  });
+
   it('answers 404 for an unknown owner and stores nothing', async () => {
     const admin = await as('admin');
     await seedWord();

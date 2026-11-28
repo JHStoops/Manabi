@@ -139,9 +139,19 @@ describe('SpeakerButtons (FR-130, FR-133)', () => {
     expect(audios).toEqual([]);
   });
 
-  it('renders nothing when the device has no voice', () => {
+  it('still plays the server clip when the device has no voice (FR-135)', async () => {
     synth.getVoices.mockReturnValue([enVoice]);
     renderPair({ type: 'item', id: 3 });
+    fireEvent.click(screen.getByRole('button', { name: 'Play example slowly' }));
+    await waitFor(() => expect(play).toHaveBeenCalled());
+    expect(audios).toEqual([
+      expect.objectContaining({ src: '/api/v1/media/audio/item/3', playbackRate: 0.75 }),
+    ]);
+  });
+
+  it('renders nothing without a clip when the device has no voice', () => {
+    synth.getVoices.mockReturnValue([enVoice]);
+    renderPair();
     expect(screen.queryByRole('button')).toBeNull();
   });
 });

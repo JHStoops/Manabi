@@ -268,6 +268,8 @@ export const en = {
       limits: 'Ogg, Opus, MP3, WAV, WebM, M4A or FLAC; up to 5 MB and 30 seconds.',
       upload: 'Upload recording',
       remove: 'Remove recording',
+      uploading: 'Uploading and checking the recording…',
+      removing: 'Removing the recording…',
       saved: 'Recording saved.',
       removed: 'Recording removed; the generated voice plays again.',
       unsupported: 'Choose an Ogg, Opus, MP3, WAV, WebM, M4A or FLAC file.',

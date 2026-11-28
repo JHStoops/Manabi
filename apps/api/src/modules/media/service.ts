@@ -166,7 +166,13 @@ export async function storeUploadedClip(
   const before = await findUploadedAudio(db, ownerType, ownerId);
   const path = uploadedClipPath(ownerType, ownerId);
   await writeClip(mediaDir, path, clip);
-  await upsertUploadedAudio(db, { ownerType, ownerId, path, textHash });
+  try {
+    await upsertUploadedAudio(db, { ownerType, ownerId, path, textHash });
+  } catch (err) {
+    // No row points at the new file: remove it here, as the caller never learns its path.
+    await removeClip(mediaDir, path).catch(() => {});
+    throw err;
+  }
   return { written: path, replaced: before?.path ?? null };
 }
 
@@ -181,6 +187,10 @@ export async function uploadClip(
   owner: { ownerType: AudioOwnerType; ownerId: number },
   bytes: Uint8Array,
 ): Promise<AuthoringAudioStatus> {
+  // Unknown owners are refused before any transcoding work.
+  if (!(await findAudioOwner(pool, owner.ownerType, owner.ownerId))) {
+    throw new AppError('not_found', `No such ${owner.ownerType}`);
+  }
   let clip: Buffer;
   try {
     clip = await transcodeUpload(bytes);
@@ -197,7 +207,7 @@ export async function uploadClip(
     });
     if (result.replaced) await removeClip(mediaDir, result.replaced);
   } catch (err) {
-    if (written) await removeClip(mediaDir, written);
+    if (written) await removeClip(mediaDir, written).catch(() => {});
     throw err;
   }
   return { uploaded: true, stale: false };
@@ -221,8 +231,8 @@ export async function removeUpload(
 /**
  * #128: records a content pack's recorded clip for an owner, inside the import's transaction.
  * A clip whose bytes equal the stored upload (a pack exported here and imported back) keeps its
- * file, so round trips never re-encode it; otherwise it is checked and transcoded like an upload.
- * Either way it is recorded for the owner's current reading. Throws AudioFileError for bad audio.
+ * file and row as they are, so round trips never re-encode it; otherwise it is checked, transcoded
+ * and recorded for the owner's current reading like an upload. Throws AudioFileError for bad audio.
  */
 export async function storePackClip(
   db: Queryable,
@@ -233,13 +243,9 @@ export async function storePackClip(
   const { ownerType, ownerId } = owner;
   const before = await findUploadedAudio(db, ownerType, ownerId);
   const stored = before && (await readFile(join(mediaDir, before.path)).catch(() => null));
-  if (before && stored?.equals(bytes)) {
-    const row = await lockAudioOwner(db, ownerType, ownerId);
-    if (!row) throw new AppError('not_found', `No such ${ownerType}`);
-    const { textHash } = spoken(row);
-    await upsertUploadedAudio(db, { ownerType, ownerId, path: before.path, textHash });
-    return { written: null, replaced: null };
-  }
+  // Unchanged: the row keeps the hash of the reading the recording was made for, so a round
+  // trip never turns a stale recording into a current one.
+  if (before && stored?.equals(bytes)) return { written: null, replaced: null };
   return storeUploadedClip(db, mediaDir, owner, await transcodeUpload(bytes));
 }
 
@@ -255,6 +261,10 @@ export async function exportCourseClips(
 ): Promise<PackAudioClip[]> {
   const clips: PackAudioClip[] = [];
   for (const row of await listCourseUploadedAudio(db, courseId)) {
+    // A recording made for an older reading is not played, so it is not carried either: an
+    // import would record it for the reading the owner has then.
+    const owner = await findAudioOwner(db, row.owner_type, row.owner_id);
+    if (!owner || spoken(owner).textHash !== row.text_hash) continue;
     const data = await readFile(join(mediaDir, row.path));
     if (row.owner_type === 'item') {
       const file = `item-${sha256(row.item_key!).slice(0, 16)}.opus`;

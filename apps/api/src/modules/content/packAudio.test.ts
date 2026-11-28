@@ -9,7 +9,7 @@ import { query, queryOne } from '../../db/db';
 import { wav } from '../../test/audio';
 import { describeWithDb, useTestDatabase } from '../../test/db';
 import { seedUser } from '../../test/fixtures';
-import { audioClip } from '../media/service';
+import { audioClip, storePackClip } from '../media/service';
 import { readPack, writePack } from './packFiles';
 import { exportPack, importPack } from './service';
 
@@ -176,6 +176,35 @@ describeWithDb('content pack audio clips', () => {
     // An export without clips removes the clips an earlier export wrote.
     await writePack(out, { ...exported, audio: [] });
     expect(await readdir(join(out, 'audio'))).toEqual([]);
+  });
+
+  it('keeps a recording made for an older reading stale through export and import', async () => {
+    await importPack(pool(), await readPack(await packWithAudio()), false, mediaDir);
+    const water = await idOf(`SELECT id FROM items WHERE key = 'ja:word:水:みず'`);
+    const stale = async () =>
+      (await assets()).find((a) => a.owner_type === 'item')!.text_hash !== sha256('すい');
+    // The reading changes after the recording was made.
+    await query(
+      pool(),
+      `UPDATE items SET overrides = overrides || '{"reading": "すい"}' WHERE id = $1`,
+      [water],
+    );
+    expect(await stale()).toBe(true);
+
+    // Not exported, so a pack can never bring it back as current.
+    const exported = await exportPack(pool(), 'ja-en', mediaDir);
+    expect(exported.audio?.some((c) => c.item)).toBe(false);
+    // Importing the same bytes back (the equal-bytes path) keeps the row as it was.
+    const before = await assets();
+    const row = before.find((a) => a.owner_type === 'item')!;
+    await storePackClip(
+      pool(),
+      mediaDir,
+      { ownerType: 'item', ownerId: water },
+      await readFile(join(mediaDir, row.path)),
+    );
+    expect(await assets()).toEqual(before);
+    expect(await stale()).toBe(true);
   });
 
   it('replaces an earlier upload when the pack carries a different recording', async () => {

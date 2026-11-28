@@ -85,6 +85,14 @@ export async function transcodeUpload(bytes: Uint8Array): Promise<Buffer> {
     const input = join(dir, 'input');
     await writeFile(input, bytes);
     const source = ['-protocol_whitelist', 'file', '-f', format, '-i', input];
+    // An input option: the decoder stops at the limit, so a file whose header claims a short
+    // duration cannot make ffmpeg decode (and areverse buffer) hours of audio.
+    const capped = [
+      ...source.slice(0, 4),
+      '-t',
+      String(AUDIO_UPLOAD_MAX_SECONDS),
+      ...source.slice(4),
+    ];
     let probe: { streams?: { codec_type?: string }[]; format?: { duration?: string } };
     try {
       const stdout = await run('ffprobe', [
@@ -107,9 +115,9 @@ export async function transcodeUpload(bytes: Uint8Array): Promise<Buffer> {
     }
     try {
       return await run('ffmpeg', [
-        ...['-hide_banner', '-loglevel', 'error', ...source],
-        // The first audio stream only (no cover art), cut at the limit if the header lied.
-        ...['-map', '0:a:0', '-vn', '-sn', '-dn', '-t', String(AUDIO_UPLOAD_MAX_SECONDS)],
+        ...['-hide_banner', '-loglevel', 'error', ...capped],
+        // The first audio stream only (no cover art).
+        ...['-map', '0:a:0', '-vn', '-sn', '-dn'],
         ...ENCODE_ARGS,
       ]);
     } catch {

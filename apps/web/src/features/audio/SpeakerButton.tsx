@@ -27,12 +27,16 @@ type SpeakerProps = Utterance & {
   owner?: ClipOwner | null;
 };
 
-/** FR-135, IF-03: a native button; renders nothing when the device has no voice. */
+/**
+ * FR-135, IF-03: a native button; renders nothing when there is no server clip and the device
+ * has no voice.
+ */
 export function SpeakerButton({ slow = false, what, owner, ...utterance }: SpeakerProps) {
   const { t } = useTranslation();
   const { canSpeak, speak } = useSpeech();
-  if (!canSpeak) return null;
   const clip = utterance.clip ?? (owner ? () => Promise.resolve(clipUrl(owner)) : undefined);
+  // FR-135: hidden only when neither a server clip nor a device voice can speak it.
+  if (!canSpeak && !clip) return null;
   return (
     <Button
       type="button"
@@ -47,7 +51,7 @@ export function SpeakerButton({ slow = false, what, owner, ...utterance }: Speak
 /** FR-133, Product Spec section 8: the speaker button and the 0.75-speed one beside it. */
 export function SpeakerButtons(props: Omit<SpeakerProps, 'slow'>) {
   const { canSpeak } = useSpeech();
-  if (!canSpeak) return null;
+  if (!canSpeak && !props.owner && !props.clip) return null;
   return (
     <Pair>
       <SpeakerButton {...props} />

@@ -47,9 +47,9 @@ export interface Utterance {
 }
 
 export interface Speech {
-  // shortcut: false whenever the device has no voice, even if the server could serve a clip;
-  // once clip serving exists (#65, #66), count "clips available" too.
-  /** FR-135: speaker buttons are hidden and listening exercises skipped when false. */
+  // shortcut: listening exercises still play their prompt with the device voice, so they are
+  // skipped without one; speaker buttons with a server clip show regardless (SpeakerButton).
+  /** FR-135: whether the device has a voice for the course language. */
   canSpeak: boolean;
   speak(utterance: Utterance): Promise<void>;
 }

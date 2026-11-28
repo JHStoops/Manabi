@@ -98,6 +98,14 @@ describe('RecordingUpload', () => {
     await waitFor(() => expect(api.DELETE).toHaveBeenCalled());
     expect(await screen.findByText(/generated voice plays again/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Remove recording' })).toBeNull();
+    // Focus stays in the panel although the button it was on is gone.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByLabelText('Recording file')),
+    );
+    // Focus stays in the panel although the button it was on is gone.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByLabelText('Recording file')),
+    );
   });
 });
 

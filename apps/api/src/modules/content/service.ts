@@ -32,6 +32,7 @@ import {
   archiveSectionsExcept,
   archiveUnitsExcept,
   deferPositionChecks,
+  findActiveSentenceId,
   findCourseByKey,
   findSentenceId,
   insertPackSentence,
@@ -522,7 +523,7 @@ export async function importPack(
           : {
               ownerType: 'sentence' as const,
               ownerId:
-                (await findSentenceId(db, courseId, {
+                (await findActiveSentenceId(db, courseId, {
                   source: 'source' in clip.sentence! ? clip.sentence.source : null,
                   sourceId: 'sourceId' in clip.sentence! ? clip.sentence.sourceId : null,
                   text: 'text' in clip.sentence! ? clip.sentence.text : '',
@@ -540,7 +541,7 @@ export async function importPack(
       }
     });
   } catch (err) {
-    for (const path of written) await removeClip(mediaDir!, path);
+    for (const path of written) await removeClip(mediaDir!, path).catch(() => {});
     throw err;
   }
   for (const path of replaced) await removeClip(mediaDir!, path);

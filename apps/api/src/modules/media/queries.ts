@@ -87,7 +87,9 @@ export async function deleteUploadedAudio(
 /** One uploaded clip of a course with the stable reference a pack names its owner by. */
 export interface UploadedClipRow {
   owner_type: AudioOwnerType;
+  owner_id: number;
   path: string;
+  text_hash: string;
   item_key: string | null;
   sentence_source: string | null;
   sentence_source_id: string | null;
@@ -101,7 +103,7 @@ export function listCourseUploadedAudio(
 ): Promise<UploadedClipRow[]> {
   return query<UploadedClipRow>(
     db,
-    `SELECT a.owner_type, a.path, i.key AS item_key, s.source AS sentence_source,
+    `SELECT a.owner_type, a.owner_id, a.path, a.text_hash, i.key AS item_key, s.source AS sentence_source,
             s.source_id AS sentence_source_id, s.text AS sentence_text
        FROM audio_assets a
        LEFT JOIN items i ON a.owner_type = 'item' AND i.id = a.owner_id

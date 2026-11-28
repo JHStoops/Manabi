@@ -1,5 +1,5 @@
 import styled from '@emotion/styled';
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiRequestError } from '@manabi/api-client';
@@ -24,6 +24,7 @@ const Panel = styled.section`
   }
   input[type='file'] {
     max-width: 100%;
+    min-height: 44px;
   }
 `;
 
@@ -74,14 +75,22 @@ export function RecordingUpload({ ownerType, ownerId }: Owner) {
     };
   }, [api, t, ownerType, ownerId]);
 
-  async function change(request: () => Promise<AuthoringAudioStatus>, done: string) {
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  async function change(
+    request: () => Promise<AuthoringAudioStatus>,
+    working: string,
+    done: string,
+  ) {
     setBusy(true);
-    setMessage('');
+    setMessage(working);
     try {
       setStatus(await request());
       setMessage(done);
       setFile(null);
       bump();
+      // The remove button may be gone now: keep keyboard focus in the panel.
+      requestAnimationFrame(() => fileInput.current?.focus());
     } catch (err) {
       // The server says why a file was refused (too long, not audio): show its message.
       const refused = err instanceof ApiRequestError && err.code === 'bad_request';
@@ -106,6 +115,7 @@ export function RecordingUpload({ ownerType, ownerId }: Owner) {
           bodySerializer: (body: unknown) => body as Blob,
           headers: { 'content-type': type },
         }),
+      t('authoring.recording.uploading'),
       t('authoring.recording.saved'),
     );
   }
@@ -113,6 +123,7 @@ export function RecordingUpload({ ownerType, ownerId }: Owner) {
   const remove = () =>
     void change(
       () => api.DELETE('/api/v1/authoring/audio/{ownerType}/{ownerId}', { params }),
+      t('authoring.recording.removing'),
       t('authoring.recording.removed'),
     );
 
@@ -141,6 +152,7 @@ export function RecordingUpload({ ownerType, ownerId }: Owner) {
           {t('authoring.recording.file')}
           <input
             key={version}
+            ref={fileInput}
             id={`${id}-file`}
             aria-describedby={`${id}-limits`}
             type="file"
