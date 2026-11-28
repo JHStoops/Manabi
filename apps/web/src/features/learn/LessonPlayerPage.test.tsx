@@ -51,7 +51,15 @@ const session: LessonSession = {
   sectionLevel: 'kana',
   plugin: 'ja',
   teachingCards: [
-    { item: kana, examples: [], words: [], strokeAnimation: false, facet: null, before: 0 },
+    {
+      item: kana,
+      examples: [],
+      words: [],
+      strokeAnimation: false,
+      facet: null,
+      before: 0,
+      refresher: false,
+    },
   ],
   exercises: Array.from({ length: 10 }, (_, i) => ({
     type: TEST_EXERCISE_TYPE,
@@ -108,7 +116,15 @@ describe('LessonPlayerPage', () => {
     const twoKana = {
       ...session,
       teachingCards: [
-        { item: kana, examples: [], words: [], strokeAnimation: false, facet: null, before: 0 },
+        {
+          item: kana,
+          examples: [],
+          words: [],
+          strokeAnimation: false,
+          facet: null,
+          before: 0,
+          refresher: false,
+        },
         {
           item: item(2, 'kana', { character: 'い', script: 'hiragana', romaji: 'i' }),
           examples: [],
@@ -308,6 +324,38 @@ describe('LessonPlayerPage', () => {
         },
       }),
     );
+  });
+
+  it('shows a refresher card for an earlier item mid-lesson, labelled as a refresher (FR-041, #256)', async () => {
+    const i = item(2, 'kana', { character: 'い', script: 'hiragana', romaji: 'i' });
+    const newCard = session.teachingCards[0]!;
+    show(
+      jest.fn(() =>
+        Promise.resolve({
+          ...session,
+          teachingCards: [newCard, { ...newCard, item: i, before: 2, refresher: true }],
+        }),
+      ),
+    );
+    // The intro lists only the new item as taught, and counts the refresher apart.
+    expect(await screen.findByText('This lesson teaches 1 new items.')).toBeTruthy();
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['あ']);
+    expect(screen.getByText('It also brings back 1 item from an earlier lesson.')).toBeTruthy();
+    fireEvent.click(button('Start'));
+    expect(screen.getByRole('heading', { name: 'New item 1 of 1' })).toBeTruthy();
+    fireEvent.click(button('Next'));
+
+    await answer('a0');
+    fireEvent.click(button('Continue'));
+    await answer('a1');
+    fireEvent.click(button('Continue'));
+    // Before the third exercise: the refresher, with its term in its own language.
+    const heading = screen.getByRole('heading', { name: 'Refresher: い' });
+    expect(heading.querySelector('[lang="ja"]')?.textContent).toBe('い');
+    expect(screen.getByText('Reading').nextSibling?.textContent).toBe('i');
+    expect(screen.queryByRole('heading', { name: /New item/ })).toBeNull();
+    fireEvent.click(button('Next'));
+    expect(screen.getByLabelText('Type a2')).toBeTruthy();
   });
 
   it('shows the example sentence and its translation on a card that has one, and none otherwise (FR-041)', async () => {
