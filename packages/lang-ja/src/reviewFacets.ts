@@ -6,7 +6,7 @@ import {
   TYPED_ANSWER_TYPE,
 } from '@manabi/core';
 import type { ChoicePayload, LanguagePlugin, TypedAnswerPayload } from '@manabi/core';
-import { KANA_ONLY } from './generators';
+import { effective, KANA_ONLY } from './generators';
 import { wordDataSchema } from './itemSchemas';
 
 // FR-110, Product Spec section 7: review facets per item type, each with its exercise types.
@@ -28,7 +28,7 @@ const FACETS: Record<string, Record<string, readonly string[]>> = {
 export const reviewFacets: LanguagePlugin['reviewFacets'] = (itemType, item) => {
   const facets = Object.hasOwn(FACETS, itemType) ? FACETS[itemType]! : {};
   if (itemType !== 'word' || !item) return facets;
-  const word = wordDataSchema.safeParse({ ...item.data, ...item.overrides }).data;
+  const word = wordDataSchema.safeParse(effective(item)).data;
   if (!word || !KANA_ONLY.test(word.written)) return facets;
   return Object.fromEntries(Object.entries(facets).filter(([facet]) => facet !== 'reading'));
 };

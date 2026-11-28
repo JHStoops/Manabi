@@ -57,7 +57,10 @@ function shuffled<T>(items: readonly T[]): T[] {
 }
 
 /** DR-09: an item's data with the author's overrides applied, field by field. */
-export const effective = (item: Item) => ({ ...item.data, ...item.overrides });
+export const effective = (item: Pick<Item, 'data' | 'overrides'>) => ({
+  ...item.data,
+  ...item.overrides,
+});
 
 /** Kana only (or empty). */
 export const KANA_ONLY = /^[ぁ-ゟ゠-ヿ]*$/u;

@@ -29,6 +29,9 @@ describe('reviewFacets (FR-110)', () => {
     expect(reviewFacets('word', entry('水', { written: 'みず' }))).toEqual({
       meaning: ['choice', 'typed_answer'],
     });
+    expect(reviewFacets('word', entry('みず', { written: '水' }))).toEqual(reviewFacets('word'));
+    // Data that is not a word keeps every facet of the type.
+    expect(reviewFacets('word', { data: {}, overrides: {} })).toEqual(reviewFacets('word'));
     expect(reviewFacets('kanji', entry('水'))).toEqual(reviewFacets('kanji'));
   });
 

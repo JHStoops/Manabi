@@ -98,7 +98,7 @@ export function listItemsInReviews(db: Queryable): Promise<(ItemRow & { plugin: 
 }
 
 /**
- * FR-110: each learner with any entry for one of these items gets an entry for each listed facet
+ * FR-110: each learner (or just `userId`) with any entry for one of these items gets an entry for each listed facet
  * of it they lack, copying the stage and due time of their lowest-stage entry (earliest due among
  * equals; a retired item stays retired). Policy: a facet a plugin adds starts at the item's
  * current stage, as the learner already knows the item; a facet that should start over must not
@@ -107,18 +107,20 @@ export function listItemsInReviews(db: Queryable): Promise<(ItemRow & { plugin: 
 export async function insertMissingFacets(
   db: Queryable,
   facets: readonly { itemId: number; facet: string }[],
+  /** Only this learner's entries; every learner's when absent. */
+  userId?: number,
 ): Promise<void> {
   await query(
     db,
     `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
      SELECT DISTINCT ON (p.user_id, p.item_id, f.facet) p.user_id, p.item_id, f.facet, p.stage, p.due_at
        FROM unnest($1::bigint[], $2::text[]) AS f (item_id, facet)
-       JOIN item_progress p ON p.item_id = f.item_id
+       JOIN item_progress p ON p.item_id = f.item_id AND ($3::bigint IS NULL OR p.user_id = $3)
       WHERE NOT EXISTS (SELECT 1 FROM item_progress e
                          WHERE e.user_id = p.user_id AND e.item_id = p.item_id AND e.facet = f.facet)
       ORDER BY p.user_id, p.item_id, f.facet, p.stage, p.due_at
      ON CONFLICT (user_id, item_id, facet) DO NOTHING`,
-    [facets.map((f) => f.itemId), facets.map((f) => f.facet)],
+    [facets.map((f) => f.itemId), facets.map((f) => f.facet), userId ?? null],
   );
 }
 
@@ -300,20 +302,18 @@ export function recordFacetAnswer(
   );
 }
 
-/** FR-112: one facet's new stage and due time (null exactly at stage 8, Retired). */
-export async function setFacetStage(
+/** FR-112: moves every entry of the learner's item to `stage`, due at `dueAt`. */
+export async function setItemStage(
   db: Queryable,
   userId: number,
   itemId: number,
-  facet: string,
   stage: Stage,
   dueAt: Date | null,
 ): Promise<void> {
   await query(
     db,
-    `UPDATE item_progress SET stage = $4, due_at = $5
-      WHERE user_id = $1 AND item_id = $2 AND facet = $3`,
-    [userId, itemId, facet, stage, dueAt],
+    `UPDATE item_progress SET stage = $3, due_at = $4 WHERE user_id = $1 AND item_id = $2`,
+    [userId, itemId, stage, dueAt],
   );
 }
 

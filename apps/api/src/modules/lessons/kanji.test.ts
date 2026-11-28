@@ -8,7 +8,11 @@ import { describeWithDb, useTestDatabase } from '../../test/db';
 import { seedUser } from '../../test/fixtures';
 import { SESSION_COOKIE } from '../auth/guard';
 import { hashPassword } from '../auth/passwords';
-import { backfillReviewFacets } from '../reviews/service';
+import { languagePlugins } from '../../plugins';
+import { backfillReviewFacets, createReviewEntries } from '../reviews/service';
+import type { ItemRow } from '../content/rows';
+
+type ItemRowLike = Pick<ItemRow, 'id' | 'type' | 'data' | 'overrides'>;
 
 // API tests for kanji lessons (issue #53): FR-040, FR-049, FR-110, Product Spec section 5.
 
@@ -532,9 +536,102 @@ describeWithDb('kanji lessons API', () => {
       ...session,
     });
     expect(reviews.statusCode).toBe(200);
-    expect(reviews.json<ReviewSession>().exercises.map((e) => [e.itemId, e.facet])).toEqual([
-      [kanaWord!.id, 'meaning'],
+    const body = reviews.json<ReviewSession>();
+    expect(body.exercises.map((e) => [e.itemId, e.facet])).toEqual([[kanaWord!.id, 'meaning']]);
+
+    // Answering moves the leftover entry with the item, so nothing stays due.
+    const answered = await app.inject({
+      method: 'POST',
+      url: `/api/v1/review-sessions/${body.id}/answers`,
+      ...session,
+      payload: { index: 0, response: { attempts: [rightAnswer(body.exercises[0]!)] } },
+    });
+    expect(answered.json<{ correct: boolean; stage: number }>()).toMatchObject({
+      correct: true,
+      stage: 4,
+    });
+    expect(
+      await sql(`SELECT facet, stage FROM item_progress WHERE item_id = $1 ORDER BY facet`, [
+        kanaWord!.id,
+      ]),
+    ).toEqual([
+      { facet: 'meaning', stage: 4 },
+      { facet: 'reading', stage: 4 },
     ]);
+    const summary = await app.inject({ method: 'GET', url: '/api/v1/reviews/summary', ...session });
+    expect(summary.json<{ dueNow: number }>().dueNow).toBe(0);
+  });
+
+  it('moves a facet added while a review session is open with the item (#267, FR-112)', async () => {
+    const { courseId, items } = await seed();
+    const { userId, session } = await learner(courseId);
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       VALUES ($1, $2, 'meaning', 3, now() - interval '1 hour')`,
+      [userId, items['w:休み']],
+    );
+    const started = (
+      await app.inject({ method: 'POST', url: '/api/v1/reviews/sessions', ...session })
+    ).json<ReviewSession>();
+    expect(started.exercises.map((e) => e.facet)).toEqual(['meaning']);
+    // The API restarts mid-session and the backfill adds the word's reading facet.
+    await backfillReviewFacets(pool());
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/review-sessions/${started.id}/answers`,
+      ...session,
+      payload: { index: 0, response: { attempts: [rightAnswer(started.exercises[0]!)] } },
+    });
+    const rows = await sql<{ facet: string; stage: number; due_at: Date }>(
+      `SELECT facet, stage, due_at FROM item_progress WHERE item_id = $1 ORDER BY facet`,
+      [items['w:休み']],
+    );
+    expect(rows.map((r) => [r.facet, r.stage])).toEqual([
+      ['meaning', 4],
+      ['reading', 4],
+    ]);
+    expect(rows[0]!.due_at).toEqual(rows[1]!.due_at);
+  });
+
+  it('creates entries for the facets each item has, joining an item already in reviews at its stage (#225, FR-110)', async () => {
+    const { courseId, items } = await seed();
+    const { userId } = await learner(courseId);
+    const [kanaWord] = await sql<ItemRowLike>(
+      `INSERT INTO items (course_id, key, type, level_code, data)
+       VALUES ($1, 'w:これ', 'word', 'N5', $2) RETURNING id, type, data, overrides`,
+      [courseId, word('これ', 'これ', 'this')],
+    );
+    const [kanjiWord] = await sql<ItemRowLike>(
+      `SELECT id, type, data, overrides FROM items WHERE id = $1`,
+      [items['w:休み']],
+    );
+    // 休み is already in reviews on its meaning (before #225), at stage 6.
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       VALUES ($1, $2, 'meaning', 6, now() + interval '2 days')`,
+      [userId, kanjiWord!.id],
+    );
+    await createReviewEntries(
+      pool(),
+      userId,
+      'vocabulary',
+      [kanaWord!, kanjiWord!],
+      languagePlugins.get('ja'),
+      [4, 8, 24, 72, 168, 336, 720, 2880],
+    );
+    expect(
+      await sql(
+        `SELECT item_id, facet, stage FROM item_progress WHERE user_id = $1 ORDER BY item_id, facet`,
+        [userId],
+      ),
+    ).toEqual(
+      [
+        { item_id: kanjiWord!.id, facet: 'meaning', stage: 6 },
+        { item_id: kanjiWord!.id, facet: 'reading', stage: 6 },
+        { item_id: kanaWord!.id, facet: 'meaning', stage: 1 },
+      ].sort((a, b) => a.item_id - b.item_id),
+    );
   });
 
   /** What the session practises for one kanji: draw, meaning and reading exercises, by prompt. */

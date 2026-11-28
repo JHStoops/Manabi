@@ -59,6 +59,8 @@ export async function createReviewEntries(
     Object.keys(plugin.reviewFacets(item.type, item)).map((facet) => ({ itemId: item.id, facet })),
   );
   if (entries.length === 0) return;
+  // A facet an item in reviews has gained since (an override, a replay) joins it at its stage.
+  await q.insertMissingFacets(db, entries, userId);
   const stage = (lessonType === 'kana' ? KANA_LESSON_START_STAGE : 1) as Stage;
   const dueAt = new Date(now.getTime() + intervalHours[stage - 1]! * HOUR);
   await q.insertReviewEntries(db, userId, entries, stage, dueAt);
@@ -319,12 +321,12 @@ export async function answer(
     let next: { stage: Stage; dueAt: Date | null } | null = null;
     if (siblings.every((e) => e.correct !== null)) {
       const right = siblings.every((e) => e.correct);
-      // An item's facets share one stage: they are created together and always moved together.
+      // An item's facets share one stage, so all its entries move together: also one for a facet
+      // added since the session started (#267) or one the item no longer has (#225), which no
+      // session serves.
       const scheduled = new FixedLadderScheduler(intervalHours).next(row.stage, right, now);
       next = { stage: scheduled.stage as Stage, dueAt: scheduled.dueAt };
-      for (const e of siblings) {
-        await q.setFacetStage(client, userId, itemId, e.facet, next.stage, next.dueAt);
-      }
+      await q.setItemStage(client, userId, itemId, next.stage, next.dueAt);
     }
     const log = await q.insertReviewLog(client, {
       userId,

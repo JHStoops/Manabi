@@ -71,7 +71,7 @@ Adding a language means writing one plugin package and one content pack; core, A
 | `annotate(tiles, learnedItems, mode)` | Produces reading annotations from a sentence's stored tiles in the learner's furigana mode (always, unlearned only, never); `learnedItems` are the learner's items at stage 4 or above |
 | `teachingCard(item, sectionLevel, card?)` | What an item's teaching card shows: the item, its reading and its meaning, each null when there is none (Japanese: romaji only in the kana section). `card.facet` asks for a kanji's meaning card or its reading card (Product Spec section 5) |
 | `generators` | Functions that build exercises of each type from an item and its course context |
-| `reviewFacets(itemType)` | Which facets an item is reviewed on (meaning, reading, listening), each with the exercise types that review it |
+| `reviewFacets(itemType, item?)` | Which facets an item is reviewed on (meaning, reading, listening), each with the exercise types that review it; given an item, only the facets that item has (a word written only in kana has no reading facet) |
 | `ttsVoice` | Provider, voice id, any provider language option, the locale for the device-voice fallback, and which text to send (reading or written form) (Japanese: Kokoro, `jf_alpha`, `lang_code` `j`, `ja-JP`, always the kana reading) |
 | `readingOf(tiles)` | The reading sent to the TTS engine for a sentence or answer, built from its tiles (Japanese: the tile readings joined) |
 
