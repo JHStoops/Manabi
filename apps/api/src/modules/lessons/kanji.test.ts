@@ -371,18 +371,20 @@ describeWithDb('kanji lessons API', () => {
          FROM item_progress p
          JOIN item_progress r ON r.user_id = p.user_id AND r.item_id = p.item_id
                              AND r.facet = 'reading'
-        WHERE p.user_id = $1 AND p.facet = 'meaning'
+        WHERE p.user_id = $1 AND p.facet = 'meaning' AND p.item_id <> $2
         ORDER BY p.item_id`,
-      [userId],
+      [userId, items['w:休み']],
     );
     expect(rows).toEqual([
       { item_id: items['k:体'], facet: 'meaning', stage: 8, same_due: true },
       { item_id: items['k:休'], facet: 'meaning', stage: 3, same_due: true },
     ]);
-    // The word gained no facet it does not have.
+    // The word gained only its own facets (#225: reading), not the kanji's.
     expect(
-      await sql(`SELECT facet FROM item_progress WHERE item_id = $1`, [items['w:休み']]),
-    ).toEqual([{ facet: 'meaning' }]);
+      await sql(`SELECT facet FROM item_progress WHERE item_id = $1 ORDER BY facet`, [
+        items['w:休み'],
+      ]),
+    ).toEqual([{ facet: 'meaning' }, { facet: 'reading' }]);
 
     const reviews = await app.inject({
       method: 'POST',
@@ -400,6 +402,66 @@ describeWithDb('kanji lessons API', () => {
     expect(exercises.find((e) => e.itemId === items['k:休'] && e.facet === 'reading')?.type).toBe(
       'reading_in_context',
     );
+  });
+
+  it('backfills a reading entry for words already in reviews, served as a word reading exercise (#225, FR-110)', async () => {
+    const { courseId, items } = await seed();
+    const { userId, session } = await learner(courseId);
+    // Before #225 words were reviewed on their meaning only.
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       VALUES ($1, $2, 'meaning', 3, now() - interval '1 hour'),
+              ($1, $3, 'meaning', 8, NULL)`,
+      [userId, items['w:休み'], items['w:本']],
+    );
+
+    await backfillReviewFacets(pool());
+    await backfillReviewFacets(pool()); // A second run changes nothing.
+    expect(
+      await sql(
+        `SELECT p.item_id, p.stage, p.due_at IS NOT DISTINCT FROM m.due_at AS same_due
+           FROM item_progress p
+           JOIN item_progress m ON m.user_id = p.user_id AND m.item_id = p.item_id
+                               AND m.facet = 'meaning'
+          WHERE p.user_id = $1 AND p.facet = 'reading'
+          ORDER BY p.item_id`,
+        [userId],
+      ),
+    ).toEqual([
+      // Seeded in this order, so by id.
+      { item_id: items['w:休み'], stage: 3, same_due: true },
+      { item_id: items['w:本'], stage: 8, same_due: true },
+    ]);
+
+    const reviews = await app.inject({
+      method: 'POST',
+      url: '/api/v1/reviews/sessions',
+      ...session,
+    });
+    expect(reviews.statusCode).toBe(200);
+    const exercises = reviews.json<ReviewSession>().exercises;
+    expect(exercises.map((e) => [e.itemId, e.facet])).toEqual([
+      [items['w:休み'], 'meaning'],
+      [items['w:休み'], 'reading'],
+    ]);
+    expect(exercises[1]).toMatchObject({
+      type: 'typed_answer',
+      payload: {
+        prompt: 'How do you read 休み?',
+        answerLanguage: 'target',
+        accept: [{ text: 'やすみ' }],
+      },
+    });
+    // The meaning exercise does not ask for the reading.
+    expect(exercises[0]!.payload.prompt).not.toBe('How do you read 休み?');
+    const answered = await app.inject({
+      method: 'POST',
+      url: `/api/v1/review-sessions/${reviews.json<ReviewSession>().id}/answers`,
+      ...session,
+      payload: { index: 1, response: { attempts: ['yasumi'] } },
+    });
+    expect(answered.statusCode).toBe(200);
+    expect(answered.json<{ correct: boolean }>().correct).toBe(true);
   });
 
   /** What the session practises for one kanji: draw, meaning and reading exercises, by prompt. */

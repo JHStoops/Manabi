@@ -138,6 +138,7 @@ describe.each<[string, Item, GeneratorContext]>([
   ['match_pairs', words[1]!, n5Context],
   ['typed_answer', kana[2]!, kanaContext],
   ['typed_answer', words[5]!, n5Context],
+  ['typed_answer', words[2]!, { ...n5Context, facet: 'reading' }],
   ['word_bank', words[0]!, n5Context],
   ['choice', rest, meaningContext],
   ['match_pairs', rest, meaningContext],
@@ -173,6 +174,54 @@ describe.each<[string, Item, GeneratorContext]>([
         expect(e.payload).toMatchObject({ itemKey: target.key });
       } else if (type !== 'typed_answer') expect(ids).toContain(target.id);
     }
+  });
+});
+
+describe('EX-04 word reading (#225)', () => {
+  const reading = { ...n5Context, facet: 'reading' };
+
+  it('asks how a word is read and accepts its kana reading, not the shown kanji', () => {
+    const [e] = generators.typed_answer!(words[2]!, reading);
+    expect(e!.payload).toEqual({
+      prompt: 'How do you read 水?',
+      answerLanguage: 'target',
+      accept: [
+        {
+          text: 'みず',
+          tiles: [{ surface: 'みず', base: '水', reading: 'みず', itemId: words[2]!.id }],
+        },
+      ],
+    });
+    for (const answer of ['みず', 'mizu']) {
+      expect(gradeResponse(e!, { attempts: [answer] }, japanese)).toEqual({ result: 'correct' });
+    }
+    expect(gradeResponse(e!, { attempts: ['水'] }, japanese).result).toBe('wrong');
+  });
+
+  it('always asks for the reading for the reading facet, and never shows romaji', () => {
+    const prompts = runs('typed_answer', words[0]!, { ...kanaContext, facet: 'reading' }).map(
+      (e) => (e.payload as { prompt: string }).prompt,
+    );
+    expect(new Set(prompts)).toEqual(new Set(['How do you read 犬?']));
+  });
+
+  it('asks for a kana-only word from its meaning, accepting hiragana for katakana', () => {
+    const coffee = word('コーヒー', 'コーヒー', 'coffee');
+    const [e] = generators.typed_answer!(coffee, reading);
+    expect(e!.payload).toMatchObject({
+      prompt: 'Which word means “coffee”? Type it in kana.',
+      answerLanguage: 'target',
+      accept: [{ text: 'コーヒー' }, { text: 'こーひー' }],
+    });
+    for (const answer of ['コーヒー', 'こーひー', 'ko-hi-']) {
+      expect(gradeResponse(e!, { attempts: [answer] }, japanese)).toEqual({ result: 'correct' });
+    }
+  });
+
+  it('applies author overrides of the reading (DR-09)', () => {
+    const edited = { ...words[3]!, overrides: { reading: 'さん' } };
+    const [e] = generators.typed_answer!(edited, reading);
+    expect(e!.payload).toMatchObject({ prompt: 'How do you read 山?', accept: [{ text: 'さん' }] });
   });
 });
 

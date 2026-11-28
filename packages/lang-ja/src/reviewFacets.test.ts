@@ -7,7 +7,10 @@ describe('reviewFacets (FR-110)', () => {
       meaning: ['choice', 'typed_answer'],
       reading: ['reading_in_context'],
     });
-    expect(reviewFacets('word')).toEqual({ meaning: ['choice', 'typed_answer'] });
+    expect(reviewFacets('word')).toEqual({
+      meaning: ['choice', 'typed_answer'],
+      reading: ['typed_answer'],
+    });
     expect(reviewFacets('grammar')).toEqual({ usage: ['fill_blank', 'reorder'] });
   });
 
@@ -39,8 +42,26 @@ describe('testsFacet (FR-112)', () => {
     ).toBe(false);
   });
 
+  it("serves a word's reading with kana typed answers and its meaning with the rest (#225)", () => {
+    const typedText = (answerLanguage: string, ...texts: string[]) => ({
+      type: 'typed_answer',
+      payload: { prompt: 'p', answerLanguage, accept: texts.map((text) => ({ text, tiles: [] })) },
+    });
+    const reading = typedText('target', 'みず');
+    const kanaSpelling = typedText('target', 'コーヒー', 'こーひー');
+    const written = typedText('target', '水');
+    const english = typedText('base', 'water');
+    expect(testsFacet(reading, 'word', 'reading')).toBe(true);
+    expect(testsFacet(kanaSpelling, 'word', 'reading')).toBe(true);
+    expect(testsFacet(reading, 'word', 'meaning')).toBe(false);
+    expect(testsFacet(written, 'word', 'meaning')).toBe(true);
+    expect(testsFacet(written, 'word', 'reading')).toBe(false);
+    expect(testsFacet(english, 'word', 'meaning')).toBe(true);
+    expect(testsFacet(english, 'word', 'reading')).toBe(false);
+    expect(testsFacet(choice([1, 2, 3, 4]), 'word', 'meaning')).toBe(true);
+  });
+
   it('serves other facets and item types with any exercise of their types', () => {
-    expect(testsFacet(typed('target'), 'word', 'meaning')).toBe(true);
     expect(testsFacet(typed('target'), 'kanji', 'reading')).toBe(true);
   });
 });
