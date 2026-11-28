@@ -366,7 +366,7 @@ Tests concentrate where mistakes hurt learners most: answer checking, scheduling
 | Content lint | Custom CLI in CI | Pack validity: schemas, every exercise uses only items taught so far, every character has strokes, every word and sentence has a kana reading (so audio can be generated) or an uploaded clip, no blocked words, no broken links |
 | Stroke matching | Recorded stroke fixtures | Hanzi Writer's matcher, at the configured leniency and with our converted KanjiVG data, over the spike's synthetic fixtures and the owner's recorded attempts, so leniency changes cause no regressions |
 
-CI runs lint, type check, unit and integration tests and the content lint on every push; end-to-end tests run before a release image is tagged.
+CI runs lint, type check, unit and integration tests and the content lint on every push and pull request. The end-to-end suite runs once per change in its own job, skipped when a change touches only documentation (`docs/` and Markdown files); a release image is built only after both jobs pass on the version tag.
 
 ## 14. Spikes and open questions
 
