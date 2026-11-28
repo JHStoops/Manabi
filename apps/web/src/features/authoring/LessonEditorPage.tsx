@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { createLanguagePluginRegistry, exerciseTypeIds } from '@manabi/core';
@@ -41,6 +41,8 @@ export default function LessonEditorPage() {
   };
   const [newType, setNewType] = useState(exerciseTypeIds()[0] ?? '');
   const [message, setMessage] = useState('');
+  const [status, setStatus] = useState('');
+  const exercisesHeading = useRef<HTMLHeadingElement>(null);
   const params = { path: { id: lessonId } };
 
   const load = () =>
@@ -61,11 +63,12 @@ export default function LessonEditorPage() {
   }
 
   // #259: ties a detached pin to what the generators make now, then reloads the lesson.
-  async function retie(id: number) {
+  async function retie(e: { id: number; payload: Record<string, unknown> }) {
     setMessage('');
+    setStatus('');
     try {
       await api.POST('/api/v1/authoring/exercises/{id}/retie', {
-        params: { path: { id: String(id) } },
+        params: { path: { id: String(e.id) } },
         body: {},
       });
     } catch (err) {
@@ -73,6 +76,9 @@ export default function LessonEditorPage() {
       return;
     }
     await load();
+    // The re-tie button is gone with the mark; keep focus in the section and say what happened.
+    exercisesHeading.current?.focus();
+    setStatus(t('lessonEditor.retied', { label: summary(e) }));
   }
 
   async function generate() {
@@ -115,13 +121,16 @@ export default function LessonEditorPage() {
       />
 
       <Section aria-labelledby="lesson-exercises">
-        <h2 id="lesson-exercises">{t('lessonEditor.exercises')}</h2>
+        <h2 id="lesson-exercises" ref={exercisesHeading} tabIndex={-1}>
+          {t('lessonEditor.exercises')}
+        </h2>
+        <p role="status">{status}</p>
         {editor.exercises.length === 0 && <p>{t('lessonEditor.noExercises')}</p>}
         <ol>
           {editor.exercises.map((e) => (
             <li key={e.id}>
               <strong>{e.type}</strong> {t(`lessonEditor.origin.${e.origin}`)} {summary(e)}{' '}
-              <DetachedPin exercise={e} label={summary(e)} onRetie={(pin) => void retie(pin.id)} />
+              <DetachedPin exercise={e} label={summary(e)} onRetie={retie} />
               <Button
                 aria-label={t('lessonEditor.editEntry', { title: summary(e) })}
                 onClick={() => open(e)}

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EditorExercise } from '@manabi/core';
 import { Button } from '../admin/ui';
@@ -16,9 +17,11 @@ export function DetachedPin({
   exercise: EditorExercise;
   /** The exercise's name, for the button's accessible name. */
   label: string;
-  onRetie: (e: EditorExercise) => void;
+  /** Re-ties the pin; the button is disabled until it settles, so one click sends one. */
+  onRetie: (e: EditorExercise) => Promise<unknown>;
 }) {
   const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
   if (!exercise.detached) return null;
   return (
     <>
@@ -26,7 +29,12 @@ export function DetachedPin({
       <Button
         type="button"
         aria-label={t('lessonEditor.retieEntry', { label })}
-        onClick={() => onRetie(exercise)}
+        disabled={busy}
+        aria-busy={busy}
+        onClick={() => {
+          setBusy(true);
+          void onRetie(exercise).finally(() => setBusy(false));
+        }}
       >
         {t('lessonEditor.retie')}
       </Button>{' '}

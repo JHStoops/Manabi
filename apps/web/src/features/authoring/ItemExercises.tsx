@@ -63,7 +63,10 @@ export function ItemExercises({ itemId, itemKey }: { itemId: number; itemKey: st
       setMessage(apiErrorMessage(t, err));
       return;
     }
-    if (await load()) setStatus(t('lessonEditor.retied', { label: label(e) }));
+    if (!(await load())) return;
+    // The re-tie button is gone with the mark; keep focus in the section and say what happened.
+    heading.current?.focus();
+    setStatus(t('lessonEditor.retied', { label: label(e) }));
   }
 
   const load = () => send(api.GET('/api/v1/authoring/items/{id}/exercises', { params }));
@@ -87,7 +90,7 @@ export function ItemExercises({ itemId, itemKey }: { itemId: number; itemKey: st
           {exercises.map((e) => (
             <li key={e.id}>
               <strong>{e.type}</strong> {t(`lessonEditor.origin.${e.origin}`)} {summary(e)}{' '}
-              <DetachedPin exercise={e} label={label(e)} onRetie={(pin) => void retie(pin)} />
+              <DetachedPin exercise={e} label={label(e)} onRetie={retie} />
               <Button
                 type="button"
                 aria-label={t('lessonEditor.editEntry', { title: label(e) })}

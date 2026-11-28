@@ -43,13 +43,18 @@ export async function countCourseItems(
   return row!.n;
 }
 
-/** An active exercise of an active lesson. */
-export function findLessonExercise(db: Queryable, id: number): Promise<ExerciseRow | null> {
+/** An active exercise of an active lesson; with `lock`, locked until the transaction ends. */
+export function findLessonExercise(
+  db: Queryable,
+  id: number,
+  lock = false,
+): Promise<ExerciseRow | null> {
   return queryOne<ExerciseRow>(
     db,
     `SELECT * FROM exercises
       WHERE id = $1 AND lesson_id IS NOT NULL AND archived_at IS NULL
-        AND origin IN ('authored', 'pinned')`,
+        AND origin IN ('authored', 'pinned')
+      ${lock ? 'FOR UPDATE' : ''}`,
     [id],
   );
 }
@@ -191,16 +196,16 @@ export function listCourseItems(db: Queryable, courseId: number): Promise<ItemRo
   );
 }
 
-/** #259: ties a pin to a new generated original; its accept list is dropped. */
+/** #259: ties an active pin to a new generated original; its accept list is dropped. */
 export function updateExerciseOriginal(
   db: Queryable,
   id: number,
   original: JsonObject,
-): Promise<ExerciseRow> {
-  return insertReturning<ExerciseRow>(
+): Promise<ExerciseRow | null> {
+  return queryOne<ExerciseRow>(
     db,
     `UPDATE exercises SET original_payload = $2::jsonb - 'accept', updated_at = now()
-      WHERE id = $1 AND origin = 'pinned'
+      WHERE id = $1 AND origin = 'pinned' AND archived_at IS NULL
       RETURNING *`,
     [id, original],
   );

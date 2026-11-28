@@ -300,6 +300,11 @@ describe('LessonEditorPage', () => {
       body: {},
     });
     expect(api.GET).toHaveBeenCalledTimes(2);
+    // Focus stays in the section and the re-tie is announced.
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toBe('Re-tied Meaning of 水 9.'),
+    );
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Exercises' }));
   });
 
   it('shows why a re-tie failed', async () => {

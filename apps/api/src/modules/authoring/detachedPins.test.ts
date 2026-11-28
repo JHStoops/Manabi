@@ -195,6 +195,14 @@ describeWithDb('detached pins in authoring API', () => {
 
     const refused = await call('POST', `/authoring/exercises/${authored.exercise.id}/retie`, {});
     expect(refused.statusCode).toBe(409);
+    // A pin still tied keeps its exact original: re-tying it is refused.
+    const tied = await call('POST', `/authoring/exercises/${kept.exercise.id}/retie`, {});
+    expect(tied.statusCode).toBe(409);
+    const [row] = await sql<{ original_payload: object }>(
+      `SELECT original_payload FROM exercises WHERE id = $1`,
+      [kept.exercise.id],
+    );
+    expect(row).toEqual({ original_payload: made.payload });
   });
 
   it('re-ties a lesson pin that names no item to the exercise about the term it asks', async () => {
@@ -215,6 +223,49 @@ describeWithDb('detached pins in authoring API', () => {
     expect(row).toEqual({
       original_payload: { prompt: 'What does 犬 mean?', answerLanguage: 'base' },
     });
+  });
+
+  it("re-ties a lesson pin to its own item's exercise when another item's reads alike", async () => {
+    // 川 is the lesson's last new item; every word's gloss prompt shares most of its letters.
+    const river = itemIds[4]!;
+    const tile = { surface: '川', base: '川', reading: 'かわ', itemId: river };
+    const { exercise } = await ok<ExerciseWrite>('POST', '/authoring/exercises', {
+      lessonId,
+      type: 'typed_answer',
+      origin: 'pinned',
+      payload: {
+        prompt: 'Which word is “river”?',
+        answerLanguage: 'target',
+        accept: [{ text: '川', tiles: [tile] }],
+      },
+    });
+    expect(exercise.detached).toBe(true);
+    await ok<RetieExercise>('POST', `/authoring/exercises/${exercise.id}/retie`, {});
+    const [row] = await sql<{ original_payload: object }>(
+      `SELECT original_payload FROM exercises WHERE id = $1`,
+      [exercise.id],
+    );
+    expect(row).toEqual({
+      original_payload: { prompt: 'Which word means “river”?', answerLanguage: 'target' },
+    });
+  });
+
+  it('answers 409 when the generators make nothing of the pin type', async () => {
+    // A word bank needs a sentence, and this lesson has none.
+    const { exercise } = await ok<ExerciseWrite>('POST', '/authoring/exercises', {
+      lessonId,
+      type: 'word_bank',
+      origin: 'pinned',
+      payload: {
+        prompt: 'Water.',
+        answer: { text: '水', tiles: [{ surface: '水', base: '水', reading: 'みず' }] },
+        distractors: [],
+        acceptedOrders: [[0]],
+      },
+    });
+    expect(exercise.detached).toBe(true);
+    const response = await call('POST', `/authoring/exercises/${exercise.id}/retie`, {});
+    expect(response.statusCode).toBe(409);
   });
 
   it('answers 404 for an unknown exercise', async () => {

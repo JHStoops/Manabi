@@ -372,38 +372,60 @@ export async function deleteItemExercise(
 /** How many times re-tying asks a generator for each item and facet (#259). */
 const RETIE_TRIES = 10;
 
-/** How alike two texts are: the share of their characters they have in common (Jaccard). */
-function textLikeness(a: string, b: string): number {
-  const [x, y] = [new Set(a), new Set(b)];
-  const shared = [...x].filter((c) => y.has(c)).length;
-  return shared / (x.size + y.size - shared || 1);
+/** The pairs of adjacent characters of a text, counted (bigrams). */
+function bigrams(text: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (let i = 0; i < text.length - 1; i++) {
+    const pair = text.slice(i, i + 2);
+    counts.set(pair, (counts.get(pair) ?? 0) + 1);
+  }
+  return counts;
 }
 
 /**
- * How close a generated payload is to a pin's, accept lists aside: 1 for each top-level field
- * they share, and for differing text fields (a prompt in new wording) how alike the texts are, so
- * a pin that names no item (a typed meaning) is tied to the exercise about the term it asks.
+ * How alike two texts are, 0 to 1 (Dice over bigrams): order-aware, so "means “water”" is closer
+ * to "means “water”" than to "means “cat”" even though their letters are much the same.
+ */
+function textLikeness(a: string, b: string): number {
+  const [x, y] = [bigrams(a), bigrams(b)];
+  let shared = 0;
+  for (const [pair, n] of x) shared += Math.min(n, y.get(pair) ?? 0);
+  const total = Math.max(a.length - 1, 0) + Math.max(b.length - 1, 0);
+  return total === 0 ? Number(a === b) : (2 * shared) / total;
+}
+
+/** How alike two field values are, 0 to 1. Lists compare as sets, since their order is random. */
+function likeness(x: unknown, y: unknown): number {
+  if (typeof x === 'string' && typeof y === 'string') return textLikeness(x, y);
+  if (Array.isArray(x) && Array.isArray(y)) {
+    const ys = y.map((v) => JSON.stringify(v));
+    const shared = x.filter((v) => ys.includes(JSON.stringify(v))).length;
+    return (2 * shared) / (x.length + y.length || 1);
+  }
+  return JSON.stringify(x) === JSON.stringify(y) ? 1 : 0;
+}
+
+/**
+ * How close a generated payload is to a pin's: the likeness of each top-level field they share,
+ * leaving out the accept list and numbers (a correct option's index follows the random order).
  */
 function closeness(a: JsonObject, b: JsonObject): number {
   return Object.keys(a)
-    .filter((k) => k !== 'accept' && Object.hasOwn(b, k))
-    .reduce((sum, k) => {
-      if (JSON.stringify(a[k]) === JSON.stringify(b[k])) return sum + 1;
-      const [x, y] = [a[k], b[k]];
-      return typeof x === 'string' && typeof y === 'string' ? sum + textLikeness(x, y) : sum;
-    }, 0);
+    .filter((k) => k !== 'accept' && typeof a[k] !== 'number' && Object.hasOwn(b, k))
+    .reduce((sum, k) => sum + likeness(a[k], b[k]), 0);
 }
 
 /**
  * #259, SDD section 6: ties a pin to an exercise its type's generator makes now, for one of the
  * items it can be about: of those made (for every review facet of the item), the one closest to
  * the pin's payload. Only the recorded original changes; the pin's payload and accept list stay.
- * 409 when the generator makes none. Content rows only; no progress table is touched.
+ * 409 for a pin that is not detached, or when the generator makes none. Content rows only; no progress table is touched.
  */
 export async function retieExercise(pool: Pool, id: number): Promise<RetieExercise> {
   return withTransaction(pool, async (db) => {
+    // Locked, so a concurrent edit, removal or second re-tie waits for this one.
     const row =
-      (await q.findLessonExercise(db, id)) ??
+      (await q.findLessonExercise(db, id, true)) ??
       (await q.findItemExercise(db, id, true)) ??
       notFound('Exercise');
     if (row.origin !== 'pinned') {
@@ -411,33 +433,48 @@ export async function retieExercise(pool: Pool, id: number): Promise<RetieExerci
     }
     if (row.lesson_id !== null) await activeLesson(db, row.lesson_id);
     const scope = await scopeFor(db, row);
+    // A pin still tied keeps its exact original, which lessons and reviews match it on.
+    if (!isDetached(scope, row)) {
+      throw new AppError('conflict', 'This pin is not detached from its generated original');
+    }
+    // The pin's own item ids (an answer's tiles, a choice's options) favor its own item's
+    // exercises when two are equally close.
+    const own = new Set(payloadItemIds(row.payload));
     const { plugin, content } = scope;
     const generate = Object.hasOwn(plugin.generators, row.type)
       ? plugin.generators[row.type]!
       : undefined;
     // Generators pick at random (a direction, a form, a sentence), so each is asked several
     // times for the closest to have a fair chance of being among those made.
-    const made = pinItems(scope, row.original_payload ?? row.payload).flatMap((item) =>
-      [undefined, ...Object.keys(plugin.reviewFacets(item.type))].flatMap((facet) =>
-        Array.from({ length: RETIE_TRIES }).flatMap(
-          () =>
+    const candidates = pinItems(scope, row.original_payload ?? row.payload).flatMap((item) =>
+      [undefined, ...Object.keys(plugin.reviewFacets(item.type, item))].flatMap((facet) =>
+        Array.from({ length: RETIE_TRIES }).flatMap(() =>
+          (
             generate?.(item, {
               sectionLevel: content.sectionLevel,
               taughtItems: content.items,
               sentences: content.sentences,
               ...(facet ? { facet } : {}),
-            }) ?? [],
+            }) ?? []
+          ).flatMap((e) =>
+            isObject(e.payload)
+              ? [
+                  {
+                    payload: e.payload,
+                    score: closeness(e.payload, row.payload) + 0.5 * Number(own.has(item.id)),
+                  },
+                ]
+              : [],
+          ),
         ),
       ),
     );
-    const candidates = made.flatMap((e) => (isObject(e.payload) ? [e.payload] : []));
     if (candidates.length === 0) {
       throw new AppError('conflict', 'The generators make no exercise of this type here now');
     }
-    const best = candidates.reduce((a, b) =>
-      closeness(b, row.payload) > closeness(a, row.payload) ? b : a,
-    );
-    const updated = await q.updateExerciseOriginal(db, id, best);
+    // The first of the highest scores, in item and facet order, so ties settle the same way.
+    const best = candidates.reduce((a, b) => (b.score > a.score ? b : a));
+    const updated = (await q.updateExerciseOriginal(db, id, best.payload)) ?? notFound('Exercise');
     return { exercise: toEditorExercise(updated, scope) };
   });
 }

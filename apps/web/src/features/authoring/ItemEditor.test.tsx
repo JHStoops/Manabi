@@ -340,15 +340,26 @@ describe('ItemEditor', () => {
         body: {},
       });
       expect(within(list()).queryByText(/Detached/)).toBeNull();
+      expect(document.activeElement).toBe(
+        screen.getByRole('heading', { name: 'Item-level exercises of ja:kanji:水' }),
+      );
     });
 
     it('shows why a re-tie failed', async () => {
       const api = await open(water(), [{ ...pinned(12, ['water']), detached: true }]);
-      api.POST.mockRejectedValueOnce(new Error('boom'));
-      fireEvent.click(
-        await screen.findByRole('button', { name: 'Re-tie typed_answer 12: Meaning of 水 12' }),
-      );
+      let fail: (err: Error) => void = () => {};
+      api.POST.mockReturnValueOnce(new Promise((_, reject) => (fail = reject)));
+      const button = await screen.findByRole('button', {
+        name: 'Re-tie typed_answer 12: Meaning of 水 12',
+      });
+      fireEvent.click(button);
+      // Busy until the request settles, so a double click sends one re-tie.
+      expect(button).toHaveProperty('disabled', true);
+      fireEvent.click(button);
+      expect(api.POST).toHaveBeenCalledTimes(1);
+      fail(new Error('boom'));
       expect(await within(list()).findByRole('alert')).toBeTruthy();
+      await waitFor(() => expect(button).toHaveProperty('disabled', false));
     });
   });
 });
