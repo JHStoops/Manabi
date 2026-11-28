@@ -69,6 +69,7 @@ function command(args: string[]): ((pool: Pool) => Promise<unknown>) | null {
         pool,
         await readPack(dir),
         structureOnly,
+        loadConfig().mediaDir,
       );
       // FR-229, #251: name each answer accepted from a report that the pack lacks.
       return [
@@ -79,7 +80,7 @@ function command(args: string[]): ((pool: Pool) => Promise<unknown>) | null {
   }
   if (group === 'pack' && name === 'export') {
     return async (pool) => {
-      await writePack(dir, await exportPack(pool, basename(dir)));
+      await writePack(dir, await exportPack(pool, basename(dir), loadConfig().mediaDir));
       return `Exported to ${dir}`;
     };
   }

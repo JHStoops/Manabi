@@ -22,6 +22,7 @@ import type {
   Tile,
 } from '@manabi/core';
 import { SpeakerButton } from '../audio/SpeakerButton';
+import type { ClipOwner } from '../audio/speech';
 import { SpeechProvider, useSpeech } from '../audio/speech';
 import { useCelebrate, useHoldCelebrations } from '../../state/celebrations';
 import { plugins } from '../../state/plugins';
@@ -199,6 +200,14 @@ function TeachingCard(props: {
     { facet: props.card.facet, words: props.card.words },
   );
   const lang = props.plugin.code;
+  // FR-130: the item's server clip speaks its stored reading, so it plays when the card speaks
+  // that reading (a word); any other spoken text (a kanji's reading) uses the device voice.
+  const wordClip: ClipOwner | null =
+    spoken !== '' && props.card.item.data.reading === spoken
+      ? { type: 'item', id: props.card.item.id }
+      : null;
+  const exampleClip = (id: number | null): ClipOwner | null =>
+    id === null ? null : { type: 'sentence', id };
   return (
     <Card>
       {/* The session has no targetLang; the plugin code is the language code (ja). */}
@@ -264,8 +273,8 @@ function TeachingCard(props: {
       )}
       {spoken && (
         <Speakers>
-          <SpeakerButton what="word" reading={spoken} />
-          <SpeakerButton what="word" reading={spoken} slow />
+          <SpeakerButton what="word" reading={spoken} owner={wordClip} />
+          <SpeakerButton what="word" reading={spoken} owner={wordClip} slow />
         </Speakers>
       )}
       {props.card.examples.map((example, i) => (
@@ -278,8 +287,17 @@ function TeachingCard(props: {
             </div>
           </dl>
           <Speakers>
-            <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} />
-            <SpeakerButton what="example" reading={props.plugin.readingOf(example.tiles)} slow />
+            <SpeakerButton
+              what="example"
+              reading={props.plugin.readingOf(example.tiles)}
+              owner={exampleClip(example.sentenceId)}
+            />
+            <SpeakerButton
+              what="example"
+              reading={props.plugin.readingOf(example.tiles)}
+              owner={exampleClip(example.sentenceId)}
+              slow
+            />
           </Speakers>
         </div>
       ))}

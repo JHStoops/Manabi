@@ -264,6 +264,24 @@ export const en = {
   // Admin console and password reset (#23).
   // FR-220, FR-225: the course tree editor.
   authoring: {
+    recording: {
+      heading: 'Recording',
+      generated: 'Plays the generated voice.',
+      uploaded: 'Plays your uploaded recording.',
+      stale:
+        'The uploaded recording was made for an older reading, so the generated voice plays. Upload a new one or remove it.',
+      file: 'Recording file',
+      limits: 'Ogg, Opus, MP3, WAV, WebM, M4A or FLAC; up to 5 MB and 30 seconds.',
+      upload: 'Upload recording',
+      remove: 'Remove recording',
+      uploading: 'Uploading and checking the recording…',
+      removing: 'Removing the recording…',
+      saved: 'Recording saved.',
+      removed: 'Recording removed; the generated voice plays again.',
+      unsupported: 'Choose an Ogg, Opus, MP3, WAV, WebM, M4A or FLAC file.',
+      tooLarge: 'Recordings can be at most 5 MB.',
+      listen: 'Current clip',
+    },
     course: 'Course',
     sections: 'Sections',
     unitsOf: 'Units of {{title}}',

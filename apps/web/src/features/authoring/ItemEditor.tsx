@@ -8,6 +8,7 @@ import { useApi } from '../../state/session';
 import { apiErrorMessage } from '../auth/ui';
 import { Button, Form, Section } from '../admin/ui';
 import { ItemExercises } from './ItemExercises';
+import { RecordingUpload } from './RecordingUpload';
 
 // FR-221, DR-06, DR-09, Product Spec section 11 (Content editor): find an item, edit its fields
 // with the imported values pre-filled, and clear an override to get the imported value back.
@@ -139,6 +140,14 @@ export function ItemEditor({ courseId }: { courseId: number }) {
           key={`${item.id}:${JSON.stringify(item.overrides)}`}
           item={item}
           onSaved={setItem}
+        />
+      )}
+      {/* FR-132: an author's recording replaces the generated clip. */}
+      {item && (
+        <RecordingUpload
+          key={`audio-${item.id}:${JSON.stringify(item.overrides)}`}
+          ownerType="item"
+          ownerId={item.id}
         />
       )}
       {item && <ItemExercises key={item.id} itemId={item.id} itemKey={item.key} />}

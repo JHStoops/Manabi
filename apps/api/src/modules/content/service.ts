@@ -19,8 +19,11 @@ import type {
 import { segmentText } from '@manabi/importers';
 import type { Queryable } from '../../db/db';
 import { withTransaction } from '../../db/db';
+import { AppError } from '../../errors';
 import { languagePlugins } from '../../plugins';
 import { refreshLibraryFields } from '../library/service';
+import { AudioFileError, removeClip } from '../media/audioFiles';
+import { exportCourseClips, storePackClip } from '../media/service';
 import {
   archiveAuthoredExercisesExcept,
   archiveAuthoredItemsExcept,
@@ -29,6 +32,7 @@ import {
   archiveSectionsExcept,
   archiveUnitsExcept,
   deferPositionChecks,
+  findActiveSentenceId,
   findCourseByKey,
   findSentenceId,
   insertPackSentence,
@@ -287,6 +291,18 @@ export function packProblems(pack: ContentPack): PackProblem[] {
       'supplementary word',
       pack.supplementaryWords.map((w) => [`${w.written}:${w.reading}`, w]),
     ),
+    // #128: one recording per owner, and one owner per file.
+    ...duplicates(
+      'audio clip for',
+      (pack.audio ?? []).map((c) => [
+        c.item ? `item ${c.item}` : `sentence ${JSON.stringify(c.sentence)}`,
+        c,
+      ]),
+    ),
+    ...duplicates(
+      'audio file',
+      (pack.audio ?? []).map((c) => [c.file, c]),
+    ),
   ];
   const levels = new Set(course.sections.map((s) => s.level));
   for (const w of pack.supplementaryWords) {
@@ -336,6 +352,8 @@ export async function importPack(
   pool: Pool,
   pack: ContentPack,
   structureOnly = false,
+  /** #128: the media volume, where a pack's recorded clips are stored; needed when it has any. */
+  mediaDir?: string,
 ): Promise<ImportSummary> {
   const problems = packProblems(pack);
   if (problems.length > 0) throw new ContentPackError(problems.map((p) => p.message));
@@ -343,153 +361,200 @@ export async function importPack(
   const plugin = languagePlugins.get(course.plugin);
 
   const summary: ImportSummary = { acceptedAnswersKept: [] };
-  await withTransaction(pool, async (db) => {
-    await deferPositionChecks(db);
-    const courseId = await upsertCourse(db, course);
+  // #128: clip files are written during the transaction; these are removed if it rolls back,
+  // and the files they replaced once it has committed.
+  const written: string[] = [];
+  const replaced: string[] = [];
+  try {
+    await withTransaction(pool, async (db) => {
+      await deferPositionChecks(db);
+      const courseId = await upsertCourse(db, course);
 
-    const sectionIds = new Map<string, number>();
-    for (const [position, s] of course.sections.entries()) {
-      const id = await upsertSection(db, { courseId, position, levelCode: s.level, ...s });
-      sectionIds.set(s.key, id ?? fail(`section ${s.key} belongs to another course`));
-    }
-    await archiveSectionsExcept(db, courseId, [...sectionIds.keys()]);
-
-    // shortcut: the blocklist is per language, so the last imported pack of a language sets it
-    // for every course in that language; fine while each language has one course (FR-237).
-    await replaceBlockedWords(db, course.targetLang, pack.blockedWords);
-    await replaceSupplementaryWords(db, courseId, pack.supplementaryWords);
-    if (structureOnly) return;
-
-    // Items first: lessons, links and tiles refer to them.
-    for (const item of pack.items) {
-      if (item.data) {
-        const id = await upsertAuthoredItem(db, {
-          courseId,
-          levelCode: item.level,
-          ...item,
-          data: item.data,
-        });
-        if (id === null)
-          fail(`item ${item.key}: key belongs to an imported item or another course`);
-      } else {
-        const row = await setImportedItemOverrides(db, { courseId, ...item });
-        if (!row) fail(`item ${item.key}: no imported ${item.type} item with this key`);
-        const dataProblems = itemDataProblems(plugin, item, row.data);
-        if (dataProblems.length > 0) throw new ContentPackError(dataProblems);
+      const sectionIds = new Map<string, number>();
+      for (const [position, s] of course.sections.entries()) {
+        const id = await upsertSection(db, { courseId, position, levelCode: s.level, ...s });
+        sectionIds.set(s.key, id ?? fail(`section ${s.key} belongs to another course`));
       }
-    }
-    await archiveAuthoredItemsExcept(
-      db,
-      courseId,
-      pack.items.filter((i) => i.data).map((i) => i.key),
-    );
-    await refreshLibraryFields(
-      db,
-      courseId,
-      pack.items.map((i) => i.key),
-    );
-    const itemIds = new Map((await listActiveItemKeys(db, courseId)).map((r) => [r.key, r.id]));
-    const idOf = (key: string, where: string) =>
-      itemIds.get(key) ?? fail(`${where}: no active item ${key} in the course`);
+      await archiveSectionsExcept(db, courseId, [...sectionIds.keys()]);
 
-    for (const item of pack.items) {
-      if (item.related) {
-        const ids = item.related.map((key) => idOf(key, `item ${item.key} related`));
-        await replaceRelatedLinks(db, idOf(item.key, 'item'), ids);
-      }
-    }
+      // shortcut: the blocklist is per language, so the last imported pack of a language sets it
+      // for every course in that language; fine while each language has one course (FR-237).
+      await replaceBlockedWords(db, course.targetLang, pack.blockedWords);
+      await replaceSupplementaryWords(db, courseId, pack.supplementaryWords);
+      if (structureOnly) return;
 
-    const unitsPerSection = new Map<string, number>();
-    for (const unit of pack.units) {
-      const sectionId =
-        sectionIds.get(unit.section) ?? fail(`unit ${unit.key}: unknown section ${unit.section}`);
-      const position = unitsPerSection.get(unit.section) ?? 0;
-      unitsPerSection.set(unit.section, position + 1);
-      const unitId =
-        (await upsertUnit(db, { sectionId, position, ...unit })) ??
-        fail(`unit ${unit.key} belongs to another course`);
-      for (const [lessonPosition, lesson] of unit.lessons.entries()) {
-        const lessonId =
-          (await upsertLesson(db, { unitId, ...lesson, position: lessonPosition })) ??
-          fail(`lesson ${lesson.key} belongs to another course`);
-        const ids = lesson.items.map((key) => idOf(key, `lesson ${lesson.key}`));
-        await replaceLessonItems(db, lessonId, ids);
-
-        const before = new Map(
-          (await listAuthoredExercisePayloads(db, lessonId)).map((r) => [r.key, r]),
-        );
-        for (const [position, e] of lesson.exercises.entries()) {
-          const label = `lesson ${lesson.key} exercise ${e.key}`;
-          const { payload, untiled } = storedPayload(e, (key) => idOf(key, label));
-          const kept = storedTiles(before.get(e.key)?.payload);
-          for (const answer of untiled) {
-            // FR-238: tiles stored for the same text are kept, since an author may have edited
-            // them; new text is segmented.
-            answer.tiles =
-              kept.get(answer.text) ??
-              (await segmentText(plugin, answer.text)).map(({ counted: _, ...tile }) => tile);
-          }
-          const merged = mergeAcceptedAnswers(payload, e.type, before.get(e.key));
-          const result = getExerciseType(e.type).payloadSchema.safeParse(payload);
-          if (!result.success)
-            throw new ContentPackError(
-              payloadProblems(label, e, result.error.issues).map((p) => p.message),
-            );
-          summary.acceptedAnswersKept.push(
-            ...merged.map((text) => ({ lesson: lesson.key, exercise: e.key, text })),
-          );
-          await upsertAuthoredExercise(db, {
-            lessonId,
-            key: e.key,
-            position,
-            type: e.type,
-            payload,
+      // Items first: lessons, links and tiles refer to them.
+      for (const item of pack.items) {
+        if (item.data) {
+          const id = await upsertAuthoredItem(db, {
+            courseId,
+            levelCode: item.level,
+            ...item,
+            data: item.data,
           });
+          if (id === null)
+            fail(`item ${item.key}: key belongs to an imported item or another course`);
+        } else {
+          const row = await setImportedItemOverrides(db, { courseId, ...item });
+          if (!row) fail(`item ${item.key}: no imported ${item.type} item with this key`);
+          const dataProblems = itemDataProblems(plugin, item, row.data);
+          if (dataProblems.length > 0) throw new ContentPackError(dataProblems);
         }
-        await archiveAuthoredExercisesExcept(
-          db,
-          lessonId,
-          lesson.exercises.map((e) => e.key),
-        );
       }
-    }
-    await archiveUnitsExcept(
-      db,
-      courseId,
-      pack.units.map((u) => u.key),
-    );
-    await archiveLessonsExcept(
-      db,
-      courseId,
-      pack.units.flatMap((u) => u.lessons.map((l) => l.key)),
-    );
+      await archiveAuthoredItemsExcept(
+        db,
+        courseId,
+        pack.items.filter((i) => i.data).map((i) => i.key),
+      );
+      await refreshLibraryFields(
+        db,
+        courseId,
+        pack.items.map((i) => i.key),
+      );
+      const itemIds = new Map((await listActiveItemKeys(db, courseId)).map((r) => [r.key, r.id]));
+      const idOf = (key: string, where: string) =>
+        itemIds.get(key) ?? fail(`${where}: no active item ${key} in the course`);
 
-    const sentenceIds: number[] = [];
-    for (const s of pack.sentences) {
-      const values = {
-        ...s,
-        tokens: s.tiles.map(({ item, ...tile }): Tile =>
-          item === undefined ? tile : { ...tile, itemId: idOf(item, `sentence "${s.text}" tile`) },
-        ),
-        vocabLevelCode: s.vocabLevel,
-        grammarLevelCode: s.grammarLevel,
-      };
-      const existing = await findSentenceId(db, courseId, s);
-      const stored =
-        existing === null
-          ? await insertPackSentence(db, courseId, values)
-          : await updatePackSentence(db, existing, values);
-      sentenceIds.push(stored.id);
-      const linked = stored.tokens.flatMap((t) => (t.itemId ? [t.itemId] : []));
-      await replaceSentenceItems(db, stored.id, linked);
-    }
-    await archiveAuthoredSentencesExcept(db, courseId, sentenceIds);
-  });
+      for (const item of pack.items) {
+        if (item.related) {
+          const ids = item.related.map((key) => idOf(key, `item ${item.key} related`));
+          await replaceRelatedLinks(db, idOf(item.key, 'item'), ids);
+        }
+      }
+
+      const unitsPerSection = new Map<string, number>();
+      for (const unit of pack.units) {
+        const sectionId =
+          sectionIds.get(unit.section) ?? fail(`unit ${unit.key}: unknown section ${unit.section}`);
+        const position = unitsPerSection.get(unit.section) ?? 0;
+        unitsPerSection.set(unit.section, position + 1);
+        const unitId =
+          (await upsertUnit(db, { sectionId, position, ...unit })) ??
+          fail(`unit ${unit.key} belongs to another course`);
+        for (const [lessonPosition, lesson] of unit.lessons.entries()) {
+          const lessonId =
+            (await upsertLesson(db, { unitId, ...lesson, position: lessonPosition })) ??
+            fail(`lesson ${lesson.key} belongs to another course`);
+          const ids = lesson.items.map((key) => idOf(key, `lesson ${lesson.key}`));
+          await replaceLessonItems(db, lessonId, ids);
+
+          const before = new Map(
+            (await listAuthoredExercisePayloads(db, lessonId)).map((r) => [r.key, r]),
+          );
+          for (const [position, e] of lesson.exercises.entries()) {
+            const label = `lesson ${lesson.key} exercise ${e.key}`;
+            const { payload, untiled } = storedPayload(e, (key) => idOf(key, label));
+            const kept = storedTiles(before.get(e.key)?.payload);
+            for (const answer of untiled) {
+              // FR-238: tiles stored for the same text are kept, since an author may have edited
+              // them; new text is segmented.
+              answer.tiles =
+                kept.get(answer.text) ??
+                (await segmentText(plugin, answer.text)).map(({ counted: _, ...tile }) => tile);
+            }
+            const merged = mergeAcceptedAnswers(payload, e.type, before.get(e.key));
+            const result = getExerciseType(e.type).payloadSchema.safeParse(payload);
+            if (!result.success)
+              throw new ContentPackError(
+                payloadProblems(label, e, result.error.issues).map((p) => p.message),
+              );
+            summary.acceptedAnswersKept.push(
+              ...merged.map((text) => ({ lesson: lesson.key, exercise: e.key, text })),
+            );
+            await upsertAuthoredExercise(db, {
+              lessonId,
+              key: e.key,
+              position,
+              type: e.type,
+              payload,
+            });
+          }
+          await archiveAuthoredExercisesExcept(
+            db,
+            lessonId,
+            lesson.exercises.map((e) => e.key),
+          );
+        }
+      }
+      await archiveUnitsExcept(
+        db,
+        courseId,
+        pack.units.map((u) => u.key),
+      );
+      await archiveLessonsExcept(
+        db,
+        courseId,
+        pack.units.flatMap((u) => u.lessons.map((l) => l.key)),
+      );
+
+      const sentenceIds: number[] = [];
+      for (const s of pack.sentences) {
+        const values = {
+          ...s,
+          tokens: s.tiles.map(({ item, ...tile }): Tile =>
+            item === undefined
+              ? tile
+              : { ...tile, itemId: idOf(item, `sentence "${s.text}" tile`) },
+          ),
+          vocabLevelCode: s.vocabLevel,
+          grammarLevelCode: s.grammarLevel,
+        };
+        const existing = await findSentenceId(db, courseId, s);
+        const stored =
+          existing === null
+            ? await insertPackSentence(db, courseId, values)
+            : await updatePackSentence(db, existing, values);
+        sentenceIds.push(stored.id);
+        const linked = stored.tokens.flatMap((t) => (t.itemId ? [t.itemId] : []));
+        await replaceSentenceItems(db, stored.id, linked);
+      }
+      await archiveAuthoredSentencesExcept(db, courseId, sentenceIds);
+
+      // #128: recorded clips, after the items and sentences whose readings they are stored for.
+      // They only add or replace uploads: a clip uploaded here that the pack lacks is kept, as an
+      // author's recording is not something an older pack should delete. No progress table is
+      // touched.
+      const clips = pack.audio ?? [];
+      if (clips.length > 0 && mediaDir === undefined) fail('this import cannot store audio clips');
+      for (const clip of clips) {
+        const where = `audio/${clip.file}`;
+        const owner = clip.item
+          ? { ownerType: 'item' as const, ownerId: idOf(clip.item, where) }
+          : {
+              ownerType: 'sentence' as const,
+              ownerId:
+                (await findActiveSentenceId(db, courseId, {
+                  source: 'source' in clip.sentence! ? clip.sentence.source : null,
+                  sourceId: 'sourceId' in clip.sentence! ? clip.sentence.sourceId : null,
+                  text: 'text' in clip.sentence! ? clip.sentence.text : '',
+                })) ?? fail(`${where}: no such sentence in the course`),
+            };
+        try {
+          const stored = await storePackClip(db, mediaDir!, owner, clip.data);
+          if (stored.written) written.push(stored.written);
+          if (stored.replaced) replaced.push(stored.replaced);
+        } catch (err) {
+          if (err instanceof AudioFileError || err instanceof AppError)
+            fail(`${where}: ${err.message}`);
+          throw err;
+        }
+      }
+    });
+  } catch (err) {
+    for (const path of written) await removeClip(mediaDir!, path).catch(() => {});
+    throw err;
+  }
+  for (const path of replaced) await removeClip(mediaDir!, path);
   return summary;
 }
 
 /** Reads a course's active content back into pack form (the reverse of importPack). */
-export async function exportPack(db: Queryable, courseKey: string): Promise<ContentPack> {
+export async function exportPack(
+  db: Queryable,
+  courseKey: string,
+  /** #128: the media volume; without it, recorded clips are left out. */
+  mediaDir?: string,
+): Promise<ContentPack> {
   const course = (await findCourseByKey(db, courseKey)) ?? fail(`no course ${courseKey}`);
   const sections = await listActiveSections(db, course.id);
   const units = await listActiveUnits(db, course.id);
@@ -499,6 +564,7 @@ export async function exportPack(db: Queryable, courseKey: string): Promise<Cont
   const supplementaryWords = await listSupplementaryWords(db, course.id);
   const keyOf = new Map((await listActiveItemKeys(db, course.id)).map((r) => [r.id, r.key]));
   const blockedWords = await listBlockedWords(db, course.target_lang);
+  const audio = mediaDir === undefined ? [] : await exportCourseClips(db, mediaDir, course.id);
 
   return {
     course: {
@@ -568,5 +634,6 @@ export async function exportPack(db: Queryable, courseKey: string): Promise<Cont
     })),
     blockedWords,
     supplementaryWords: supplementaryWords.map(({ note, ...w }) => (note ? { ...w, note } : w)),
+    ...(audio.length > 0 ? { audio } : {}),
   };
 }

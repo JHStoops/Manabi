@@ -12,6 +12,7 @@ import type {
 import { useApi } from '../../state/session';
 import { apiErrorMessage } from '../auth/ui';
 import { Button, Form, Section } from '../admin/ui';
+import { RecordingUpload } from './RecordingUpload';
 
 // FR-059, FR-236, FR-237, FR-238, DR-11, Product Spec section 11 (Content editor): find a
 // sentence, fix its tiles (split, merge, base form, reading, the highlighted pattern), set its
@@ -180,6 +181,14 @@ export function SentenceEditor({ courseId }: { courseId: number }) {
           key={`${open.sentence.id}:${JSON.stringify(open.sentence)}`}
           value={open}
           onSaved={setOpen}
+        />
+      )}
+      {/* FR-132: an author's recording replaces the generated clip. */}
+      {open && (
+        <RecordingUpload
+          key={`audio-${open.sentence.id}:${JSON.stringify(open.sentence.tokens)}`}
+          ownerType="sentence"
+          ownerId={open.sentence.id}
         />
       )}
     </Section>

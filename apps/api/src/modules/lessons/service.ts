@@ -265,7 +265,12 @@ async function buildState(
     context.sentences
       .filter((s) => s.tokens.some((t) => t.itemId === item.id) || s.grammar.includes(item.key))
       .slice(0, max)
-      .map((s) => ({ text: s.text, translation: s.translation, tiles: s.tokens }));
+      .map((s) => ({
+        sentenceId: s.id,
+        text: s.text,
+        translation: s.translation,
+        tiles: s.tokens,
+      }));
   // Product Spec section 5: a kanji's card shows 1 to 3 words that use it and its strokes.
   const words = (item: Item) => (containing.get(item.id) ?? []).slice(0, TEACHING_CARD_MAX_WORDS);
   const strokeAnimation = (item: Item) =>
