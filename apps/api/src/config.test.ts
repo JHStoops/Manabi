@@ -110,6 +110,11 @@ describe('loadConfig', () => {
       { NODE_ENV: 'test', LESSON_CARDS_PER_EXERCISES: '3/0' },
       'LESSON_CARDS_PER_EXERCISES',
     ],
+    [
+      'a hex card density',
+      { NODE_ENV: 'test', LESSON_CARDS_PER_EXERCISES: '0x3/5' },
+      'LESSON_CARDS_PER_EXERCISES',
+    ],
     ['a bad refresher stage', { NODE_ENV: 'test', REFRESHER_MAX_STAGE: '9' }, 'REFRESHER_MAX'],
     ['a bad LEVEL_CEILING', { NODE_ENV: 'test', LEVEL_CEILING: 'N 2' }, 'LEVEL_CEILING'],
     [

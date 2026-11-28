@@ -259,6 +259,26 @@ describeWithDb('lesson sessions API', () => {
     ]);
   });
 
+  it('shows no refresher cards with REFRESHER_MAX_STAGE=0 (#256)', async () => {
+    await current?.close();
+    current = await testApp({ pool: pool(), env: { REFRESHER_MAX_STAGE: '0' } });
+    app = current.app;
+    const { lesson, item } = await seed();
+    const { userId, session } = await signIn('aiko');
+    await complete(userId, lesson.l1!);
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       VALUES ($1, $2, 'meaning', 1, now())`,
+      [userId, item.w1],
+    );
+    await sql(
+      `INSERT INTO exercises (lesson_id, type, payload, origin) VALUES ($1, 'choice', $2, 'authored')`,
+      [lesson.l2, { prompt: 'stored', options: [{ itemId: item.w3 }] }],
+    );
+    const body = (await start(lesson.l2!, session)).json<LessonSession>();
+    expect(body.teachingCards.map((c) => [c.item.id, c.refresher])).toEqual([[item.w3, false]]);
+  });
+
   it('uses stored exercises in position order and skips archived ones', async () => {
     const { lesson, item } = await seed();
     const { userId, session } = await signIn('aiko');

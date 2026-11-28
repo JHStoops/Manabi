@@ -122,13 +122,10 @@ const envSchema = z
     // FR-041 (#256): "cards/exercises", up to 3 cards for every 5 to 7 exercises.
     LESSON_CARDS_PER_EXERCISES: z
       .string()
+      .regex(/^\s*\d+\s*\/\s*\d+\s*$/, 'Expected "cards/exercises", such as 3/5')
       .default('3/5')
       .transform((v) => v.split('/').map((n) => Number(n.trim())))
-      .refine(
-        (parts) =>
-          parts.length === 2 && parts.every((n) => Number.isInteger(n) && n >= 0) && parts[1]! > 0,
-        { message: 'Expected "cards/exercises", such as 3/5' },
-      )
+      .refine((parts) => parts[1]! > 0, { message: 'Expected "cards/exercises", such as 3/5' })
       .transform(([cards, exercises]) => ({ cards: cards!, exercises: exercises! })),
     REFRESHER_MAX_STAGE: z.coerce.number().int().min(0).max(7).default(4),
     SMTP_HOST: z.string().optional(),

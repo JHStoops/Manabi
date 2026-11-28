@@ -253,10 +253,10 @@ async function buildState(
   }
   // FR-041: the first fitting sentence is a new item's example, the first two a grammar point's
   // (Product Spec section 6, sentences where it was detected); none when none fits.
-  const examples = (item: Item) =>
+  const examples = (item: Item, max = lesson.type === 'grammar' ? 2 : 1) =>
     context.sentences
       .filter((s) => s.tokens.some((t) => t.itemId === item.id) || s.grammar.includes(item.key))
-      .slice(0, lesson.type === 'grammar' ? 2 : 1)
+      .slice(0, max)
       .map((s) => ({ text: s.text, translation: s.translation, tiles: s.tokens }));
   // Product Spec section 5: a kanji's card shows 1 to 3 words that use it and its strokes.
   const words = (item: Item) => (containing.get(item.id) ?? []).slice(0, TEACHING_CARD_MAX_WORDS);
@@ -294,7 +294,7 @@ async function buildState(
     exercises,
     lessonCards.length,
     refreshers?.density,
-  ).map(({ item, before }) => ({ item, before, refresher: true, examples: examples(item) }));
+  ).map(({ item, before }) => ({ item, before, refresher: true, examples: examples(item, 1) }));
   const placeOf = (card: object) => ('before' in card ? Number(card.before) : 0);
   const teachingCards = [...lessonCards, ...refresherCards]
     .map((card, order) => ({ card, order }))
