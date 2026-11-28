@@ -3,7 +3,11 @@ import { css, keyframes } from '@emotion/react';
 import styled from '@emotion/styled';
 import { useTranslation } from 'react-i18next';
 import { isFullScreenCelebration } from '@manabi/core';
-import { useCelebrationDispatch, useCelebrations } from '../../state/celebrations';
+import {
+  currentCelebration,
+  useCelebrationDispatch,
+  useCelebrations,
+} from '../../state/celebrations';
 import { useApi } from '../../state/session';
 import { Confetti, pressable, primaryLedge, tapTarget, useMotion, useSound } from '../../theme';
 
@@ -75,23 +79,34 @@ const Dismiss = styled.button`
 export function CelebrationHost() {
   const { t } = useTranslation();
   const api = useApi();
-  const { queue } = useCelebrations();
+  const shown = currentCelebration(useCelebrations());
   const dispatch = useCelebrationDispatch();
   const motion = useMotion();
   const play = useSound();
   const dismissRef = useRef<HTMLButtonElement>(null);
-  const shown = queue[0];
+  const returnFocus = useRef<Element | null>(null);
+  const announced = useRef<string | null>(null);
   const key = shown?.key;
 
   // Shown once: recorded as seen as soon as it is on screen, so a reload does not show it again.
+  // The ref keeps StrictMode's second effect run from playing and posting twice.
   useEffect(() => {
-    if (!key) return;
+    if (!key || announced.current === key) return;
+    announced.current = key;
+    if (!returnFocus.current) returnFocus.current = document.activeElement;
     play('achievement');
     dismissRef.current?.focus();
     // A failed save only means it may show again on the next load.
     api.POST('/api/v1/me/achievements/seen', { body: { keys: [key] } }).catch(() => undefined);
-    // Once per celebration: play changes identity on every render.
-  }, [api, key]);
+  }, [api, key, play]);
+
+  // When the last one closes, focus goes back where it was (for example the results' Done link).
+  useEffect(() => {
+    if (key) return;
+    const back = returnFocus.current;
+    returnFocus.current = null;
+    if (back instanceof HTMLElement && back.isConnected) back.focus();
+  }, [key]);
 
   if (!shown) return null;
   const full = isFullScreenCelebration(shown);

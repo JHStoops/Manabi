@@ -1,10 +1,17 @@
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { learnerSettingsSchema } from '@manabi/core';
 import type { Achievement, UnlockedAchievement, User } from '@manabi/core';
 import type { ApiClient } from '@manabi/api-client';
 import '../../i18n';
-import { CelebrationProvider, celebrationReducer, useCelebrate } from '../../state/celebrations';
+import {
+  CelebrationProvider,
+  CelebrationScope,
+  celebrationReducer,
+  useCelebrate,
+  useHoldCelebrations,
+} from '../../state/celebrations';
 import { ApiContext, SessionProvider, useSession } from '../../state/session';
 import { AppThemeProvider } from '../../theme';
 import { CelebrationHost } from './CelebrationHost';
@@ -77,6 +84,14 @@ function SignedIn({ children }: { children: ReactNode }) {
   return useSession().status === 'signedIn' ? children : null;
 }
 
+let setHeld: (held: boolean) => void = () => undefined;
+function Page() {
+  const [held, hold] = useState(false);
+  setHeld = hold;
+  useHoldCelebrations(held);
+  return <button type="button">Done</button>;
+}
+
 async function mount(api: ApiClient) {
   render(
     <ApiContext.Provider value={api}>
@@ -84,7 +99,10 @@ async function mount(api: ApiClient) {
         <AppThemeProvider>
           <SignedIn>
             <CelebrationProvider>
-              <Unlocker />
+              <CelebrationScope>
+                <Unlocker />
+                <Page />
+              </CelebrationScope>
               <CelebrationHost />
             </CelebrationProvider>
           </SignedIn>
@@ -161,10 +179,34 @@ describe('achievement celebrations', () => {
   });
 });
 
+describe('celebration modality', () => {
+  it('waits while an exercise is on screen, makes the page inert, and restores focus', async () => {
+    const server = fakeServer([]);
+    await mount(server.api);
+    const done = screen.getByRole('button', { name: 'Done' });
+    done.focus();
+    act(() => setHeld(true));
+    act(() => celebrate([kanji10]));
+    await act(() => Promise.resolve());
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(server.post).not.toHaveBeenCalled();
+
+    act(() => setHeld(false));
+    await screen.findByRole('dialog', { name: '10 kanji at Familiar' });
+    // The page behind is inert and hidden from assistive technology while it is open.
+    const scope = done.closest('[inert]');
+    expect(scope).not.toBeNull();
+    expect(scope!.getAttribute('aria-hidden')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(done.closest('[inert]')).toBeNull();
+    expect(document.activeElement).toBe(done);
+  });
+});
+
 describe('celebrationReducer', () => {
   it('queues each key once per page load and dismisses the head', () => {
     let state = celebrationReducer(
-      { queue: [], handled: [] },
+      { queue: [], handled: [], held: false },
       { type: 'unlocked', achievements: [streak7, streak7, kanji10] },
     );
     expect(state.queue.map((a) => a.key)).toEqual(['streak_7', 'kanji_10']);

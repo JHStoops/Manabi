@@ -7,6 +7,7 @@ import { describeWithDb, useTestDatabase } from '../../test/db';
 import { seedCourse, seedUser } from '../../test/fixtures';
 import { SESSION_COOKIE } from '../auth/guard';
 import { hashPassword } from '../auth/passwords';
+import { serverTimeZone } from '../social/service';
 import { evaluateAchievements } from './service';
 
 // FR-165 (#71): the achievements engine, one test per metric family at its thresholds, plus the
@@ -28,6 +29,7 @@ describeWithDb('achievements', () => {
     const user = await seedUser(pool());
     const courseId = await seedCourse(pool());
     await sql(`INSERT INTO enrollments (user_id, course_id) VALUES ($1, $2)`, [user.id, courseId]);
+    await sql(`UPDATE courses SET status = 'published' WHERE id = $1`, [courseId]);
     return { userId: user.id, courseId };
   }
 
@@ -180,6 +182,26 @@ describeWithDb('achievements', () => {
     expect(await evaluate(userId, ['section_complete'])).toEqual(['section_kana']);
   });
 
+  it('section_complete ignores a course that is not published', async () => {
+    const { userId, courseId } = await setup();
+    await sql(`UPDATE courses SET status = 'draft' WHERE id = $1`, [courseId]);
+    const [kana] = await sql(
+      `INSERT INTO sections (course_id, key, position, title, level_code)
+       VALUES ($1, 'ja-en:kana', 0, 'Kana', 'kana') RETURNING id`,
+      [courseId],
+    );
+    const [unit] = await sql(
+      `INSERT INTO units (section_id, key, position, title, status)
+       VALUES ($1, 'k1', 0, 'k1', 'published') RETURNING id`,
+      [kana!.id],
+    );
+    await sql(`INSERT INTO unit_completions (user_id, unit_id) VALUES ($1, $2)`, [
+      userId,
+      unit!.id,
+    ]);
+    expect(await evaluate(userId, ['section_complete'])).toEqual([]);
+  });
+
   it('perfect_lessons: the first lesson completed at 100%', async () => {
     const { userId, courseId } = await setup();
     const [section] = await sql(
@@ -227,18 +249,36 @@ describeWithDb('achievements', () => {
     expect(await evaluate(userId, ['reviews_in_day'])).toEqual(['reviews_100_day']);
   });
 
-  it('xp_in_week: 1,000 XP this week, across courses', async () => {
+  it("xp_in_week: 1,000 XP this week, across courses, in the leaderboard's week", async () => {
     const { userId, courseId } = await setup();
-    const xp = (amount: number) =>
+    const tz = serverTimeZone();
+    // `at` is SQL for the time; local_date is that time in the learner's zone.
+    const xp = (amount: number, at = 'now()') =>
       sql(
-        `INSERT INTO xp_events (user_id, course_id, base_amount, amount, reason, local_date)
-         VALUES ($1, $2, $3, $3, 'lesson_new', (now() AT TIME ZONE 'Asia/Tokyo')::date)`,
+        `INSERT INTO xp_events (user_id, course_id, base_amount, amount, reason, earned_at,
+                                local_date)
+         SELECT $1, $2, $3, $3, 'lesson_new', t, (t AT TIME ZONE 'Asia/Tokyo')::date
+           FROM (SELECT ${at} AS t) AS at`,
         [userId, courseId, amount],
       );
-    await xp(999);
+    const weekStart = `(date_trunc('week', now() AT TIME ZONE '${tz}') AT TIME ZONE '${tz}')`;
+    // A minute before this week's Monday 00:00 (server zone) is last week; the minute itself counts.
+    await xp(500, `${weekStart} - interval '1 minute'`);
+    await xp(1, weekStart);
+    await xp(998);
     expect(await evaluate(userId, ['xp_in_week'])).toEqual([]);
     await xp(1);
     expect(await evaluate(userId, ['xp_in_week'])).toEqual(['xp_1000_week']);
+  });
+
+  it('leaves archived items out of the item metrics', async () => {
+    const { userId, courseId } = await setup();
+    const kanji = await items(courseId, 'kanji', 10);
+    await progress(userId, kanji, 4);
+    await sql(`UPDATE items SET archived_at = now() WHERE id = $1`, [kanji[0]]);
+    expect(await evaluate(userId, ['familiar_items'])).toEqual([]);
+    await sql(`UPDATE items SET archived_at = NULL WHERE id = $1`, [kanji[0]]);
+    expect(await evaluate(userId, ['familiar_items'])).toEqual(['kanji_10']);
   });
 
   it('characters_drawn: 100 distinct characters drawn from memory', async () => {

@@ -23,7 +23,7 @@ import type {
 } from '@manabi/core';
 import { SpeakerButton } from '../audio/SpeakerButton';
 import { SpeechProvider, useSpeech } from '../audio/speech';
-import { useCelebrate } from '../../state/celebrations';
+import { useCelebrate, useHoldCelebrations } from '../../state/celebrations';
 import { plugins } from '../../state/plugins';
 import { useApi, useSession } from '../../state/session';
 import { Confetti, pressable, primaryLedge, tapTarget, useSound } from '../../theme';
@@ -350,6 +350,8 @@ export default function LessonPlayerPage({
   const [state, dispatch] = useReducer(lessonPlayerReducer, initialPlayerState);
   const { phase, session, error } = state;
   const celebrate = useCelebrate();
+  // FR-165: no celebration covers a live exercise; they wait for the results (or for leaving).
+  useHoldCelebrations(['loading', 'intro', 'teaching', 'answering', 'feedback'].includes(phase));
   const bodyRef = useRef<HTMLElement>(null);
   const actionRef = useRef<HTMLButtonElement>(null);
 

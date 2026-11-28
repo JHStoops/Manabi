@@ -3,6 +3,7 @@ import { achievementGroupSchema, newlyEarned, parseMetric } from '@manabi/core';
 import type { AchievementList, MetricFamily, UnlockedAchievement } from '@manabi/core';
 import type { Queryable } from '../../db/db';
 import type { ScopedUserId } from '../auth/service';
+import { serverTimeZone } from '../social/service';
 import * as q from './queries';
 
 // FR-165, SDD section 7: the achievements engine. Definitions are data (a metric and a
@@ -54,7 +55,7 @@ function computeMetric(db: Queryable, userId: number, metric: string): Promise<n
     case 'reviews_in_day':
       return q.reviewsInDay(db, userId);
     case 'xp_in_week':
-      return q.xpInWeek(db, userId);
+      return q.xpInWeek(db, userId, serverTimeZone());
     case 'characters_drawn':
       return q.charactersDrawn(db, userId);
   }
@@ -77,6 +78,8 @@ export async function evaluateAchievements(
   userId: number,
   families: readonly MetricFamily[],
 ): Promise<UnlockedAchievement[]> {
+  if (families.length === 0) return [];
+  await q.lockLearnerAchievements(db, userId);
   const definitions = await q.listUnearnedDefinitions(db, userId, families);
   if (definitions.length === 0) return [];
   const values = new Map<string, number>();

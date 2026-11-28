@@ -4,7 +4,7 @@ import { NavLink, Navigate, Outlet, Route, Routes, useLocation } from 'react-rou
 import { useTranslation } from 'react-i18next';
 import './i18n';
 import { CelebrationHost } from './features/achievements/CelebrationHost';
-import { CelebrationProvider } from './state/celebrations';
+import { CelebrationProvider, CelebrationScope } from './state/celebrations';
 import { ActivePluginProvider } from './state/plugins';
 import { useSession } from './state/session';
 import { tapTarget, useMediaQuery } from './theme';
@@ -168,7 +168,9 @@ function RequireSignedIn() {
   // FR-165: celebrations show over every signed-in screen, the full-screen player included.
   return (
     <CelebrationProvider>
-      <Outlet />
+      <CelebrationScope>
+        <Outlet />
+      </CelebrationScope>
       <CelebrationHost />
     </CelebrationProvider>
   );

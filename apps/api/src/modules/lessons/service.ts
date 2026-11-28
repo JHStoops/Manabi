@@ -848,7 +848,8 @@ export async function completeTestOut(
           );
         }
       }
-      await recordDrawnCharacters(client, userId, drawnItemKeys(exercises));
+      // FR-165: a failed test-out changes no progress, its drawings included.
+      if (passed) await recordDrawnCharacters(client, userId, drawnItemKeys(exercises));
       await q.deleteSession(client, session.id);
       // FR-165: last, so every metric sees this completion's writes.
       const achievements = await evaluateAchievements(client, userId, TEST_OUT_METRICS);

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useReducer } from 'react';
+import { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
 import type { Dispatch, ReactNode } from 'react';
 import type { UnlockedAchievement } from '@manabi/core';
 import { useApi } from './session';
@@ -13,10 +13,14 @@ import { useApi } from './session';
 export interface CelebrationState {
   queue: UnlockedAchievement[];
   handled: string[];
+  /** True while a lesson or review player has an exercise on screen: nothing shows then. */
+  held: boolean;
 }
 
 export type CelebrationAction =
-  { type: 'unlocked'; achievements: readonly UnlockedAchievement[] } | { type: 'dismissed' };
+  | { type: 'unlocked'; achievements: readonly UnlockedAchievement[] }
+  | { type: 'dismissed' }
+  | { type: 'held'; held: boolean };
 
 export function celebrationReducer(
   state: CelebrationState,
@@ -30,12 +34,15 @@ export function celebrationReducer(
       );
       if (fresh.length === 0) return state;
       return {
+        ...state,
         queue: [...state.queue, ...fresh],
         handled: [...state.handled, ...fresh.map((a) => a.key)],
       };
     }
     case 'dismissed':
       return { ...state, queue: state.queue.slice(1) };
+    case 'held':
+      return state.held === action.held ? state : { ...state, held: action.held };
   }
 }
 
@@ -44,7 +51,7 @@ const CelebrationDispatchContext = createContext<Dispatch<CelebrationAction> | n
 
 export function CelebrationProvider({ children }: { children: ReactNode }) {
   const api = useApi();
-  const [state, dispatch] = useReducer(celebrationReducer, { queue: [], handled: [] });
+  const [state, dispatch] = useReducer(celebrationReducer, { queue: [], handled: [], held: false });
 
   useEffect(() => {
     let current = true;
@@ -85,6 +92,45 @@ export function useCelebrationDispatch(): Dispatch<CelebrationAction> {
 }
 
 const noop = () => undefined;
+
+/** The celebration on screen now: the head of the queue, unless celebrations are held. */
+export function currentCelebration(state: CelebrationState): UnlockedAchievement | undefined {
+  return state.held ? undefined : state.queue[0];
+}
+
+/**
+ * Holds celebrations while `held` (an exercise is on screen), so one never covers a live
+ * exercise; releases them on unmount. A no-op outside a provider.
+ */
+export function useHoldCelebrations(held: boolean) {
+  const dispatch = useContext(CelebrationDispatchContext);
+  useEffect(() => {
+    if (!dispatch) return;
+    dispatch({ type: 'held', held });
+    return () => dispatch({ type: 'held', held: false });
+  }, [dispatch, held]);
+}
+
+/**
+ * Wraps the signed-in screens; while a celebration is open they are inert and hidden from
+ * assistive technology, so the dialog is truly modal (focus and clicks cannot reach them).
+ */
+export function CelebrationScope({ children }: { children: ReactNode }) {
+  const open = currentCelebration(useCelebrations()) !== undefined;
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.toggleAttribute('inert', open);
+    if (open) el.setAttribute('aria-hidden', 'true');
+    else el.removeAttribute('aria-hidden');
+  }, [open]);
+  return (
+    <div ref={ref} style={{ display: 'contents' }}>
+      {children}
+    </div>
+  );
+}
 
 /** Queues unlocks from a progress response; a no-op outside a provider (for example in tests). */
 export function useCelebrate(): (achievements: readonly UnlockedAchievement[]) => void {

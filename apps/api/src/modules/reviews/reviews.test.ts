@@ -584,6 +584,37 @@ describeWithDb('reviews API', () => {
     ]);
   });
 
+  it('returns an achievement a review answer unlocks, once (FR-165)', async () => {
+    const { courseId, item, lesson } = await seed();
+    const { userId, session } = await learner('aiko', courseId);
+    await completeAll(lesson, session);
+    await makeDue(userId, [item.word!], 5);
+    // A 6-day streak that last counted yesterday: today's XP so far (from the lessons) is enough,
+    // so the next award counts today and makes it 7.
+    await sql(
+      `UPDATE user_stats SET current_streak = 6, longest_streak = 6,
+              last_active_date = last_active_date - 1
+        WHERE user_id = $1`,
+      [userId],
+    );
+    await sql(`DELETE FROM user_achievements WHERE user_id = $1`, [userId]);
+    const started = (await startReviews(session)).json<ReviewSession>();
+    const index = (facet: string) =>
+      started.exercises.findIndex((e) => e.itemId === item.word && e.facet === facet);
+
+    // The first facet settles nothing and awards no XP; the second moves the item up with XP.
+    let res = await answer(started.id, session, { index: index('meaning'), response: RIGHT });
+    expect(res.json<ReviewAnswerResult>().achievements).toEqual([]);
+    res = await answer(started.id, session, { index: index('reading'), response: RIGHT });
+    expect(res.json<ReviewAnswerResult>()).toMatchObject({
+      xpEarned: 1,
+      achievements: [{ key: 'streak_7', group: 'streak', title: '7-day streak', threshold: 7 }],
+    });
+    expect(
+      await sql(`SELECT achievement_key FROM user_achievements WHERE user_id = $1`, [userId]),
+    ).toEqual([{ achievement_key: 'streak_7' }]);
+  });
+
   it('starts a session in under a second with 2,000 due items (NFR-02)', async () => {
     const { courseId } = await seed();
     const { userId, session } = await learner('aiko', courseId);

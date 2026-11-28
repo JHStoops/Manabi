@@ -76,6 +76,18 @@ export async function markSeen(db: Queryable, userId: number, keys: readonly str
   );
 }
 
+/**
+ * FR-165: serializes a learner's achievement evaluations. A transaction sees only its own
+ * uncommitted writes, so two concurrent progress transactions could each count one short of a
+ * threshold (99 reviews today) and both miss it; waiting here makes the second one's metric
+ * queries see the first one's committed rows.
+ */
+export async function lockLearnerAchievements(db: Queryable, userId: number) {
+  await query(db, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [
+    `achievements:${userId}`,
+  ]);
+}
+
 /** FR-165: records the characters drawn from memory in a completed lesson (once each). */
 export async function insertDrawnCharacters(
   db: Queryable,
@@ -106,34 +118,38 @@ export function streakDays(db: Queryable, userId: number): Promise<number> {
   );
 }
 
-/** familiar_items:<type>: items of the type with every facet at stage 4 (Familiar) or above. */
+/**
+ * familiar_items:<type>: unarchived items of the type with every facet at stage 4 (Familiar) or
+ * above, across the learner's courses.
+ */
 export function familiarItems(db: Queryable, userId: number, itemType: string): Promise<number> {
   return valueOf(
     db,
     `SELECT count(*)::int AS n FROM (
        SELECT p.item_id FROM item_progress p
          JOIN items i ON i.id = p.item_id
-        WHERE p.user_id = $1 AND i.type = $2
+        WHERE p.user_id = $1 AND i.type = $2 AND i.archived_at IS NULL
         GROUP BY p.item_id
        HAVING min(p.stage) >= 4) familiar`,
     [userId, itemType],
   );
 }
 
-/** learned_items:<type>: items of the type that have entered reviews. */
+/** learned_items:<type>: unarchived items of the type that have entered reviews. */
 export function learnedItems(db: Queryable, userId: number, itemType: string): Promise<number> {
   return valueOf(
     db,
     `SELECT count(DISTINCT p.item_id)::int AS n FROM item_progress p
        JOIN items i ON i.id = p.item_id
-      WHERE p.user_id = $1 AND i.type = $2`,
+      WHERE p.user_id = $1 AND i.type = $2 AND i.archived_at IS NULL`,
     [userId, itemType],
   );
 }
 
 /**
  * section_complete:<level>: 1 when the learner has finished every published, unarchived unit of
- * a section (with at least one such unit) at that level code, in a course they are enrolled in.
+ * a section (with at least one such unit) at that level code, in a published course they are
+ * enrolled in.
  */
 export function sectionComplete(db: Queryable, userId: number, levelCode: string): Promise<number> {
   return valueOf(
@@ -141,6 +157,7 @@ export function sectionComplete(db: Queryable, userId: number, levelCode: string
     `SELECT (EXISTS (
        SELECT 1 FROM sections s
          JOIN enrollments e ON e.course_id = s.course_id AND e.user_id = $1
+         JOIN courses co ON co.id = s.course_id AND co.status = 'published'
         WHERE s.level_code = $2 AND s.archived_at IS NULL
           AND EXISTS (SELECT 1 FROM units u
                        WHERE u.section_id = s.id AND u.archived_at IS NULL
@@ -176,13 +193,17 @@ export function reviewsInDay(db: Queryable, userId: number): Promise<number> {
   );
 }
 
-/** xp_in_week: XP earned this week, across courses; the leaderboard's week (FR-180). */
-export function xpInWeek(db: Queryable, userId: number): Promise<number> {
+/**
+ * xp_in_week: XP earned this week, across courses. The week is the leaderboard's (FR-180):
+ * Monday 00:00 in the server's time zone `timeZone`, as social/queries.ts computes it.
+ */
+export function xpInWeek(db: Queryable, userId: number, timeZone: string): Promise<number> {
   return valueOf(
     db,
     `SELECT COALESCE(sum(amount), 0)::int AS n FROM xp_events
-      WHERE user_id = $1 AND earned_at >= date_trunc('week', now())`,
-    [userId],
+      WHERE user_id = $1
+        AND earned_at >= (date_trunc('week', now() AT TIME ZONE $2) AT TIME ZONE $2)`,
+    [userId, timeZone],
   );
 }
 
