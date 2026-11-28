@@ -74,11 +74,15 @@ jobs:
         continue-on-error: true
         run: npm audit --audit-level=low
 
-  # NFR-32, NFR-60, IF-03, FR-114, FR-072: end to end in a real browser (smoke test, invite to first
-  # lesson, review session, kanji drawing) against the production build and the API. Run it
-  # locally with `npm run e2e --workspace @manabi/web` before merging web changes.
-  e2e:
+  # NFR-41: release images tagged by version (v0.1.0 gives 0.1.0 and latest; a pre-release such as
+  # v0.2.0-rc.1 leaves latest alone), after the check job above passes.
+  release:
+    needs: check
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
     services:
       # Scratch database for the end-to-end test; its contents are wiped at every start.
       postgres:
@@ -101,29 +105,15 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # NFR-32, NFR-60, IF-03: end to end in a real browser (smoke test and invite to first lesson)
+      # against the production build and the API. Slow, so it runs on release tags only; run it
+      # locally with `npm run e2e --workspace @manabi/web` before merging web changes.
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - name: End-to-end tests
         env:
           E2E_DATABASE_URL: postgres://manabi:manabi@localhost:5432/manabi_e2e
-        run: npm run e2e --workspace @manabi/web -- --trace off
-
-  # NFR-41: release images tagged by version (v0.1.0 gives 0.1.0 and latest; a pre-release such as
-  # v0.2.0-rc.1 leaves latest alone), after the check and e2e jobs above pass.
-  release:
-    needs: [check, e2e]
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
+        run: npm run e2e --workspace @manabi/web
       - name: Build and push to GHCR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
