@@ -6,7 +6,7 @@ import type { LibraryItemDetail } from '@manabi/core';
 import { useApi } from '../../state/session';
 import { ActivePluginContext } from '../../state/plugins';
 import { SpeechProvider } from '../audio/speech';
-import { SpeakerButton } from '../audio/SpeakerButton';
+import { SpeakerButtons } from '../audio/SpeakerButton';
 import { apiErrorMessage } from '../auth/ui';
 import { AnnotatedText } from '../text/AnnotatedText';
 import { tapTarget } from '../../theme';
@@ -133,7 +133,13 @@ function GrammarPoint() {
                 ) : (
                   s.text
                 )}
-                {plugin && <SpeakerButton what="example" reading={plugin.readingOf(s.tokens)} />}
+                {plugin && (
+                  <SpeakerButtons
+                    what="example"
+                    reading={plugin.readingOf(s.tokens)}
+                    owner={{ type: 'sentence', id: s.id }}
+                  />
+                )}
                 <br />
                 {s.translation}
               </li>
