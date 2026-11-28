@@ -264,7 +264,8 @@ export const en = {
       uploaded: 'Plays your uploaded recording.',
       stale:
         'The uploaded recording was made for an older reading, so the generated voice plays. Upload a new one or remove it.',
-      file: 'Recording file (Ogg, Opus, MP3, WAV, WebM, M4A or FLAC; up to 5 MB and 30 seconds)',
+      file: 'Recording file',
+      limits: 'Ogg, Opus, MP3, WAV, WebM, M4A or FLAC; up to 5 MB and 30 seconds.',
       upload: 'Upload recording',
       remove: 'Remove recording',
       saved: 'Recording saved.',

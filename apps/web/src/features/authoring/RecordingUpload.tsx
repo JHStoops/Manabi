@@ -135,11 +135,14 @@ export function RecordingUpload({ ownerType, ownerId }: Owner) {
         src={clipUrl({ type: ownerType, id: ownerId })}
         aria-label={t('authoring.recording.listen')}
       />
+      <p id={`${id}-limits`}>{t('authoring.recording.limits')}</p>
       <Form onSubmit={upload}>
         <label htmlFor={`${id}-file`}>
           {t('authoring.recording.file')}
           <input
+            key={version}
             id={`${id}-file`}
+            aria-describedby={`${id}-limits`}
             type="file"
             accept={[...AUDIO_UPLOAD_TYPES, '.opus', '.m4a', '.flac'].join(',')}
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
