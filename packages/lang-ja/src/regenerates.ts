@@ -10,7 +10,7 @@ import {
   WORD_BANK_TYPE,
 } from '@manabi/core';
 import { FORM_LABELS, formsFor } from './conjugate';
-import { card, drawnCharacter, effective, kanjiUses, readingsOf } from './generators';
+import { card, drawnCharacter, effective, KANA_ONLY, kanjiUses, readingsOf } from './generators';
 import { kanjiDataSchema, wordDataSchema } from './itemSchemas';
 import { tokenize } from './tokenize';
 
@@ -123,6 +123,16 @@ function typedAnswer(payload: Payload, item: Item, content: PinContent): boolean
   if (payload.prompt === target.termPrompt) return payload.answerLanguage === 'base';
   if (item.type === 'word' && payload.prompt === target.glossPrompt) {
     return payload.answerLanguage === 'target';
+  }
+  // A word's reading facet (#225): how a word written with kanji is read.
+  if (item.type === 'word') {
+    const word = wordDataSchema.safeParse(effective(item)).data;
+    return (
+      !!word &&
+      !KANA_ONLY.test(word.written) &&
+      payload.answerLanguage === 'target' &&
+      payload.prompt === `How do you read ${word.written}?`
+    );
   }
   // A kanji's reading facet: its reading in one of the taught words that use it.
   return (
