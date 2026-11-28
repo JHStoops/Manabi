@@ -33,6 +33,18 @@ export interface GeneratorContext {
   facet?: ReviewFacet;
 }
 
+/**
+ * What `regenerates` may draw on (#259): course content only, never a learner's progress, so the
+ * answer is the same for every learner. `items` is a superset of any learner's taught items where
+ * the pin is used (a lesson pin: the items taught up to its lesson; an item-level pin: the
+ * course's items), and `sentences` the sentences a generator could use there (none in reviews).
+ */
+export interface PinContent {
+  sectionLevel: string;
+  items: readonly Item[];
+  sentences: readonly GeneratorSentence[];
+}
+
 /** An exercise generator: builds exercises of one type for an item (FR-049). */
 export type ExerciseGenerator = (item: Item, context: GeneratorContext) => Exercise[];
 
@@ -221,6 +233,14 @@ export interface LanguagePlugin {
   ): TeachingCardFields;
   /** Exercise generators keyed by exercise type. */
   generators: Record<string, ExerciseGenerator>;
+  /**
+   * #259, SDD section 6: whether the generator of `exercise.type` could still ask this question
+   * about `item` (its payload without the accept list, as a pin records its original), comparing
+   * only what the generator derives from the items themselves: prompts, terms, glosses, readings,
+   * sentence text. Random parts (option order, which distractors) are not compared. False marks
+   * a pin as detached from its original. Absent: pins are never marked.
+   */
+  regenerates?(exercise: Exercise, item: Item, content: PinContent): boolean;
   /**
    * FR-110, SDD section 6: the review facets of an item type, each with the exercise types (in
    * order of preference) that review it. An item type with no facets never enters reviews.

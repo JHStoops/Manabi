@@ -11059,6 +11059,7 @@ export interface paths {
                 /** @enum {string} */
                 origin: 'authored' | 'pinned';
                 key: string | null;
+                detached: boolean;
               }[];
             };
           };
@@ -11286,6 +11287,7 @@ export interface paths {
                 /** @enum {string} */
                 origin: 'authored' | 'pinned';
                 key: string | null;
+                detached: boolean;
               }[];
             };
           };
@@ -11940,6 +11942,7 @@ export interface paths {
                 /** @enum {string} */
                 origin: 'authored' | 'pinned';
                 key: string | null;
+                detached: boolean;
               };
               blockedWords: string[];
             };
@@ -12162,6 +12165,7 @@ export interface paths {
                 /** @enum {string} */
                 origin: 'authored' | 'pinned';
                 key: string | null;
+                detached: boolean;
               }[];
             };
           };
@@ -12351,6 +12355,7 @@ export interface paths {
                 /** @enum {string} */
                 origin: 'authored' | 'pinned';
                 key: string | null;
+                detached: boolean;
               };
               blockedWords: string[];
             };
@@ -12498,6 +12503,203 @@ export interface paths {
         };
       };
     };
+    trace?: never;
+  };
+  '/api/v1/authoring/exercises/{id}/retie': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Tie a pin to an exercise the generators make now (#259)
+     * @description For a pin marked detached: records the generated exercise closest to the pin's payload as its original. The payload and accept list stay. 409 when none is made.
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': Record<string, never> | null;
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              exercise: {
+                id: number;
+                type: string;
+                payload: {
+                  [key: string]: unknown;
+                };
+                /** @enum {string} */
+                origin: 'authored' | 'pinned';
+                key: string | null;
+                detached: boolean;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                /** @enum {string} */
+                code:
+                  | 'bad_request'
+                  | 'validation_failed'
+                  | 'unauthenticated'
+                  | 'password_change_required'
+                  | 'forbidden'
+                  | 'not_found'
+                  | 'conflict'
+                  | 'idempotency_conflict'
+                  | 'payload_too_large'
+                  | 'rate_limited'
+                  | 'internal_error'
+                  | 'service_unavailable';
+                message: string;
+                details?: unknown;
+              };
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   '/api/v1/authoring/items': {
@@ -13318,6 +13520,7 @@ export interface paths {
                 /** @enum {string} */
                 origin: 'authored' | 'pinned';
                 key: string | null;
+                detached: boolean;
               }[];
             };
           };
@@ -13511,6 +13714,7 @@ export interface paths {
                 /** @enum {string} */
                 origin: 'authored' | 'pinned';
                 key: string | null;
+                detached: boolean;
               }[];
             };
           };

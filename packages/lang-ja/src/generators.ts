@@ -66,7 +66,7 @@ export const effective = (item: Pick<Item, 'data' | 'overrides'>) => ({
 export const KANA_ONLY = /^[ぁ-ゟ゠-ヿ]*$/u;
 
 /** A kanji's readings in hiragana, without okurigana and prefix or suffix marks, distinct. */
-const readingsOf = (kanji: KanjiData) => [
+export const readingsOf = (kanji: KanjiData) => [
   ...new Set(
     [...kanji.onReadings, ...kanji.kunReadings].map((r) =>
       toHiragana(r.split('.')[0]!.replace(/-/g, '')),
@@ -75,7 +75,7 @@ const readingsOf = (kanji: KanjiData) => [
 ];
 
 /** An item as exercises show it: its term (か, 水) and gloss (ka, water), with prompts for both. */
-interface Card {
+export interface Card {
   item: Item;
   /** A kanji's data, for ranking look-alike distractors. */
   kanji?: KanjiData;
@@ -92,7 +92,7 @@ interface Card {
 
 // shortcut: prompts are English, the only base language so far; upgrade when a course from
 // another base language ships.
-function card(item: Item, context: GeneratorContext): Card | undefined {
+export function card(item: Item, context: GeneratorContext): Card | undefined {
   const romaji = context.sectionLevel === KANA_SECTION_LEVEL;
   if (item.type === 'kana') {
     const kana = kanaDataSchema.safeParse(effective(item)).data;
@@ -246,7 +246,7 @@ const wordBank: ExerciseGenerator = (item, { sentences, taughtItems }) => {
  * Taught words that use `kanji`, each with the kanji's reading in it (where it can be told), in
  * random order.
  */
-function kanjiUses(kanji: KanjiData, taughtItems: readonly Item[]) {
+export function kanjiUses(kanji: KanjiData, taughtItems: readonly Item[]) {
   return shuffled(taughtItems).flatMap((other) => {
     const word =
       other.type === 'word' ? wordDataSchema.safeParse(effective(other)).data : undefined;
@@ -419,7 +419,7 @@ const conjugateGenerator: ExerciseGenerator = (item) => {
 };
 
 /** The character a kanji or kana item is drawn as, or undefined for other items. */
-function drawnCharacter(item: Item): string | undefined {
+export function drawnCharacter(item: Item): string | undefined {
   const data = effective(item);
   if (item.type === 'kanji') return kanjiDataSchema.safeParse(data).data?.character;
   if (item.type === 'kana') return kanaDataSchema.safeParse(data).data?.character;

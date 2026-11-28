@@ -16778,9 +16778,10 @@
                           "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
                           "payload": { "type": "object", "additionalProperties": {} },
                           "origin": { "type": "string", "enum": ["authored", "pinned"] },
-                          "key": { "nullable": true, "type": "string" }
+                          "key": { "nullable": true, "type": "string" },
+                          "detached": { "type": "boolean" }
                         },
-                        "required": ["id", "type", "payload", "origin", "key"],
+                        "required": ["id", "type", "payload", "origin", "key", "detached"],
                         "additionalProperties": false
                       }
                     }
@@ -17158,9 +17159,10 @@
                           "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
                           "payload": { "type": "object", "additionalProperties": {} },
                           "origin": { "type": "string", "enum": ["authored", "pinned"] },
-                          "key": { "nullable": true, "type": "string" }
+                          "key": { "nullable": true, "type": "string" },
+                          "detached": { "type": "boolean" }
                         },
-                        "required": ["id", "type", "payload", "origin", "key"],
+                        "required": ["id", "type", "payload", "origin", "key", "detached"],
                         "additionalProperties": false
                       }
                     }
@@ -18121,9 +18123,10 @@
                         "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
                         "payload": { "type": "object", "additionalProperties": {} },
                         "origin": { "type": "string", "enum": ["authored", "pinned"] },
-                        "key": { "nullable": true, "type": "string" }
+                        "key": { "nullable": true, "type": "string" },
+                        "detached": { "type": "boolean" }
                       },
-                      "required": ["id", "type", "payload", "origin", "key"],
+                      "required": ["id", "type", "payload", "origin", "key", "detached"],
                       "additionalProperties": false
                     },
                     "blockedWords": {
@@ -18388,9 +18391,10 @@
                         "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
                         "payload": { "type": "object", "additionalProperties": {} },
                         "origin": { "type": "string", "enum": ["authored", "pinned"] },
-                        "key": { "nullable": true, "type": "string" }
+                        "key": { "nullable": true, "type": "string" },
+                        "detached": { "type": "boolean" }
                       },
-                      "required": ["id", "type", "payload", "origin", "key"],
+                      "required": ["id", "type", "payload", "origin", "key", "detached"],
                       "additionalProperties": false
                     },
                     "blockedWords": {
@@ -18746,14 +18750,272 @@
                           "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
                           "payload": { "type": "object", "additionalProperties": {} },
                           "origin": { "type": "string", "enum": ["authored", "pinned"] },
-                          "key": { "nullable": true, "type": "string" }
+                          "key": { "nullable": true, "type": "string" },
+                          "detached": { "type": "boolean" }
                         },
-                        "required": ["id", "type", "payload", "origin", "key"],
+                        "required": ["id", "type", "payload", "origin", "key", "detached"],
                         "additionalProperties": false
                       }
                     }
                   },
                   "required": ["lesson", "items", "exercises"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/authoring/exercises/{id}/retie": {
+      "post": {
+        "summary": "Tie a pin to an exercise the generators make now (#259)",
+        "tags": ["authoring"],
+        "description": "For a pin marked detached: records the generated exercise closest to the pin's payload as its original. The payload and accept list stay. 409 when none is made.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "nullable": true, "type": "object", "properties": {} }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": { "type": "string", "pattern": "^[1-9][0-9]{0,15}$" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "exercise": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+                        "payload": { "type": "object", "additionalProperties": {} },
+                        "origin": { "type": "string", "enum": ["authored", "pinned"] },
+                        "key": { "nullable": true, "type": "string" },
+                        "detached": { "type": "boolean" }
+                      },
+                      "required": ["id", "type", "payload", "origin", "key", "detached"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["exercise"],
                   "additionalProperties": false
                 }
               }
@@ -20143,9 +20405,10 @@
                           "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
                           "payload": { "type": "object", "additionalProperties": {} },
                           "origin": { "type": "string", "enum": ["authored", "pinned"] },
-                          "key": { "nullable": true, "type": "string" }
+                          "key": { "nullable": true, "type": "string" },
+                          "detached": { "type": "boolean" }
                         },
-                        "required": ["id", "type", "payload", "origin", "key"],
+                        "required": ["id", "type", "payload", "origin", "key", "detached"],
                         "additionalProperties": false
                       }
                     }
@@ -20399,9 +20662,10 @@
                           "type": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
                           "payload": { "type": "object", "additionalProperties": {} },
                           "origin": { "type": "string", "enum": ["authored", "pinned"] },
-                          "key": { "nullable": true, "type": "string" }
+                          "key": { "nullable": true, "type": "string" },
+                          "detached": { "type": "boolean" }
                         },
-                        "required": ["id", "type", "payload", "origin", "key"],
+                        "required": ["id", "type", "payload", "origin", "key", "detached"],
                         "additionalProperties": false
                       }
                     }

@@ -11,10 +11,13 @@ import type {
   EditorExercise,
   ExerciseWrite,
   GeneratedExercises,
+  Item,
   ItemExercises,
   LanguagePlugin,
   LessonEditor,
   LessonPreview,
+  PinContent,
+  RetieExercise,
   SetLessonItemsRequest,
   Tile,
   UpdateExerciseRequest,
@@ -29,7 +32,7 @@ import { listBlockedWords, replaceLessonItems } from '../content/queries';
 import type { ExerciseRow, JsonObject } from '../content/rows';
 import { objectsIn } from '../content/service';
 import { listLessonItems, listStoredExercises } from '../lessons/queries';
-import { generateExercises, previewLesson, toItem } from '../lessons/service';
+import { generateExercises, lessonPinContent, previewLesson, toItem } from '../lessons/service';
 import * as q from './lessonEditorQueries';
 import { deleteOrArchive } from './service';
 
@@ -44,14 +47,89 @@ function notFound(what: string): never {
 const isObject = (value: unknown): value is JsonObject =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-function toEditorExercise(row: ExerciseRow): EditorExercise {
+function toEditorExercise(row: ExerciseRow, scope?: PinScope): EditorExercise {
   return {
     id: row.id,
     type: row.type,
     payload: row.payload,
     origin: row.origin as EditorExercise['origin'],
     key: row.key,
+    detached: !!scope && isDetached(scope, row),
   };
+}
+
+/**
+ * #259, SDD section 6: what pins of one lesson, or of one item, are checked against: the items a
+ * pin can be about and the learner-independent content their generators draw on.
+ */
+interface PinScope {
+  plugin: LanguagePlugin;
+  items: Item[];
+  content: PinContent;
+}
+
+/** A lesson's pins: about one of its new items, generated from the content up to the lesson. */
+async function lessonPinScope(db: Queryable, lessonId: number): Promise<PinScope> {
+  const { plugin, newItems, content } = await lessonPinContent(db, lessonId);
+  return { plugin, items: newItems, content };
+}
+
+/**
+ * An item's own pins (reviews): generated for the item with any of the course's items taught
+ * and no sentences, as reviews generate them, at the level of the section that first teaches it.
+ */
+// shortcut: loads every item of the course; fine for an admin page at course sizes so far
+// (a few thousand items), narrow it if the item editor gets slow.
+async function itemPinScope(db: Queryable, itemId: number): Promise<PinScope> {
+  const row = (await q.findPinItem(db, itemId)) ?? notFound('Item');
+  const { plugin: code } = await activeItem(db, itemId);
+  const item = toItem(row);
+  return {
+    plugin: languagePlugins.get(code),
+    items: [item],
+    content: {
+      sectionLevel: row.section_level ?? row.level_code ?? '',
+      items: (await q.listCourseItems(db, row.course_id)).map(toItem),
+      sentences: [],
+    },
+  };
+}
+
+const scopeFor = (db: Queryable, row: ExerciseRow) =>
+  row.lesson_id !== null ? lessonPinScope(db, row.lesson_id) : itemPinScope(db, row.item_id!);
+
+/** The scope's items a pin's original can be about: those it names, else all of them. */
+function pinItems(scope: PinScope, original: JsonObject): Item[] {
+  const named = new Set(payloadItemIds(original));
+  const about = scope.items.filter((i) => named.has(i.id) || i.key === original.itemKey);
+  return about.length > 0 ? about : scope.items;
+}
+
+/**
+ * #259: a pin is detached when the plugin says its generators can no longer ask its recorded
+ * original about any item it can be about. A plugin without `regenerates` never marks one.
+ */
+function isDetached(scope: PinScope, row: ExerciseRow): boolean {
+  const { plugin, content } = scope;
+  if (row.origin !== 'pinned' || !plugin.regenerates) return false;
+  const original = { type: row.type, payload: row.original_payload ?? row.payload };
+  return !pinItems(scope, original.payload).some((item) =>
+    plugin.regenerates!(original, item, content),
+  );
+}
+
+/** Editor rows, with the detached mark worked out only when there are pins. */
+async function toEditorExercises(
+  rows: ExerciseRow[],
+  scope: () => Promise<PinScope>,
+): Promise<EditorExercise[]> {
+  const pins = rows.some((r) => r.origin === 'pinned') ? await scope() : undefined;
+  return rows.map((row) => toEditorExercise(row, pins));
+}
+
+/** One exercise's editor row, with its detached mark. */
+async function editorRow(db: Queryable, row: ExerciseRow): Promise<EditorExercise> {
+  return toEditorExercise(row, row.origin === 'pinned' ? await scopeFor(db, row) : undefined);
 }
 
 async function activeLesson(db: Queryable, id: number) {
@@ -75,7 +153,9 @@ export async function getLessonEditor(db: Queryable, lessonId: number): Promise<
       sectionLevel: l.level_code,
     },
     items: (await listLessonItems(db, lessonId)).map(toItem),
-    exercises: (await listStoredExercises(db, lessonId)).map(toEditorExercise),
+    exercises: await toEditorExercises(await listStoredExercises(db, lessonId), () =>
+      lessonPinScope(db, lessonId),
+    ),
   };
 }
 
@@ -218,7 +298,7 @@ export async function createExercise(
     if ((err as { code?: string }).code !== '23505') throw err;
     throw new AppError('conflict', 'A content pack exercise in this lesson already has that key');
   }
-  return { exercise: toEditorExercise(row), blockedWords };
+  return { exercise: await editorRow(pool, row), blockedWords };
 }
 
 async function activeItem(db: Queryable, id: number) {
@@ -241,7 +321,7 @@ export async function updateExercise(
     : await activeItem(pool, row.item_id!);
   const { payload, blockedWords } = await preparePayload(pool, owner, row.type, body);
   const updated = await q.updateExercisePayload(pool, id, payload);
-  return { exercise: toEditorExercise(updated), blockedWords };
+  return { exercise: await editorRow(pool, updated), blockedWords };
 }
 
 /** FR-223: removes an exercise; archived instead when an answer report refers to it. */
@@ -262,7 +342,11 @@ export async function deleteExercise(pool: Pool, id: number): Promise<LessonEdit
 /** #241, Product Spec section 11: an item's item-level exercises, such as review pins (FR-229). */
 export async function listItemExercises(db: Queryable, itemId: number): Promise<ItemExercises> {
   await activeItem(db, itemId);
-  return { exercises: (await q.listItemExercises(db, itemId)).map(toEditorExercise) };
+  return {
+    exercises: await toEditorExercises(await q.listItemExercises(db, itemId), () =>
+      itemPinScope(db, itemId),
+    ),
+  };
 }
 
 /** #241: removes an item-level exercise; archived instead when an answer report refers to it. */
@@ -283,4 +367,114 @@ export async function deleteItemExercise(
     );
   });
   return listItemExercises(pool, itemId);
+}
+
+/** How many times re-tying asks a generator for each item and facet (#259). */
+const RETIE_TRIES = 10;
+
+/** The pairs of adjacent characters of a text, counted (bigrams). */
+function bigrams(text: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (let i = 0; i < text.length - 1; i++) {
+    const pair = text.slice(i, i + 2);
+    counts.set(pair, (counts.get(pair) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/**
+ * How alike two texts are, 0 to 1 (Dice over bigrams): order-aware, so "means “water”" is closer
+ * to "means “water”" than to "means “cat”" even though their letters are much the same.
+ */
+function textLikeness(a: string, b: string): number {
+  const [x, y] = [bigrams(a), bigrams(b)];
+  let shared = 0;
+  for (const [pair, n] of x) shared += Math.min(n, y.get(pair) ?? 0);
+  const total = Math.max(a.length - 1, 0) + Math.max(b.length - 1, 0);
+  return total === 0 ? Number(a === b) : (2 * shared) / total;
+}
+
+/** How alike two field values are, 0 to 1. Lists compare as sets, since their order is random. */
+function likeness(x: unknown, y: unknown): number {
+  if (typeof x === 'string' && typeof y === 'string') return textLikeness(x, y);
+  if (Array.isArray(x) && Array.isArray(y)) {
+    const ys = y.map((v) => JSON.stringify(v));
+    const shared = x.filter((v) => ys.includes(JSON.stringify(v))).length;
+    return (2 * shared) / (x.length + y.length || 1);
+  }
+  return JSON.stringify(x) === JSON.stringify(y) ? 1 : 0;
+}
+
+/**
+ * How close a generated payload is to a pin's: the likeness of each top-level field they share,
+ * leaving out the accept list and numbers (a correct option's index follows the random order).
+ */
+function closeness(a: JsonObject, b: JsonObject): number {
+  return Object.keys(a)
+    .filter((k) => k !== 'accept' && typeof a[k] !== 'number' && Object.hasOwn(b, k))
+    .reduce((sum, k) => sum + likeness(a[k], b[k]), 0);
+}
+
+/**
+ * #259, SDD section 6: ties a pin to an exercise its type's generator makes now, for one of the
+ * items it can be about: of those made (for every review facet of the item), the one closest to
+ * the pin's payload. Only the recorded original changes; the pin's payload and accept list stay.
+ * 409 for a pin that is not detached, or when the generator makes none. Content rows only; no progress table is touched.
+ */
+export async function retieExercise(pool: Pool, id: number): Promise<RetieExercise> {
+  return withTransaction(pool, async (db) => {
+    // Locked, so a concurrent edit, removal or second re-tie waits for this one.
+    const row =
+      (await q.findLessonExercise(db, id, true)) ??
+      (await q.findItemExercise(db, id, true)) ??
+      notFound('Exercise');
+    if (row.origin !== 'pinned') {
+      throw new AppError('conflict', 'Only a pinned exercise has a generated original');
+    }
+    if (row.lesson_id !== null) await activeLesson(db, row.lesson_id);
+    const scope = await scopeFor(db, row);
+    // A pin still tied keeps its exact original, which lessons and reviews match it on.
+    if (!isDetached(scope, row)) {
+      throw new AppError('conflict', 'This pin is not detached from its generated original');
+    }
+    // The pin's own item ids (an answer's tiles, a choice's options) favor its own item's
+    // exercises when two are equally close.
+    const own = new Set(payloadItemIds(row.payload));
+    const { plugin, content } = scope;
+    const generate = Object.hasOwn(plugin.generators, row.type)
+      ? plugin.generators[row.type]!
+      : undefined;
+    // Generators pick at random (a direction, a form, a sentence), so each is asked several
+    // times for the closest to have a fair chance of being among those made.
+    const candidates = pinItems(scope, row.original_payload ?? row.payload).flatMap((item) =>
+      [undefined, ...Object.keys(plugin.reviewFacets(item.type, item))].flatMap((facet) =>
+        Array.from({ length: RETIE_TRIES }).flatMap(() =>
+          (
+            generate?.(item, {
+              sectionLevel: content.sectionLevel,
+              taughtItems: content.items,
+              sentences: content.sentences,
+              ...(facet ? { facet } : {}),
+            }) ?? []
+          ).flatMap((e) =>
+            isObject(e.payload)
+              ? [
+                  {
+                    payload: e.payload,
+                    score: closeness(e.payload, row.payload) + 0.5 * Number(own.has(item.id)),
+                  },
+                ]
+              : [],
+          ),
+        ),
+      ),
+    );
+    if (candidates.length === 0) {
+      throw new AppError('conflict', 'The generators make no exercise of this type here now');
+    }
+    // The first of the highest scores, in item and facet order, so ties settle the same way.
+    const best = candidates.reduce((a, b) => (b.score > a.score ? b : a));
+    const updated = (await q.updateExerciseOriginal(db, id, best.payload)) ?? notFound('Exercise');
+    return { exercise: toEditorExercise(updated, scope) };
+  });
 }

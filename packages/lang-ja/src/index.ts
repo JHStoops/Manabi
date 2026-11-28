@@ -5,6 +5,7 @@ import { convertInput } from './convertInput';
 import { detectGrammar } from './grammar';
 import { generators } from './generators';
 import { itemSchemas } from './itemSchemas';
+import { regenerates } from './regenerates';
 import { libraryFields, searchKey } from './library';
 import { reviewFacets, testsFacet } from './reviewFacets';
 import { segment } from './segment';
@@ -18,6 +19,7 @@ export { detectGrammar } from './grammar';
 export * from './itemSchemas';
 export { courseKana } from './kana';
 export { libraryFields, searchKey } from './library';
+export { regenerates } from './regenerates';
 export { reviewFacets, testsFacet } from './reviewFacets';
 export { segment } from './segment';
 export { readingOf, splitByScript, tokenize } from './tokenize';
@@ -47,6 +49,8 @@ export const japanese: LanguagePlugin = {
   teachingCard,
   // Kana and vocabulary generators (#30), EX-09 (#50), EX-10 (#219) and the kanji ones (#53).
   generators,
+  // #259: whether a pin's original is still generated, for the editors' detached mark.
+  regenerates,
   reviewFacets,
   testsFacet,
   libraryFields,

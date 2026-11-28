@@ -97,6 +97,7 @@ describeWithDb('item-level exercises in authoring API', () => {
       'GET',
       `/authoring/items/${itemIds[0]}/exercises`,
     );
+    // #259: the fixture items have no data, so no generator makes these: both are detached.
     expect(exercises).toEqual([
       {
         id: first,
@@ -104,8 +105,16 @@ describeWithDb('item-level exercises in authoring API', () => {
         origin: 'pinned',
         payload: typed(['water', 'aqua']),
         key: null,
+        detached: true,
       },
-      { id: second, type: 'typed_answer', origin: 'pinned', payload: typed(['water']), key: null },
+      {
+        id: second,
+        type: 'typed_answer',
+        origin: 'pinned',
+        payload: typed(['water']),
+        key: null,
+        detached: true,
+      },
     ]);
   });
 

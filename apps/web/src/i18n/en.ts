@@ -427,6 +427,12 @@ export const en = {
     edit: 'Edit',
     editEntry: 'Edit {{title}}',
     confirmRemove: 'Remove this exercise?',
+    detached: 'Detached:',
+    detachedHint:
+      'the generators no longer make the exercise this pin was made from, so sessions use both. Re-tie it to the current one, or remove it.',
+    retie: 'Re-tie',
+    retieEntry: 'Re-tie {{label}}',
+    retied: 'Re-tied {{label}}.',
     write: 'Write exercise',
     exerciseForm: '{{type}} exercise',
     resegment: 'Re-segment tiles',

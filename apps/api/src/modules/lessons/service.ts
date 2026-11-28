@@ -33,6 +33,7 @@ import type {
   GeneratorContext,
   Item,
   LanguagePlugin,
+  PinContent,
   LessonCompletion,
   LessonCompletionRequest,
   LessonFlowEntry,
@@ -217,6 +218,22 @@ async function lessonInputs(db: Queryable, lesson: q.LessonContextRow) {
     }
   }
   return { plugin, newItems, earlierItems, context, strokeKeys, containing };
+}
+
+/**
+ * #259: what a lesson's pins are checked against (`LanguagePlugin.regenerates`): its new items
+ * and the content its generators draw on, the items taught up to the lesson and its sentences.
+ * None of it depends on a learner.
+ */
+export async function lessonPinContent(
+  db: Queryable,
+  lessonId: number,
+): Promise<{ plugin: LanguagePlugin; newItems: Item[]; content: PinContent }> {
+  const lesson = await q.findLesson(db, lessonId);
+  if (!lesson) throw new AppError('not_found', 'Lesson not found');
+  const { plugin, newItems, context } = await lessonInputs(db, lesson);
+  const { sectionLevel, taughtItems: items, sentences } = context;
+  return { plugin, newItems, content: { sectionLevel, items, sentences } };
 }
 
 /**
