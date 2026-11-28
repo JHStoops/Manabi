@@ -372,11 +372,26 @@ export async function deleteItemExercise(
 /** How many times re-tying asks a generator for each item and facet (#259). */
 const RETIE_TRIES = 10;
 
-/** How many top-level fields two payloads share, accept lists aside: how close they are. */
+/** How alike two texts are: the share of their characters they have in common (Jaccard). */
+function textLikeness(a: string, b: string): number {
+  const [x, y] = [new Set(a), new Set(b)];
+  const shared = [...x].filter((c) => y.has(c)).length;
+  return shared / (x.size + y.size - shared || 1);
+}
+
+/**
+ * How close a generated payload is to a pin's, accept lists aside: 1 for each top-level field
+ * they share, and for differing text fields (a prompt in new wording) how alike the texts are, so
+ * a pin that names no item (a typed meaning) is tied to the exercise about the term it asks.
+ */
 function closeness(a: JsonObject, b: JsonObject): number {
-  return Object.keys(a).filter(
-    (k) => k !== 'accept' && Object.hasOwn(b, k) && JSON.stringify(a[k]) === JSON.stringify(b[k]),
-  ).length;
+  return Object.keys(a)
+    .filter((k) => k !== 'accept' && Object.hasOwn(b, k))
+    .reduce((sum, k) => {
+      if (JSON.stringify(a[k]) === JSON.stringify(b[k])) return sum + 1;
+      const [x, y] = [a[k], b[k]];
+      return typeof x === 'string' && typeof y === 'string' ? sum + textLikeness(x, y) : sum;
+    }, 0);
 }
 
 /**

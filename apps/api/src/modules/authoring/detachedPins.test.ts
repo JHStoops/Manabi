@@ -197,6 +197,26 @@ describeWithDb('detached pins in authoring API', () => {
     expect(refused.statusCode).toBe(409);
   });
 
+  it('re-ties a lesson pin that names no item to the exercise about the term it asks', async () => {
+    // A typed meaning names no item; the lesson teaches five words, 犬 second.
+    const stale = { prompt: 'What is the meaning of 犬?', answerLanguage: 'base' };
+    const { exercise } = await ok<ExerciseWrite>('POST', '/authoring/exercises', {
+      lessonId,
+      type: 'typed_answer',
+      origin: 'pinned',
+      payload: { ...stale, accept: [{ text: 'dog', tiles: [] }] },
+    });
+    expect(exercise.detached).toBe(true);
+    await ok<RetieExercise>('POST', `/authoring/exercises/${exercise.id}/retie`, {});
+    const [row] = await sql<{ original_payload: object }>(
+      `SELECT original_payload FROM exercises WHERE id = $1`,
+      [exercise.id],
+    );
+    expect(row).toEqual({
+      original_payload: { prompt: 'What does 犬 mean?', answerLanguage: 'base' },
+    });
+  });
+
   it('answers 404 for an unknown exercise', async () => {
     const response = await call('POST', '/authoring/exercises/999999/retie', {});
     expect(response.statusCode).toBe(404);
