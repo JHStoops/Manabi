@@ -2,6 +2,7 @@ import type {
   ChoicePayload,
   ConjugatePayload,
   DrawMemoryPayload,
+  Exercise,
   ExerciseGenerator,
   GeneratorContext,
   Item,
@@ -24,7 +25,7 @@ import {
 } from '@manabi/core';
 import { toHiragana } from './answer';
 import { conjugate, FORM_LABELS, formsFor } from './conjugate';
-import type { KanjiData } from './itemSchemas';
+import type { KanjiData, WordData } from './itemSchemas';
 import { kanaDataSchema, kanjiDataSchema, wordDataSchema } from './itemSchemas';
 import { kanaToRomaji } from './romaji';
 import { tokenize } from './tokenize';
@@ -56,9 +57,13 @@ function shuffled<T>(items: readonly T[]): T[] {
 }
 
 /** DR-09: an item's data with the author's overrides applied, field by field. */
-export const effective = (item: Item) => ({ ...item.data, ...item.overrides });
+export const effective = (item: Pick<Item, 'data' | 'overrides'>) => ({
+  ...item.data,
+  ...item.overrides,
+});
 
-const KANA_ONLY = /^[ぁ-ゟ゠-ヿ]*$/u;
+/** Kana only (or empty). */
+export const KANA_ONLY = /^[ぁ-ゟ゠-ヿ]*$/u;
 
 /** A kanji's readings in hiragana, without okurigana and prefix or suffix marks, distinct. */
 const readingsOf = (kanji: KanjiData) => [
@@ -271,15 +276,39 @@ function typedKanjiReading(item: Item, kanji: KanjiData, context: GeneratorConte
 }
 
 /**
+ * EX-04 for a word's `reading` facet (#225, Product Spec section 7): type how a word written with
+ * kanji is read, in kana. The tiles are the kana reading, so typing the shown kanji is not
+ * accepted; a katakana reading also accepts hiragana. A word written only in kana has no reading
+ * facet (`reviewFacets`), so it gets no exercise.
+ */
+function typedWordReading(item: Item, word: WordData): Exercise[] {
+  if (KANA_ONLY.test(word.written)) return [];
+  const payload: TypedAnswerPayload = {
+    prompt: `How do you read ${word.written}?`,
+    answerLanguage: 'target',
+    accept: [...new Set([word.reading, toHiragana(word.reading)])].map((text) => ({
+      text,
+      tiles: [{ surface: text, base: word.written, reading: word.reading, itemId: item.id }],
+    })),
+  };
+  return [{ type: TYPED_ANSWER_TYPE, payload }];
+}
+
+/**
  * EX-04: type the gloss of a term, or a word from its meaning. A kana is only asked for its sound:
  * typed as kana, its romaji would turn into the shown kana itself. A kanji is asked for its
- * meaning, or for its reading in a word when the facet asked for is `reading`.
+ * meaning, or for its reading in a word when the facet asked for is `reading`; a word is asked
+ * for its reading when the facet is `reading`.
  */
 const typedAnswer: ExerciseGenerator = (item, context) => {
   const target = card(item, context);
   if (!target) return [];
   if (target.kanji && context.facet === 'reading') {
     return typedKanjiReading(item, target.kanji, context);
+  }
+  if (item.type === 'word' && context.facet === 'reading') {
+    const word = wordDataSchema.safeParse(effective(item)).data;
+    return word ? typedWordReading(item, word) : [];
   }
   const toTerm = item.type === 'word' && Math.random() < 0.5;
   const tile = {
