@@ -26,6 +26,8 @@ export default defineConfig({
       'npm run migrate --workspace @manabi/api',
       `echo "$E2E_ADMIN_PASSWORD" | npm run manabi --workspace @manabi/api -- create-admin e2eadmin`,
       `npm run manabi --workspace @manabi/api -- pack import apps/web/e2e/fixtures/ja-en`,
+      // FR-077: stroke data for the fixture kanji (#64); also adds the course's kana items.
+      `npm run manabi --workspace @manabi/api -- import kanjivg ja-en apps/web/e2e/fixtures/kanjivg.xml`,
       `npm start --workspace @manabi/api`,
     ].join(' && '),
     // The API and CLI take their settings from the environment; the root is where npm runs them.

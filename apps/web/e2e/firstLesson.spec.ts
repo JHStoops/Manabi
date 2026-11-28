@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
 import type { LessonSession } from '@manabi/core';
+import { answer } from './helpers';
 
 // NFR-32, FR-001, FR-051: an admin invites, the invitee accepts, enrolls and finishes the first
 // kana lesson of the fixture pack, then sees XP on the results and the streak on the Learn tab.
@@ -9,35 +9,6 @@ import type { LessonSession } from '@manabi/core';
 // Test-only value; the learner is created from the invite (one per project, sharing the database).
 const PASSWORD = 'e2e-learner-pw-7c1d4f';
 const FLOW_BUDGET_MS = 60_000;
-
-/** Answers the exercise on screen correctly, from its payload in the lesson session. */
-async function answer(page: Page, exercise: LessonSession['exercises'][number]) {
-  const payload = exercise.payload as {
-    prompt?: string;
-    options?: unknown[];
-    correct?: number;
-    accept?: { text: string }[];
-    pairs?: { term: string; match: string }[];
-  };
-  if (exercise.type === 'choice') {
-    // The renderer loads lazily; keys pressed before it mounts are lost.
-    await expect(page.getByRole('group', { name: payload.prompt })).toBeVisible();
-    await page.keyboard.press(String(payload.correct! + 1));
-  } else if (exercise.type === 'typed_answer') {
-    // shortcut: types the first accepted answer as is; a kana-field exercise would need romaji.
-    await page.getByRole('textbox').fill(payload.accept![0]!.text);
-  } else if (exercise.type === 'match_pairs') {
-    for (const { term, match } of payload.pairs!) {
-      await page.getByRole('button', { name: term, exact: true }).click();
-      await page.getByRole('button', { name: match, exact: true }).click();
-    }
-  } else {
-    throw new Error(`No e2e answer for exercise type ${exercise.type}`);
-  }
-  await page.getByRole('button', { name: 'Check' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Correct!' })).toBeVisible();
-  await page.getByRole('button', { name: 'Continue' }).click();
-}
 
 test('invite to first lesson', async ({ page }, testInfo) => {
   // FR-001: the admin creates an invite and copies its link.

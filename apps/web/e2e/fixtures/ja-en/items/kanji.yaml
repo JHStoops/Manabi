@@ -1,0 +1,25 @@
+# Five kanji for the drawing test (#64): their strokes are in ../../kanjivg.xml.
+- key: ja:kanji:一
+  type: kanji
+  level: N5
+  data:
+    { character: 一, meanings: [one], onReadings: [いち], kunReadings: [ひと.つ], strokeCount: 1 }
+- key: ja:kanji:二
+  type: kanji
+  level: N5
+  data: { character: 二, meanings: [two], onReadings: [に], kunReadings: [ふた.つ], strokeCount: 2 }
+- key: ja:kanji:三
+  type: kanji
+  level: N5
+  data:
+    { character: 三, meanings: [three], onReadings: [さん], kunReadings: [み.つ], strokeCount: 3 }
+- key: ja:kanji:十
+  type: kanji
+  level: N5
+  data:
+    { character: 十, meanings: [ten], onReadings: [じゅう], kunReadings: [とお], strokeCount: 2 }
+- key: ja:kanji:人
+  type: kanji
+  level: N5
+  data:
+    { character: 人, meanings: [person], onReadings: [じん], kunReadings: [ひと], strokeCount: 2 }
