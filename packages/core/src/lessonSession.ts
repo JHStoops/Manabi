@@ -158,8 +158,62 @@ export const teachingCardSchema = z.object({
    * sessions before #237), the exercise count for a card after the last one.
    */
   before: z.number().int().min(0).default(0),
+  /**
+   * FR-041 (#256): the card re-presents an item taught in an earlier lesson instead of
+   * introducing a new one. False in sessions saved before #256.
+   */
+  refresher: z.boolean().default(false),
 });
 export type TeachingCard = z.infer<typeof teachingCardSchema>;
+
+/**
+ * FR-041 (#256): a lesson shows up to `cards` teaching cards for every `exercises` exercises
+ * (3 for every 5 to 7; the API reads its ratio from LESSON_CARDS_PER_EXERCISES).
+ */
+export interface CardDensity {
+  cards: number;
+  exercises: number;
+}
+export const DEFAULT_CARD_DENSITY: CardDensity = { cards: 3, exercises: 5 };
+
+/** FR-041: the most teaching cards a session of `exerciseCount` exercises may show. */
+export const maxTeachingCards = (
+  exerciseCount: number,
+  density: CardDensity = DEFAULT_CARD_DENSITY,
+) => Math.floor((exerciseCount * density.cards) / density.exercises);
+
+/**
+ * FR-041, FR-048 (#256): refresher cards for items taught in earlier lessons, chosen and placed
+ * among a built session's exercises. `candidates` are the earlier items (never the lesson's own),
+ * most in need of a refresher first; an item gets a card only when an exercise names it, and the
+ * card comes before the first exercise that does. Refreshers only fill what the density cap
+ * leaves after the lesson's own cards (`existingCards`), which are never dropped. The result is in
+ * showing order (by `before`, then candidate order).
+ */
+export function chooseRefreshers<T extends { id: number }>(
+  candidates: readonly T[],
+  exercises: readonly SessionExercise[],
+  existingCards: number,
+  density: CardDensity = DEFAULT_CARD_DENSITY,
+): { item: T; before: number }[] {
+  const budget = maxTeachingCards(exercises.length, density) - existingCards;
+  if (budget <= 0) return [];
+  const firstUse = new Map<number, number>();
+  exercises.forEach((e, index) => {
+    for (const id of payloadItemIds(e.payload)) if (!firstUse.has(id)) firstUse.set(id, index);
+  });
+  const chosen: { item: T; before: number; rank: number }[] = [];
+  const seen = new Set<number>();
+  candidates.forEach((item, rank) => {
+    const before = firstUse.get(item.id);
+    if (before === undefined || seen.has(item.id) || chosen.length >= budget) return;
+    seen.add(item.id);
+    chosen.push({ item, before, rank });
+  });
+  return chosen
+    .sort((a, b) => a.before - b.before || a.rank - b.rank)
+    .map(({ item, before }) => ({ item, before }));
+}
 
 /**
  * One exercise of a session: its registry type id and payload (prompt, options, accept list with

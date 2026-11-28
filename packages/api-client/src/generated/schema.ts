@@ -2404,7 +2404,7 @@ export interface paths {
     put?: never;
     /**
      * Start a lesson session, or resume the unexpired one
-     * @description Teaching cards for the new items, then 10 to 15 exercises with payloads and accept lists. A session is kept for 24 hours; starting again within that time returns it.
+     * @description Teaching cards for the new items and refresher cards for earlier items, each placed before an exercise, then 10 to 15 exercises with payloads and accept lists. A session is kept for 24 hours; starting again within that time returns it.
      */
     post: {
       parameters: {
@@ -2486,6 +2486,8 @@ export interface paths {
                 facet: 'meaning' | 'reading' | null;
                 /** @default 0 */
                 before: number;
+                /** @default false */
+                refresher: boolean;
               }[];
               exercises: {
                 type: string;
@@ -11713,6 +11715,8 @@ export interface paths {
                 facet: 'meaning' | 'reading' | null;
                 /** @default 0 */
                 before: number;
+                /** @default false */
+                refresher: boolean;
               }[];
               exercises: {
                 type: string;
