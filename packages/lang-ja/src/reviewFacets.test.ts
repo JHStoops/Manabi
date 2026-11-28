@@ -16,6 +16,22 @@ describe('reviewFacets (FR-110)', () => {
     expect(reviewFacets('grammar')).toEqual({ usage: ['fill_blank', 'reorder'] });
   });
 
+  it('gives a word written only in kana no reading facet, after overrides (#225)', () => {
+    const entry = (written: string, overrides = {}) => ({
+      data: { written, reading: 'みず', senses: [{ partsOfSpeech: ['n'], meanings: ['water'] }] },
+      overrides,
+    });
+    expect(reviewFacets('word', entry('水'))).toEqual({
+      meaning: ['choice', 'typed_answer'],
+      reading: ['typed_answer'],
+    });
+    expect(reviewFacets('word', entry('みず'))).toEqual({ meaning: ['choice', 'typed_answer'] });
+    expect(reviewFacets('word', entry('水', { written: 'みず' }))).toEqual({
+      meaning: ['choice', 'typed_answer'],
+    });
+    expect(reviewFacets('kanji', entry('水'))).toEqual(reviewFacets('kanji'));
+  });
+
   it('gives unknown types no facets', () => {
     expect(reviewFacets('toString')).toEqual({});
   });

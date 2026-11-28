@@ -7,6 +7,7 @@ import {
 } from '@manabi/core';
 import type { ChoicePayload, LanguagePlugin, TypedAnswerPayload } from '@manabi/core';
 import { KANA_ONLY } from './generators';
+import { wordDataSchema } from './itemSchemas';
 
 // FR-110, Product Spec section 7: review facets per item type, each with its exercise types.
 // shortcut: word listening waits for EX-07/EX-08 (#67), which adds its facet here. The API
@@ -20,8 +21,18 @@ const FACETS: Record<string, Record<string, readonly string[]>> = {
   grammar: { usage: [FILL_BLANK_TYPE, REORDER_TYPE] },
 };
 
-export const reviewFacets: LanguagePlugin['reviewFacets'] = (itemType) =>
-  Object.hasOwn(FACETS, itemType) ? FACETS[itemType]! : {};
+/**
+ * FR-110: the facets of an item type, or of one item. A word written only in kana has no reading
+ * facet (#225): its reading is what it shows, so a reading question would answer itself.
+ */
+export const reviewFacets: LanguagePlugin['reviewFacets'] = (itemType, item) => {
+  const facets = Object.hasOwn(FACETS, itemType) ? FACETS[itemType]! : {};
+  if (itemType !== 'word' || !item) return facets;
+  const word = wordDataSchema.safeParse({ ...item.data, ...item.overrides }).data;
+  if (!word || !KANA_ONLY.test(word.written)) return facets;
+  const { reading: _reading, ...rest } = facets;
+  return rest;
+};
 
 /**
  * A stored exercise reviews a kanji's meaning only when it plainly asks for it: a typed answer in

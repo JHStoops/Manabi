@@ -407,16 +407,26 @@ describeWithDb('kanji lessons API', () => {
   it('backfills a reading entry for words already in reviews, served as a word reading exercise (#225, FR-110)', async () => {
     const { courseId, items } = await seed();
     const { userId, session } = await learner(courseId);
+    // A word written only in kana has no reading facet, so it gets none.
+    const [kanaWord] = await sql(
+      `INSERT INTO items (course_id, key, type, level_code, data)
+       VALUES ($1, 'w:これ', 'word', 'N5', $2) RETURNING id`,
+      [courseId, word('これ', 'これ', 'this')],
+    );
     // Before #225 words were reviewed on their meaning only.
     await sql(
       `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
        VALUES ($1, $2, 'meaning', 3, now() - interval '1 hour'),
-              ($1, $3, 'meaning', 8, NULL)`,
-      [userId, items['w:休み'], items['w:本']],
+              ($1, $3, 'meaning', 8, NULL),
+              ($1, $4, 'meaning', 5, now() + interval '1 day')`,
+      [userId, items['w:休み'], items['w:本'], kanaWord!.id],
     );
 
     await backfillReviewFacets(pool());
     await backfillReviewFacets(pool()); // A second run changes nothing.
+    expect(await sql(`SELECT facet FROM item_progress WHERE item_id = $1`, [kanaWord!.id])).toEqual(
+      [{ facet: 'meaning' }],
+    );
     expect(
       await sql(
         `SELECT p.item_id, p.stage, p.due_at IS NOT DISTINCT FROM m.due_at AS same_due
@@ -466,6 +476,31 @@ describeWithDb('kanji lessons API', () => {
     });
     expect(answered.statusCode).toBe(200);
     expect(answered.json<{ correct: boolean }>().correct).toBe(true);
+  });
+
+  it('reviews a kana-only word on its meaning even with a leftover reading entry (#225, FR-112)', async () => {
+    const { courseId } = await seed();
+    const { userId, session } = await learner(courseId);
+    const [kanaWord] = await sql(
+      `INSERT INTO items (course_id, key, type, level_code, data)
+       VALUES ($1, 'w:これ', 'word', 'N5', $2) RETURNING id`,
+      [courseId, word('これ', 'これ', 'this')],
+    );
+    // A reading entry it no longer has (say, an override rewrote 此れ as これ).
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       SELECT $1, $2, f, 3, now() - interval '1 hour' FROM unnest(ARRAY['meaning', 'reading']) AS f`,
+      [userId, kanaWord!.id],
+    );
+    const reviews = await app.inject({
+      method: 'POST',
+      url: '/api/v1/reviews/sessions',
+      ...session,
+    });
+    expect(reviews.statusCode).toBe(200);
+    expect(reviews.json<ReviewSession>().exercises.map((e) => [e.itemId, e.facet])).toEqual([
+      [kanaWord!.id, 'meaning'],
+    ]);
   });
 
   /** What the session practises for one kanji: draw, meaning and reading exercises, by prompt. */

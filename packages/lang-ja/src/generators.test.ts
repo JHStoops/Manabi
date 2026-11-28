@@ -205,14 +205,14 @@ describe('EX-04 word reading (#225)', () => {
     expect(new Set(prompts)).toEqual(new Set(['How do you read 犬?']));
   });
 
-  it('asks for a kana-only word from its meaning, accepting hiragana for katakana', () => {
-    const coffee = word('コーヒー', 'コーヒー', 'coffee');
-    const [e] = generators.typed_answer!(coffee, reading);
-    expect(e!.payload).toMatchObject({
-      prompt: 'Which word means “coffee”? Type it in kana.',
-      answerLanguage: 'target',
-      accept: [{ text: 'コーヒー' }, { text: 'こーひー' }],
-    });
+  it('makes no reading exercise for a word written only in kana (it has no reading facet)', () => {
+    expect(generators.typed_answer!(word('コーヒー', 'コーヒー', 'coffee'), reading)).toEqual([]);
+    expect(generators.typed_answer!(word('これ', 'これ', 'this'), reading)).toEqual([]);
+  });
+
+  it('accepts a katakana reading in hiragana too', () => {
+    const [e] = generators.typed_answer!(word('珈琲', 'コーヒー', 'coffee'), reading);
+    expect(e!.payload).toMatchObject({ accept: [{ text: 'コーヒー' }, { text: 'こーひー' }] });
     for (const answer of ['コーヒー', 'こーひー', 'ko-hi-']) {
       expect(gradeResponse(e!, { attempts: [answer] }, japanese)).toEqual({ result: 'correct' });
     }

@@ -87,31 +87,38 @@ export async function insertReviewEntries(
   );
 }
 
+/** FR-110: the items that are in anyone's reviews, with their course's plugin. */
+export function listItemsInReviews(db: Queryable): Promise<(ItemRow & { plugin: string })[]> {
+  return query<ItemRow & { plugin: string }>(
+    db,
+    `SELECT i.*, c.plugin FROM items i JOIN courses c ON c.id = i.course_id
+      WHERE i.archived_at IS NULL
+        AND EXISTS (SELECT 1 FROM item_progress p WHERE p.item_id = i.id)`,
+  );
+}
+
 /**
- * FR-110: for every learner's item in reviews, an entry for each of these facets of its course's
- * plugin and item type that it lacks, copying the stage and due time of its lowest-stage entry
- * (earliest due among equals; a retired item stays retired). Archived items are left out.
- * Policy: a facet a plugin adds starts at the item's current stage, as the learner already knows
- * the item; a facet that should start over must not rely on this.
+ * FR-110: each learner with any entry for one of these items gets an entry for each listed facet
+ * of it they lack, copying the stage and due time of their lowest-stage entry (earliest due among
+ * equals; a retired item stays retired). Policy: a facet a plugin adds starts at the item's
+ * current stage, as the learner already knows the item; a facet that should start over must not
+ * rely on this.
  */
 export async function insertMissingFacets(
   db: Queryable,
-  facets: readonly { plugin: string; itemType: string; facet: string }[],
+  facets: readonly { itemId: number; facet: string }[],
 ): Promise<void> {
   await query(
     db,
     `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
      SELECT DISTINCT ON (p.user_id, p.item_id, f.facet) p.user_id, p.item_id, f.facet, p.stage, p.due_at
-       FROM item_progress p
-       JOIN items i ON i.id = p.item_id AND i.archived_at IS NULL
-       JOIN courses c ON c.id = i.course_id
-       JOIN unnest($1::text[], $2::text[], $3::text[]) AS f (plugin, item_type, facet)
-         ON f.plugin = c.plugin AND f.item_type = i.type
+       FROM unnest($1::bigint[], $2::text[]) AS f (item_id, facet)
+       JOIN item_progress p ON p.item_id = f.item_id
       WHERE NOT EXISTS (SELECT 1 FROM item_progress e
                          WHERE e.user_id = p.user_id AND e.item_id = p.item_id AND e.facet = f.facet)
       ORDER BY p.user_id, p.item_id, f.facet, p.stage, p.due_at
      ON CONFLICT (user_id, item_id, facet) DO NOTHING`,
-    [facets.map((f) => f.plugin), facets.map((f) => f.itemType), facets.map((f) => f.facet)],
+    [facets.map((f) => f.itemId), facets.map((f) => f.facet)],
   );
 }
 
