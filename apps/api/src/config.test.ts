@@ -21,6 +21,8 @@ describe('loadConfig', () => {
       levelCeiling: 'N3',
       datasetsDir: './datasets',
       srsIntervalHours: [4, 24, 72, 168, 336, 720, 2880],
+      lessonCardDensity: { cards: 3, exercises: 5 },
+      refresherMaxStage: 4,
       smtp: null,
     });
   });
@@ -52,6 +54,16 @@ describe('loadConfig', () => {
       logLevel: 'warn',
       levelCeiling: 'N2',
     });
+  });
+
+  it('reads the lesson card density and refresher stage (FR-041, #256)', () => {
+    expect(
+      loadConfig({
+        NODE_ENV: 'test',
+        LESSON_CARDS_PER_EXERCISES: ' 3 / 7 ',
+        REFRESHER_MAX_STAGE: '2',
+      }),
+    ).toMatchObject({ lessonCardDensity: { cards: 3, exercises: 7 }, refresherMaxStage: 2 });
   });
 
   it('changes review due times through SRS_INTERVAL_HOURS (FR-111)', () => {
@@ -93,6 +105,17 @@ describe('loadConfig', () => {
       { NODE_ENV: 'test', SRS_INTERVAL_HOURS: '0,1,2,3,4,5,6' },
       'SRS_INTERVAL',
     ],
+    [
+      'a bad card density',
+      { NODE_ENV: 'test', LESSON_CARDS_PER_EXERCISES: '3/0' },
+      'LESSON_CARDS_PER_EXERCISES',
+    ],
+    [
+      'a hex card density',
+      { NODE_ENV: 'test', LESSON_CARDS_PER_EXERCISES: '0x3/5' },
+      'LESSON_CARDS_PER_EXERCISES',
+    ],
+    ['a bad refresher stage', { NODE_ENV: 'test', REFRESHER_MAX_STAGE: '9' }, 'REFRESHER_MAX'],
     ['a bad LEVEL_CEILING', { NODE_ENV: 'test', LEVEL_CEILING: 'N 2' }, 'LEVEL_CEILING'],
     [
       'a short production secret',

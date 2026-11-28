@@ -175,9 +175,12 @@ const WordList = styled.ul`
   }
 `;
 
-/** The distinct items of these teaching cards, in card order. */
+/**
+ * The distinct new items of these teaching cards, in card order. Refresher cards re-present items
+ * from earlier lessons, so they are left out (FR-041, #256).
+ */
 const newItems = (cards: readonly TeachingCardData[]) => [
-  ...new Map(cards.map((c) => [c.item.id, c.item])).values(),
+  ...new Map(cards.filter((c) => !c.refresher).map((c) => [c.item.id, c.item])).values(),
 ];
 
 /** Product Spec sections 4 and 6: one new item, as the course's plugin shows it (FR-141). */
@@ -559,6 +562,10 @@ export default function LessonPlayerPage({
     // Product Spec section 4: the lesson's title, type and the items it will teach (a kanji has
     // two cards, one item).
     const items = newItems(session.teachingCards);
+    // FR-041 (#256): refreshers are not taught, so the intro only counts them.
+    const refreshers = new Set(
+      session.teachingCards.filter((c) => c.refresher).map((c) => c.item.id),
+    ).size;
     content = (
       <>
         <h1>{session.lessonTitle}</h1>
@@ -569,6 +576,7 @@ export default function LessonPlayerPage({
             <li key={item.id}>{plugin.teachingCard(item, session.sectionLevel).term}</li>
           ))}
         </ul>
+        {refreshers > 0 && <p>{t('player.introRefreshers', { count: refreshers })}</p>}
       </>
     );
     actionLabel = t('player.start');
@@ -581,7 +589,15 @@ export default function LessonPlayerPage({
     content = (
       <>
         <h1>
-          {card.facet === 'reading' ? (
+          {card.refresher ? (
+            // FR-041 (#256): an item from an earlier lesson, shown again as a review.
+            <>
+              {t('player.refresher')}{' '}
+              <span lang={plugin.code}>
+                {plugin.teachingCard(card.item, session.sectionLevel).term}
+              </span>
+            </>
+          ) : card.facet === 'reading' ? (
             <>
               {t('player.readingOf')}{' '}
               <span lang={plugin.code}>

@@ -1,3 +1,4 @@
+import { payloadItemIds } from '@manabi/core';
 import { playableExercises } from '../audio/speech';
 import type {
   ExerciseResponse,
@@ -136,13 +137,15 @@ export function lessonPlayerReducer(state: PlayerState, action: PlayerAction): P
       // A card keeps its place: before the same exercise, or the next one kept.
       const kept = all.map((e) => (exercises as readonly unknown[]).includes(e));
       const position = (before: number) => kept.slice(0, before).filter(Boolean).length;
+      const usedBy = (list: typeof all) => new Set(list.flatMap((e) => payloadItemIds(e.payload)));
+      const [usedBefore, used] = [usedBy(all), usedBy(exercises)];
       const cards =
         'teachingCards' in state.session
           ? {
-              teachingCards: state.session.teachingCards.map((c) => ({
-                ...c,
-                before: position(c.before),
-              })),
+              teachingCards: state.session.teachingCards
+                // A refresher (#256) whose item only dropped exercises named has nothing to refresh.
+                .filter((c) => !c.refresher || used.has(c.item.id) || !usedBefore.has(c.item.id))
+                .map((c) => ({ ...c, before: position(c.before) })),
             }
           : {};
       return {
