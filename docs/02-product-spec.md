@@ -168,7 +168,7 @@ Every item taught in a lesson enters a fixed-interval spaced-repetition ladder; 
 **Rules**
 
 - A wrong answer drops the item 1 stage from stages 1 to 4, and 2 stages from stage 5 and above; it is then due again after that stage's interval.
-- Review facets: a kanji is reviewed on meaning and on reading; a word on meaning, reading and (if it has audio) listening; a grammar point through a fill-the-blank or reorder exercise drawn from its pool. An item moves up only when all its facets are answered correctly in the session.
+- Review facets: a kanji is reviewed on meaning and on reading; a word on meaning, reading (only when it is written with kanji: a word written only in kana shows its reading) and (if it has audio) listening; a grammar point through a fill-the-blank or reorder exercise drawn from its pool. An item moves up only when all its facets are answered correctly in the session.
 - Kana enter the ladder too, but skip straight to stage 4 after the kana lesson's own drills.
 - The Review tab shows the number due now, a start button, and a 7-day forecast of items coming due per day.
 - A review session serves up to 20 items at a time, oldest due first, mixing item types; the learner can stop at any point and keep credit for what was answered. Reviews give the same one immediate second try as lessons, to forgive slips and mis-taps; an item drops a stage only if the second try is also wrong.

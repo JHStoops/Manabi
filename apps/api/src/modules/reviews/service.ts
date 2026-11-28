@@ -26,6 +26,7 @@ import { AppError } from '../../errors';
 import { languagePlugins } from '../../plugins';
 import type { ScopedUserId } from '../auth/service';
 import type { ExerciseRow, ItemRow } from '../content/rows';
+import { REVIEW_METRICS, evaluateAchievements } from '../achievements/service';
 import { awardXp } from '../courses/service';
 import { originalKey, questionKey, toItem } from '../lessons/service';
 import * as q from './queries';
@@ -50,15 +51,17 @@ export async function createReviewEntries(
   db: Queryable,
   userId: number,
   lessonType: LessonType,
-  items: readonly Pick<ItemRow, 'id' | 'type'>[],
+  items: readonly Pick<ItemRow, 'id' | 'type' | 'data' | 'overrides'>[],
   plugin: LanguagePlugin,
   intervalHours: readonly number[],
   now = new Date(),
 ): Promise<void> {
   const entries = items.flatMap((item) =>
-    Object.keys(plugin.reviewFacets(item.type)).map((facet) => ({ itemId: item.id, facet })),
+    Object.keys(plugin.reviewFacets(item.type, item)).map((facet) => ({ itemId: item.id, facet })),
   );
   if (entries.length === 0) return;
+  // A facet an item in reviews has gained since (an override, a replay) joins it at its stage.
+  await q.insertMissingFacets(db, entries, userId);
   const stage = (lessonType === 'kana' ? KANA_LESSON_START_STAGE : 1) as Stage;
   const dueAt = new Date(now.getTime() + intervalHours[stage - 1]! * HOUR);
   await q.insertReviewEntries(db, userId, entries, stage, dueAt);
@@ -67,19 +70,18 @@ export async function createReviewEntries(
 /**
  * FR-110: when a plugin adds a review facet to an item type (#53: kanji meaning), items already
  * in reviews get an entry for it at their current stage and due time (their lowest-stage facet's),
- * so they are reviewed on it without starting over. Runs at API start; existing entries are kept.
+ * so they are reviewed on it without starting over. Facets come from the plugin per item (#225:
+ * no word reading for words written only in kana). Runs at API start; existing entries are kept.
  */
 export async function backfillReviewFacets(db: Queryable): Promise<void> {
-  const facets = languagePlugins.codes().flatMap((code) => {
-    const plugin = languagePlugins.get(code);
-    return Object.keys(plugin.itemSchemas).flatMap((itemType) =>
-      Object.keys(plugin.reviewFacets(itemType)).map((facet) => ({
-        plugin: code,
-        itemType,
-        facet,
-      })),
-    );
-  });
+  const codes = new Set(languagePlugins.codes());
+  const facets = (await q.listItemsInReviews(db)).flatMap((item) =>
+    codes.has(item.plugin)
+      ? Object.keys(languagePlugins.get(item.plugin).reviewFacets(item.type, item)).map(
+          (facet) => ({ itemId: item.id, facet }),
+        )
+      : [],
+  );
   if (facets.length > 0) await q.insertMissingFacets(db, facets);
 }
 
@@ -169,9 +171,14 @@ async function buildState(db: Queryable, userId: number, now: Date): Promise<Rev
       const taughtItems = learned.get(courseId)!;
       const taught = new Set(taughtItems.map((i) => i.id));
       const item = toItem(facets[0]!);
+      // shortcut: an entry for a facet the item no longer has (an override changed its data) is
+      // left due but not reviewed, so it never keeps the item's other facets out of reviews.
+      const itemFacets = plugin.reviewFacets(item.type, item);
+      const reviewed = facets.filter((row) => Object.hasOwn(itemFacets, row.facet));
+      if (reviewed.length === 0) continue;
 
-      const picked = facets.map((row): SessionExercise | undefined => {
-        const types = plugin.reviewFacets(item.type)[row.facet] ?? [];
+      const picked = reviewed.map((row): SessionExercise | undefined => {
+        const types = itemFacets[row.facet] ?? [];
         const own = stored.filter(
           (e) =>
             e.for_item_id === itemId &&
@@ -236,7 +243,7 @@ async function buildState(db: Queryable, userId: number, now: Date): Promise<Rev
         exercises.push({
           ...e!,
           itemId,
-          facet: facets[i]!.facet,
+          facet: reviewed[i]!.facet,
           plugin: pluginCode,
           courseId,
           correct: null,
@@ -304,7 +311,7 @@ export async function answer(
         : q.saveReviewSessionState(client, session.id, state);
     if (exercise.retry) {
       await save();
-      return { correct, stage: null, xpEarned: 0, retryIndex };
+      return { correct, stage: null, xpEarned: 0, retryIndex, achievements: [] };
     }
 
     const { itemId, facet } = exercise;
@@ -315,12 +322,12 @@ export async function answer(
     let next: { stage: Stage; dueAt: Date | null } | null = null;
     if (siblings.every((e) => e.correct !== null)) {
       const right = siblings.every((e) => e.correct);
-      // An item's facets share one stage: they are created together and always moved together.
+      // An item's facets share one stage, so all its entries move together: also one for a facet
+      // added since the session started (#267) or one the item no longer has (#225), which no
+      // session serves.
       const scheduled = new FixedLadderScheduler(intervalHours).next(row.stage, right, now);
       next = { stage: scheduled.stage as Stage, dueAt: scheduled.dueAt };
-      for (const e of siblings) {
-        await q.setFacetStage(client, userId, itemId, e.facet, next.stage, next.dueAt);
-      }
+      await q.setItemStage(client, userId, itemId, next.stage, next.dueAt);
     }
     const log = await q.insertReviewLog(client, {
       userId,
@@ -345,6 +352,18 @@ export async function answer(
     const stage = next?.stage ?? null;
 
     await save();
-    return { correct, stage, xpEarned, retryIndex };
+    // FR-165: only the metrics this answer could change (a log row always; the stage when the
+    // item moved; streak and weekly XP when XP was awarded).
+    const achievements = await evaluateAchievements(
+      client,
+      userId,
+      REVIEW_METRICS.filter(
+        (m) =>
+          m === 'reviews_in_day' ||
+          (m === 'familiar_items' && next !== null) ||
+          ((m === 'streak_days' || m === 'xp_in_week') && xpEarned > 0),
+      ),
+    );
+    return { correct, stage, xpEarned, retryIndex, achievements };
   });
 }

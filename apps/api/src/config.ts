@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { CardDensity } from '@manabi/core';
 import { DEFAULT_SRS_INTERVAL_HOURS, levelCodeSchema } from '@manabi/core';
 
 export type NodeEnv = 'development' | 'test' | 'production';
@@ -32,6 +33,13 @@ export interface Config {
   levelCeiling: string;
   /** FR-111: hours until the next review at SRS stages 1 to 7. */
   srsIntervalHours: number[];
+  /** FR-041 (#256): the most teaching cards per exercises in a lesson session (3 per 5). */
+  lessonCardDensity: CardDensity;
+  /**
+   * FR-041 (#256): an item from an earlier lesson gets a refresher card when the learner's lowest
+   * SRS stage on it is at most this (1 to 7; 0 turns refreshers off).
+   */
+  refresherMaxStage: number;
   /** Folder of downloaded open datasets; admin-started imports only read files inside it. */
   datasetsDir: string;
   /** IF-10: the only way email leaves the server; null when SMTP_HOST is unset (no email). */
@@ -111,6 +119,15 @@ const envSchema = z
       .refine((hours) => hours.length === 7 && hours.every((h) => Number.isFinite(h) && h > 0), {
         message: 'Expected 7 comma-separated positive hours, one per stage 1 to 7',
       }),
+    // FR-041 (#256): "cards/exercises", up to 3 cards for every 5 to 7 exercises.
+    LESSON_CARDS_PER_EXERCISES: z
+      .string()
+      .regex(/^\s*\d+\s*\/\s*\d+\s*$/, 'Expected "cards/exercises", such as 3/5')
+      .default('3/5')
+      .transform((v) => v.split('/').map((n) => Number(n.trim())))
+      .refine((parts) => parts[1]! > 0, { message: 'Expected "cards/exercises", such as 3/5' })
+      .transform(([cards, exercises]) => ({ cards: cards!, exercises: exercises! })),
+    REFRESHER_MAX_STAGE: z.coerce.number().int().min(0).max(7).default(4),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
     SMTP_USER: optionalText,
@@ -178,6 +195,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     levelCeiling: e.LEVEL_CEILING,
     datasetsDir: e.DATASETS_DIR,
     srsIntervalHours: e.SRS_INTERVAL_HOURS,
+    lessonCardDensity: e.LESSON_CARDS_PER_EXERCISES,
+    refresherMaxStage: e.REFRESHER_MAX_STAGE,
     smtp: e.SMTP_HOST
       ? {
           host: e.SMTP_HOST,

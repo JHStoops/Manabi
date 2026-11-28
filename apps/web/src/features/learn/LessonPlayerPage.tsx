@@ -12,6 +12,7 @@ import {
   payloadItemIds,
 } from '@manabi/core';
 import type {
+  UnlockedAchievement,
   AnswerText,
   ExerciseResponse,
   LanguagePlugin,
@@ -22,6 +23,7 @@ import type {
 } from '@manabi/core';
 import { SpeakerButton } from '../audio/SpeakerButton';
 import { SpeechProvider, useSpeech } from '../audio/speech';
+import { useCelebrate, useHoldCelebrations } from '../../state/celebrations';
 import { plugins } from '../../state/plugins';
 import { useApi, useSession } from '../../state/session';
 import { Confetti, pressable, primaryLedge, tapTarget, useSound } from '../../theme';
@@ -175,9 +177,12 @@ const WordList = styled.ul`
   }
 `;
 
-/** The distinct items of these teaching cards, in card order. */
+/**
+ * The distinct new items of these teaching cards, in card order. Refresher cards re-present items
+ * from earlier lessons, so they are left out (FR-041, #256).
+ */
 const newItems = (cards: readonly TeachingCardData[]) => [
-  ...new Map(cards.map((c) => [c.item.id, c.item])).values(),
+  ...new Map(cards.filter((c) => !c.refresher).map((c) => [c.item.id, c.item])).values(),
 ];
 
 /** Product Spec sections 4 and 6: one new item, as the course's plugin shows it (FR-141). */
@@ -347,6 +352,9 @@ export default function LessonPlayerPage({
   const { lessonId = '', unitId = '' } = useParams();
   const [state, dispatch] = useReducer(lessonPlayerReducer, initialPlayerState);
   const { phase, session, error } = state;
+  const celebrate = useCelebrate();
+  // FR-165: no celebration covers a live exercise; they wait for the results (or for leaving).
+  useHoldCelebrations(['loading', 'intro', 'teaching', 'answering', 'feedback'].includes(phase));
   const bodyRef = useRef<HTMLElement>(null);
   const actionRef = useRef<HTMLButtonElement>(null);
 
@@ -402,13 +410,18 @@ export default function LessonPlayerPage({
             idempotencyKey: `lesson-session-${session.id}`,
           });
     done.then(
-      (completion) => current && dispatch({ type: 'completed', completion }),
+      (completion) => {
+        if (!current) return;
+        dispatch({ type: 'completed', completion });
+        // FR-165: the results screen, then any achievement it unlocked.
+        if ('achievements' in completion) celebrate(completion.achievements);
+      },
       (err: unknown) => current && dispatch({ type: 'failed', error: err }),
     );
     return () => {
       current = false;
     };
-  }, [api, phase, error, session, responses]);
+  }, [api, phase, error, session, responses, celebrate]);
 
   const exerciseIndex = state.queue[0];
   const exercise = exerciseIndex === undefined ? undefined : session?.exercises[exerciseIndex];
@@ -422,6 +435,18 @@ export default function LessonPlayerPage({
   const [savedAt, setSavedAt] = useState(-1); // the step whose answer the server has
   const [saveTry, setSaveTry] = useState(0);
   const savedStep = useRef<string | null>(null);
+  // FR-165: a review's unlocks wait for the end of the session (or leaving it), so a celebration
+  // never interrupts answering.
+  const reviewUnlocks = useRef<UnlockedAchievement[]>([]);
+  const reviewOver = review && (phase === 'completing' || phase === 'results');
+  useEffect(() => {
+    const flush = () => {
+      celebrate(reviewUnlocks.current);
+      reviewUnlocks.current = [];
+    };
+    if (reviewOver) flush();
+    return flush;
+  }, [reviewOver, celebrate]);
   useEffect(() => {
     if (!review || phase !== 'feedback' || !session || !exercise || exerciseIndex === undefined)
       return;
@@ -436,6 +461,7 @@ export default function LessonPlayerPage({
       .then(
         (result) => {
           setSavedAt(state.step);
+          reviewUnlocks.current.push(...result.achievements);
           const retry = 'retry' in exercise && exercise.retry;
           setTally((t) => ({
             first: t.first + (retry ? 0 : 1),
@@ -559,6 +585,10 @@ export default function LessonPlayerPage({
     // Product Spec section 4: the lesson's title, type and the items it will teach (a kanji has
     // two cards, one item).
     const items = newItems(session.teachingCards);
+    // FR-041 (#256): refreshers are not taught, so the intro only counts them.
+    const refreshers = new Set(
+      session.teachingCards.filter((c) => c.refresher).map((c) => c.item.id),
+    ).size;
     content = (
       <>
         <h1>{session.lessonTitle}</h1>
@@ -569,6 +599,7 @@ export default function LessonPlayerPage({
             <li key={item.id}>{plugin.teachingCard(item, session.sectionLevel).term}</li>
           ))}
         </ul>
+        {refreshers > 0 && <p>{t('player.introRefreshers', { count: refreshers })}</p>}
       </>
     );
     actionLabel = t('player.start');
@@ -581,7 +612,15 @@ export default function LessonPlayerPage({
     content = (
       <>
         <h1>
-          {card.facet === 'reading' ? (
+          {card.refresher ? (
+            // FR-041 (#256): an item from an earlier lesson, shown again as a review.
+            <>
+              {t('player.refresher')}{' '}
+              <span lang={plugin.code}>
+                {plugin.teachingCard(card.item, session.sectionLevel).term}
+              </span>
+            </>
+          ) : card.facet === 'reading' ? (
             <>
               {t('player.readingOf')}{' '}
               <span lang={plugin.code}>

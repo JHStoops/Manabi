@@ -92,11 +92,7 @@ describeWithDb('social and admin schema (migration 0004)', () => {
   describe('achievements (FR-165)', () => {
     it('awards each defined achievement once per learner', async () => {
       const [a] = await twoLearners();
-      await query(
-        pool(),
-        `INSERT INTO achievements (key, group_key, metric, threshold, title)
-         VALUES ('streak_7', 'streak', 'streak_days', 7, 'One week')`,
-      );
+      // streak_7 is seeded by migration 0015.
       const earn = (key: string) =>
         query(pool(), `INSERT INTO user_achievements (user_id, achievement_key) VALUES ($1, $2)`, [
           a,

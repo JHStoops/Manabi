@@ -43,7 +43,9 @@ async function renderApp(
         ? Promise.reject(new Error('401'))
         : url === '/api/v1/courses'
           ? Promise.resolve({ courses: [] })
-          : Promise.resolve({ role, mustChangePassword } as User),
+          : url === '/api/v1/me/achievements'
+            ? Promise.resolve({ achievements: [] })
+            : Promise.resolve({ role, mustChangePassword } as User),
   } as unknown as ApiClient;
   rtl.render(
     <ApiContext.Provider value={api}>

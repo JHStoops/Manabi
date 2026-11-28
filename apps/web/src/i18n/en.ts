@@ -165,6 +165,12 @@ export const en = {
     badge: 'Week of {{date}}: place {{rank}} ({{xp}} XP)',
     noBadges: 'No badges yet. Finish in the top three of a week to earn one.',
   },
+  // FR-165: achievement celebrations.
+  achievements: {
+    unlocked: 'Achievement unlocked',
+    streakMilestone: 'Streak milestone',
+    continue: 'Continue',
+  },
   // FR-160, FR-162: the lesson results screen.
   results: {
     xpEarned: '+{{count}} XP',
@@ -555,11 +561,15 @@ export const en = {
     close: 'Leave lesson',
     progress: 'Lesson progress',
     intro: 'This lesson teaches {{count}} new items.',
+    introRefreshers_one: 'It also brings back {{count}} item from an earlier lesson.',
+    introRefreshers_other: 'It also brings back {{count}} items from earlier lessons.',
     start: 'Start',
     newItem: 'New item {{n}} of {{total}}',
     // Product Spec section 5: a kanji's reading card, after its meaning exercises.
     // The term follows, in its own language.
     readingOf: 'How to read',
+    // FR-041 (#256): a card that brings back an item from an earlier lesson. The term follows.
+    refresher: 'Refresher:',
     reading: 'Reading',
     meaning: 'Meaning',
     example: 'Example',

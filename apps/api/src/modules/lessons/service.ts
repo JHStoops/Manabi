@@ -3,6 +3,8 @@ import type { Pool } from 'pg';
 import {
   CHOICE_TYPE,
   DRAWING_EXERCISE_TYPES,
+  DRAW_MEMORY_TYPE,
+  drawMemoryPayloadSchema,
   GRAMMAR_EXERCISE_ORDER,
   LESSON_MAX_EXERCISES,
   LESSON_MIN_EXERCISES,
@@ -14,6 +16,7 @@ import {
   gradeResponse,
   learnerSettingsSchema,
   TEACHING_CARD_MAX_WORDS,
+  chooseRefreshers,
   lessonCompletionSchema,
   isFlowCard,
   lessonFlows,
@@ -25,6 +28,7 @@ import {
   z,
 } from '@manabi/core';
 import type {
+  CardDensity,
   ExerciseResponse,
   GeneratorContext,
   Item,
@@ -50,6 +54,12 @@ import { AppError } from '../../errors';
 import { languagePlugins } from '../../plugins';
 import type { ScopedUserId } from '../auth/service';
 import type { ExerciseRow, ItemRow } from '../content/rows';
+import {
+  LESSON_METRICS,
+  TEST_OUT_METRICS,
+  evaluateAchievements,
+  recordDrawnCharacters,
+} from '../achievements/service';
 import { awardLessonXp, getPath, recordTestOut } from '../courses/service';
 import { createReviewEntries } from '../reviews/service';
 import * as q from './queries';
@@ -114,6 +124,7 @@ export async function startSession(
   db: Pool,
   userId: ScopedUserId,
   lessonId: number,
+  refreshers: RefresherOptions,
 ): Promise<LessonSession> {
   const lesson = await q.findLesson(db, lessonId);
   if (!lesson) throw new AppError('not_found', 'Lesson not found');
@@ -137,7 +148,10 @@ export async function startSession(
         client,
         userId,
         lessonId,
-        await buildState(client, lesson, await drawingOn(client, userId)),
+        await buildState(client, lesson, await drawingOn(client, userId), {
+          ...refreshers,
+          userId,
+        }),
       )
     );
   });
@@ -153,6 +167,15 @@ export async function startSession(
   };
 }
 
+/**
+ * FR-041 (#256): the density cap on a session's teaching cards, and the highest SRS stage at which
+ * an item from an earlier lesson gets a refresher card (from configuration).
+ */
+export interface RefresherOptions {
+  density: CardDensity;
+  maxStage: number;
+}
+
 /** FR-074: whether the learner wants drawing exercises (EX-11, EX-12) in new sessions. */
 async function drawingOn(db: Queryable, userId: number): Promise<boolean> {
   return learnerSettingsSchema.parse((await q.findSettings(db, userId))?.settings ?? {})
@@ -164,6 +187,9 @@ async function lessonInputs(db: Queryable, lesson: q.LessonContextRow) {
   const plugin = languagePlugins.get(lesson.plugin);
   const newItems = (await q.listLessonItems(db, lesson.id)).map(toItem);
   const taughtItems = (await q.listTaughtItems(db, lesson.id)).map(toItem);
+  // FR-041 (#256): taught in an earlier lesson, so an item can get a refresher card.
+  const newIds = new Set(newItems.map((i) => i.id));
+  const earlierItems = taughtItems.filter((i) => !newIds.has(i.id));
   // FR-056, FR-048: sentences at or below the section level, not challenging, taught items only.
   const sentences = await q.listSentences(
     db,
@@ -191,7 +217,7 @@ async function lessonInputs(db: Queryable, lesson: q.LessonContextRow) {
         containing.set(link.item_id, [...(containing.get(link.item_id) ?? []), container]);
     }
   }
-  return { plugin, newItems, context, strokeKeys, containing };
+  return { plugin, newItems, earlierItems, context, strokeKeys, containing };
 }
 
 /**
@@ -213,13 +239,19 @@ export async function lessonPinContent(
 /**
  * SDD section 6: teaching cards for the new items, then the stored exercises, filled up to 10 by
  * the plugin's generators per the lesson type's recipe. Exercises use taught items only (FR-048).
+ * With a learner (`refreshers`), items from earlier lessons that the exercises use and the learner
+ * is at a low stage on get refresher cards, up to the density cap (FR-041, #256).
  */
 async function buildState(
   db: Queryable,
   lesson: q.LessonContextRow,
   drawing: boolean,
+  refreshers?: RefresherOptions & { userId: number },
 ): Promise<LessonSessionState> {
-  const { plugin, newItems, context, strokeKeys, containing } = await lessonInputs(db, lesson);
+  const { plugin, newItems, earlierItems, context, strokeKeys, containing } = await lessonInputs(
+    db,
+    lesson,
+  );
   const stored = await q.listStoredExercises(db, lesson.id);
   const flow = lessonFlows[lesson.type];
   const flowSession = flow
@@ -246,10 +278,10 @@ async function buildState(
   }
   // FR-041: the first fitting sentence is a new item's example, the first two a grammar point's
   // (Product Spec section 6, sentences where it was detected); none when none fits.
-  const examples = (item: Item) =>
+  const examples = (item: Item, max = lesson.type === 'grammar' ? 2 : 1) =>
     context.sentences
       .filter((s) => s.tokens.some((t) => t.itemId === item.id) || s.grammar.includes(item.key))
-      .slice(0, lesson.type === 'grammar' ? 2 : 1)
+      .slice(0, max)
       .map((s) => ({ text: s.text, translation: s.translation, tiles: s.tokens }));
   // Product Spec section 5: a kanji's card shows 1 to 3 words that use it and its strokes.
   const words = (item: Item) => (containing.get(item.id) ?? []).slice(0, TEACHING_CARD_MAX_WORDS);
@@ -257,7 +289,7 @@ async function buildState(
     lesson.type === 'kanji' && plugin.features.strokeDrawing && strokeKeys.has(item.key);
   // A flow places its cards among the exercises (#237): the kanji, meaning and strokes before
   // the exercises; the reading, words and example after the meaning exercises.
-  const teachingCards = flowSession
+  const lessonCards = flowSession
     ? flowSession.cards.flatMap(({ facet, before }) =>
         newItems.map((item) => ({
           item,
@@ -274,6 +306,25 @@ async function buildState(
         words: words(item),
         strokeAnimation: strokeAnimation(item),
       }));
+  // FR-041 (#256): a refresher card per chosen earlier item, before the first exercise that uses
+  // it, after the lesson's own cards at the same place. The plain one-card form (no facet).
+  const byId = new Map(earlierItems.map((i) => [i.id, i]));
+  const candidates = refreshers
+    ? (await q.listLowStageItems(db, refreshers.userId, [...byId.keys()], refreshers.maxStage)).map(
+        (r) => byId.get(r.item_id)!,
+      )
+    : [];
+  const refresherCards = chooseRefreshers(
+    candidates,
+    exercises,
+    lessonCards.length,
+    refreshers?.density,
+  ).map(({ item, before }) => ({ item, before, refresher: true, examples: examples(item, 1) }));
+  const placeOf = (card: object) => ('before' in card ? Number(card.before) : 0);
+  const teachingCards = [...lessonCards, ...refresherCards]
+    .map((card, order) => ({ card, order }))
+    .sort((a, b) => placeOf(a.card) - placeOf(b.card) || a.order - b.order)
+    .map(({ card }) => card);
   return lessonSessionStateSchema.parse({ teachingCards, exercises });
 }
 
@@ -320,6 +371,7 @@ export async function previewLesson(db: Queryable, lessonId: number): Promise<Le
     lessonType: lesson.type,
     sectionLevel: lesson.level_code,
     plugin: lesson.plugin,
+    // No learner, so no refresher cards (they depend on the learner's stages, #256).
     ...(await buildState(db, lesson, true)),
   };
 }
@@ -636,6 +688,16 @@ function storedStep(
   ).index;
 }
 
+/**
+ * FR-165: the characters drawn from memory (EX-12) in a completed session. A draw-from-memory
+ * answer is only reported once every stroke is right, so each one counts.
+ */
+function drawnItemKeys(exercises: readonly SessionExercise[]): string[] {
+  return exercises
+    .filter((e) => e.type === DRAW_MEMORY_TYPE)
+    .map((e) => drawMemoryPayloadSchema.parse(e.payload).itemKey);
+}
+
 /** FR-053: how many responses the shared grader counts right; near-misses count as right. */
 function countRight(
   exercises: SessionExercise[],
@@ -715,7 +777,8 @@ export async function completeSession(
     userId,
     idempotencyKey,
     { sessionId, body },
-    (saved) => lessonCompletionSchema.parse(saved),
+    // A response saved before achievements existed has none.
+    (saved) => lessonCompletionSchema.parse({ achievements: [], ...(saved as object) }),
     async (client) => {
       const session = await q.lockOwnSession(client, userId, sessionId);
       if (!session?.lesson_id) throw new AppError('not_found', 'Lesson session not found');
@@ -736,14 +799,17 @@ export async function completeSession(
         languagePlugins.get(lesson.plugin),
         srsIntervalHours,
       );
-      // Achievements are not built yet; they join this transaction here when their issue lands.
+      await recordDrawnCharacters(client, userId, drawnItemKeys(exercises));
       await q.deleteSession(client, session.id);
+      // FR-165: last, so every metric sees this completion's writes.
+      const achievements = await evaluateAchievements(client, userId, LESSON_METRICS);
 
       return {
         lessonId: lesson.id,
         accuracy,
         ...xp,
         path: await getPath(client, userId, lesson.course_id, false),
+        achievements,
       };
     },
   );
@@ -813,7 +879,7 @@ export async function completeTestOut(
     userId,
     idempotencyKey,
     { testOutSessionId: sessionId, body },
-    (saved) => testOutCompletionSchema.parse(saved),
+    (saved) => testOutCompletionSchema.parse({ achievements: [], ...(saved as object) }),
     async (client) => {
       const session = await q.lockOwnSession(client, userId, sessionId);
       if (!session?.unit_id) throw new AppError('not_found', 'Test-out session not found');
@@ -843,7 +909,11 @@ export async function completeTestOut(
           );
         }
       }
+      // FR-165: a failed test-out changes no progress, its drawings included.
+      if (passed) await recordDrawnCharacters(client, userId, drawnItemKeys(exercises));
       await q.deleteSession(client, session.id);
+      // FR-165: last, so every metric sees this completion's writes.
+      const achievements = await evaluateAchievements(client, userId, TEST_OUT_METRICS);
 
       return {
         unitId: unit.id,
@@ -851,6 +921,7 @@ export async function completeTestOut(
         passed,
         ...xp,
         path: await getPath(client, userId, unit.course_id, false),
+        achievements,
       };
     },
   );

@@ -244,8 +244,13 @@ export interface LanguagePlugin {
   /**
    * FR-110, SDD section 6: the review facets of an item type, each with the exercise types (in
    * order of preference) that review it. An item type with no facets never enters reviews.
+   * Given an item, only the facets that item has (#225: a word written only in kana has no
+   * reading facet); without one, every facet an item of the type can have.
    */
-  reviewFacets(itemType: string): Record<ReviewFacet, readonly string[]>;
+  reviewFacets(
+    itemType: string,
+    item?: Pick<Item, 'data' | 'overrides'>,
+  ): Record<ReviewFacet, readonly string[]>;
   /**
    * FR-112: whether a stored exercise of one of the facet's types tests that facet of an item of
    * this type, for a review to use it (a typed answer can ask a kanji's meaning or its reading).

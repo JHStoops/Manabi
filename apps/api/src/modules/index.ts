@@ -1,4 +1,5 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import { achievementsRoutes } from './achievements/routes';
 import { adminRoutes } from './admin/routes';
 import { authRoutes } from './auth/routes';
 import { lessonEditorRoutes } from './authoring/lessonEditorRoutes';
@@ -28,6 +29,7 @@ export const featureModules: readonly FastifyPluginAsyncZod[] = [
   coursesRoutes,
   lessonsRoutes,
   statsRoutes,
+  achievementsRoutes,
   reviewsRoutes,
   libraryRoutes,
   socialRoutes,

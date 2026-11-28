@@ -20,6 +20,7 @@ const session = (cards: number, exercises: number): LessonSession => ({
     strokeAnimation: false,
     facet: null,
     before: 0,
+    refresher: false,
   })),
   exercises: Array.from({ length: exercises }, (_, i) => ({ type: 'test_echo', payload: { i } })),
 });
@@ -240,6 +241,26 @@ describe('lessonPlayerReducer', () => {
       state = reduce(reduce(reduce(state, next), next), next);
       state = right(state);
       expect(state).toMatchObject({ phase: 'teaching', card: 2, queue: [1, 2] });
+    });
+
+    it('drops a refresher whose item only a dropped listening exercise used (FR-135, #256)', () => {
+      const s = session(1, 4);
+      const earlier = { ...item, id: 9 };
+      const kept = { ...item, id: 8 };
+      s.exercises[1] = { type: 'listen_choose', payload: { options: [{ itemId: 9 }] } };
+      s.exercises[2] = { type: 'test_echo', payload: { options: [{ itemId: 8 }] } };
+      s.teachingCards.push(
+        { ...s.teachingCards[0]!, item: earlier, before: 1, refresher: true },
+        { ...s.teachingCards[0]!, item: kept, before: 2, refresher: true },
+      );
+      const state = reduce(loaded(s), { type: 'canSpeak', canSpeak: false });
+      expect(
+        'teachingCards' in state.session! &&
+          state.session.teachingCards.map((c) => [c.item.id, c.before]),
+      ).toEqual([
+        [1, 0],
+        [8, 1],
+      ]);
     });
 
     it('ignores a late voice change once an exercise has been played', () => {

@@ -8,7 +8,11 @@ import { describeWithDb, useTestDatabase } from '../../test/db';
 import { seedUser } from '../../test/fixtures';
 import { SESSION_COOKIE } from '../auth/guard';
 import { hashPassword } from '../auth/passwords';
-import { backfillReviewFacets } from '../reviews/service';
+import { languagePlugins } from '../../plugins';
+import { backfillReviewFacets, createReviewEntries } from '../reviews/service';
+import type { ItemRow } from '../content/rows';
+
+type ItemRowLike = Pick<ItemRow, 'id' | 'type' | 'data' | 'overrides'>;
 
 // API tests for kanji lessons (issue #53): FR-040, FR-049, FR-110, Product Spec section 5.
 
@@ -275,6 +279,40 @@ describeWithDb('kanji lessons API', () => {
     ]);
   });
 
+  it('adds refresher cards after the flow cards at the same place, within the cap (FR-041, #256)', async () => {
+    const { courseId, lesson, items } = await seed();
+    const { userId, session } = await learner(courseId);
+    await completeEarlier(userId, lesson);
+    // Every item of the earlier lessons is at stage 1, so any the exercises name may come back.
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       SELECT $1, li.item_id, 'meaning', 1, now() FROM lesson_items li
+        WHERE li.lesson_id = ANY($2::bigint[])`,
+      [userId, [lesson.v, lesson.k0]],
+    );
+
+    const body = (await start(lesson.k!, session)).json<LessonSession>();
+    const cards = body.teachingCards;
+    const refreshers = cards.filter((c) => c.refresher);
+    expect(refreshers.length).toBeGreaterThan(0);
+    expect(cards.length).toBeLessThanOrEqual(Math.floor((body.exercises.length * 3) / 5));
+    // The flow's own cards are all kept: meaning and reading for 休 and 本.
+    expect(cards.filter((c) => !c.refresher)).toHaveLength(4);
+    const kanjiIds = new Set([items['k:休'], items['k:本']]);
+    for (const [i, card] of cards.entries()) {
+      if (i > 0) expect(card.before).toBeGreaterThanOrEqual(cards[i - 1]!.before);
+      if (!card.refresher) continue;
+      expect(kanjiIds.has(card.item.id)).toBe(false);
+      // Before the first exercise that names the item, after every flow card at that place.
+      const first = body.exercises.findIndex((e) =>
+        payloadItemIds(e.payload).includes(card.item.id),
+      );
+      expect(card.before).toBe(first);
+      expect(card.facet).toBeNull();
+      expect(cards.slice(i + 1).some((c) => !c.refresher && c.before === card.before)).toBe(false);
+    }
+  });
+
   it('resumes and completes a kanji session saved before #237, with its cards upfront', async () => {
     const { courseId, lesson, items } = await seed();
     const { userId, session } = await learner(courseId);
@@ -371,18 +409,20 @@ describeWithDb('kanji lessons API', () => {
          FROM item_progress p
          JOIN item_progress r ON r.user_id = p.user_id AND r.item_id = p.item_id
                              AND r.facet = 'reading'
-        WHERE p.user_id = $1 AND p.facet = 'meaning'
+        WHERE p.user_id = $1 AND p.facet = 'meaning' AND p.item_id <> $2
         ORDER BY p.item_id`,
-      [userId],
+      [userId, items['w:休み']],
     );
     expect(rows).toEqual([
       { item_id: items['k:体'], facet: 'meaning', stage: 8, same_due: true },
       { item_id: items['k:休'], facet: 'meaning', stage: 3, same_due: true },
     ]);
-    // The word gained no facet it does not have.
+    // The word gained only its own facets (#225: reading), not the kanji's.
     expect(
-      await sql(`SELECT facet FROM item_progress WHERE item_id = $1`, [items['w:休み']]),
-    ).toEqual([{ facet: 'meaning' }]);
+      await sql(`SELECT facet FROM item_progress WHERE item_id = $1 ORDER BY facet`, [
+        items['w:休み'],
+      ]),
+    ).toEqual([{ facet: 'meaning' }, { facet: 'reading' }]);
 
     const reviews = await app.inject({
       method: 'POST',
@@ -399,6 +439,198 @@ describeWithDb('kanji lessons API', () => {
     }
     expect(exercises.find((e) => e.itemId === items['k:休'] && e.facet === 'reading')?.type).toBe(
       'reading_in_context',
+    );
+  });
+
+  it('backfills a reading entry for words already in reviews, served as a word reading exercise (#225, FR-110)', async () => {
+    const { courseId, items } = await seed();
+    const { userId, session } = await learner(courseId);
+    // A word written only in kana has no reading facet, so it gets none.
+    const [kanaWord] = await sql(
+      `INSERT INTO items (course_id, key, type, level_code, data)
+       VALUES ($1, 'w:これ', 'word', 'N5', $2) RETURNING id`,
+      [courseId, word('これ', 'これ', 'this')],
+    );
+    // Before #225 words were reviewed on their meaning only.
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       VALUES ($1, $2, 'meaning', 3, now() - interval '1 hour'),
+              ($1, $3, 'meaning', 8, NULL),
+              ($1, $4, 'meaning', 5, now() + interval '1 day')`,
+      [userId, items['w:休み'], items['w:本'], kanaWord!.id],
+    );
+
+    await backfillReviewFacets(pool());
+    await backfillReviewFacets(pool()); // A second run changes nothing.
+    expect(await sql(`SELECT facet FROM item_progress WHERE item_id = $1`, [kanaWord!.id])).toEqual(
+      [{ facet: 'meaning' }],
+    );
+    expect(
+      await sql(
+        `SELECT p.item_id, p.stage, p.due_at IS NOT DISTINCT FROM m.due_at AS same_due
+           FROM item_progress p
+           JOIN item_progress m ON m.user_id = p.user_id AND m.item_id = p.item_id
+                               AND m.facet = 'meaning'
+          WHERE p.user_id = $1 AND p.facet = 'reading'
+          ORDER BY p.item_id`,
+        [userId],
+      ),
+    ).toEqual([
+      // Seeded in this order, so by id.
+      { item_id: items['w:休み'], stage: 3, same_due: true },
+      { item_id: items['w:本'], stage: 8, same_due: true },
+    ]);
+
+    const reviews = await app.inject({
+      method: 'POST',
+      url: '/api/v1/reviews/sessions',
+      ...session,
+    });
+    expect(reviews.statusCode).toBe(200);
+    const exercises = reviews.json<ReviewSession>().exercises;
+    expect(exercises.map((e) => [e.itemId, e.facet])).toEqual([
+      [items['w:休み'], 'meaning'],
+      [items['w:休み'], 'reading'],
+    ]);
+    expect(exercises[1]).toMatchObject({
+      type: 'typed_answer',
+      payload: {
+        prompt: 'How do you read 休み?',
+        answerLanguage: 'target',
+        accept: [{ text: 'やすみ' }],
+      },
+    });
+    // The meaning exercise asks for the meaning or the word, never the kana reading.
+    const meaning = exercises[0]!;
+    expect(['choice', 'typed_answer']).toContain(meaning.type);
+    if (meaning.type === 'typed_answer' && meaning.payload.answerLanguage === 'target') {
+      expect(meaning.payload).toMatchObject({ accept: [{ text: '休み' }] });
+    }
+    const answered = await app.inject({
+      method: 'POST',
+      url: `/api/v1/review-sessions/${reviews.json<ReviewSession>().id}/answers`,
+      ...session,
+      payload: { index: 1, response: { attempts: ['yasumi'] } },
+    });
+    expect(answered.statusCode).toBe(200);
+    expect(answered.json<{ correct: boolean }>().correct).toBe(true);
+  });
+
+  it('reviews a kana-only word on its meaning even with a leftover reading entry (#225, FR-112)', async () => {
+    const { courseId } = await seed();
+    const { userId, session } = await learner(courseId);
+    const [kanaWord] = await sql(
+      `INSERT INTO items (course_id, key, type, level_code, data)
+       VALUES ($1, 'w:これ', 'word', 'N5', $2) RETURNING id`,
+      [courseId, word('これ', 'これ', 'this')],
+    );
+    // A reading entry it no longer has (say, an override rewrote 此れ as これ).
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       SELECT $1, $2, f, 3, now() - interval '1 hour' FROM unnest(ARRAY['meaning', 'reading']) AS f`,
+      [userId, kanaWord!.id],
+    );
+    const reviews = await app.inject({
+      method: 'POST',
+      url: '/api/v1/reviews/sessions',
+      ...session,
+    });
+    expect(reviews.statusCode).toBe(200);
+    const body = reviews.json<ReviewSession>();
+    expect(body.exercises.map((e) => [e.itemId, e.facet])).toEqual([[kanaWord!.id, 'meaning']]);
+
+    // Answering moves the leftover entry with the item, so nothing stays due.
+    const answered = await app.inject({
+      method: 'POST',
+      url: `/api/v1/review-sessions/${body.id}/answers`,
+      ...session,
+      payload: { index: 0, response: { attempts: [rightAnswer(body.exercises[0]!)] } },
+    });
+    expect(answered.json<{ correct: boolean; stage: number }>()).toMatchObject({
+      correct: true,
+      stage: 4,
+    });
+    expect(
+      await sql(`SELECT facet, stage FROM item_progress WHERE item_id = $1 ORDER BY facet`, [
+        kanaWord!.id,
+      ]),
+    ).toEqual([
+      { facet: 'meaning', stage: 4 },
+      { facet: 'reading', stage: 4 },
+    ]);
+    const summary = await app.inject({ method: 'GET', url: '/api/v1/reviews/summary', ...session });
+    expect(summary.json<{ dueNow: number }>().dueNow).toBe(0);
+  });
+
+  it('moves a facet added while a review session is open with the item (#267, FR-112)', async () => {
+    const { courseId, items } = await seed();
+    const { userId, session } = await learner(courseId);
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       VALUES ($1, $2, 'meaning', 3, now() - interval '1 hour')`,
+      [userId, items['w:休み']],
+    );
+    const started = (
+      await app.inject({ method: 'POST', url: '/api/v1/reviews/sessions', ...session })
+    ).json<ReviewSession>();
+    expect(started.exercises.map((e) => e.facet)).toEqual(['meaning']);
+    // The API restarts mid-session and the backfill adds the word's reading facet.
+    await backfillReviewFacets(pool());
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/review-sessions/${started.id}/answers`,
+      ...session,
+      payload: { index: 0, response: { attempts: [rightAnswer(started.exercises[0]!)] } },
+    });
+    const rows = await sql<{ facet: string; stage: number; due_at: Date }>(
+      `SELECT facet, stage, due_at FROM item_progress WHERE item_id = $1 ORDER BY facet`,
+      [items['w:休み']],
+    );
+    expect(rows.map((r) => [r.facet, r.stage])).toEqual([
+      ['meaning', 4],
+      ['reading', 4],
+    ]);
+    expect(rows[0]!.due_at).toEqual(rows[1]!.due_at);
+  });
+
+  it('creates entries for the facets each item has, joining an item already in reviews at its stage (#225, FR-110)', async () => {
+    const { courseId, items } = await seed();
+    const { userId } = await learner(courseId);
+    const [kanaWord] = await sql<ItemRowLike>(
+      `INSERT INTO items (course_id, key, type, level_code, data)
+       VALUES ($1, 'w:これ', 'word', 'N5', $2) RETURNING id, type, data, overrides`,
+      [courseId, word('これ', 'これ', 'this')],
+    );
+    const [kanjiWord] = await sql<ItemRowLike>(
+      `SELECT id, type, data, overrides FROM items WHERE id = $1`,
+      [items['w:休み']],
+    );
+    // 休み is already in reviews on its meaning (before #225), at stage 6.
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       VALUES ($1, $2, 'meaning', 6, now() + interval '2 days')`,
+      [userId, kanjiWord!.id],
+    );
+    await createReviewEntries(
+      pool(),
+      userId,
+      'vocabulary',
+      [kanaWord!, kanjiWord!],
+      languagePlugins.get('ja'),
+      [4, 8, 24, 72, 168, 336, 720, 2880],
+    );
+    expect(
+      await sql(
+        `SELECT item_id, facet, stage FROM item_progress WHERE user_id = $1 ORDER BY item_id, facet`,
+        [userId],
+      ),
+    ).toEqual(
+      [
+        { item_id: kanjiWord!.id, facet: 'meaning', stage: 6 },
+        { item_id: kanjiWord!.id, facet: 'reading', stage: 6 },
+        { item_id: kanaWord!.id, facet: 'meaning', stage: 1 },
+      ].sort((a, b) => a.item_id - b.item_id),
     );
   });
 
