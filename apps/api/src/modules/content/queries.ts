@@ -432,6 +432,24 @@ export async function findSentenceId(
   return row?.id ?? null;
 }
 
+/** #128: like findSentenceId, but only an active (not archived) sentence. */
+export async function findActiveSentenceId(
+  db: Queryable,
+  courseId: number,
+  s: { source: string | null; sourceId: string | null; text: string },
+): Promise<number | null> {
+  const row = await queryOne<{ id: number }>(
+    db,
+    `SELECT id FROM sentences
+     WHERE course_id = $1 AND archived_at IS NULL
+       AND CASE WHEN $2::text IS NULL THEN source IS NULL AND text = $4
+                ELSE source = $2 AND source_id = $3 END
+     ORDER BY id LIMIT 1`,
+    [courseId, s.source, s.sourceId, s.text],
+  );
+  return row?.id ?? null;
+}
+
 export interface PackSentenceValues {
   text: string;
   translation: string;

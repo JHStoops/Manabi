@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import type { TtsProvider, TtsRequest } from '@manabi/core';
 import { query } from '../../db/db';
 import { testApp } from '../../test/app';
+import { wav } from '../../test/audio';
 import type { TestApp } from '../../test/app';
 import { describeWithDb, useTestDatabase } from '../../test/db';
 import { seedCourse, seedUser } from '../../test/fixtures';
@@ -18,35 +19,6 @@ import { kokoroProvider } from './kokoro';
 
 const PASSWORD = 'correct horse battery';
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
-
-/**
- * A 16-bit stereo 24 kHz WAV: 0.5 s of silence, `toneSeconds` of a 440 Hz tone, 0.5 s of silence.
- * Stereo and padded so the test sees the downmix and the trim.
- */
-function wav(toneSeconds = 1.5): Uint8Array {
-  const rate = 24000;
-  const pad = rate / 2;
-  const frames = pad * 2 + Math.round(rate * toneSeconds);
-  const buf = Buffer.alloc(44 + frames * 4);
-  buf.write('RIFF', 0);
-  buf.writeUInt32LE(36 + frames * 4, 4);
-  buf.write('WAVEfmt ', 8);
-  buf.writeUInt32LE(16, 16);
-  buf.writeUInt16LE(1, 20); // PCM
-  buf.writeUInt16LE(2, 22); // channels
-  buf.writeUInt32LE(rate, 24);
-  buf.writeUInt32LE(rate * 4, 28);
-  buf.writeUInt16LE(4, 32);
-  buf.writeUInt16LE(16, 34);
-  buf.write('data', 36);
-  buf.writeUInt32LE(frames * 4, 40);
-  for (let i = pad; i < frames - pad; i++) {
-    const v = Math.round(Math.sin((2 * Math.PI * 440 * i) / rate) * 12000);
-    buf.writeInt16LE(v, 44 + i * 4);
-    buf.writeInt16LE(v, 46 + i * 4);
-  }
-  return buf;
-}
 
 /** A fake engine that records what it was sent and answers after a tick. */
 function fakeTts() {
@@ -89,7 +61,8 @@ describeWithDb('media audio API', () => {
       payload: { identifier: 'amy', password: PASSWORD },
     });
     const cookie = login.cookies.find((c) => c.name === SESSION_COOKIE)!.value;
-    return (url: string) => current!.app.inject({ url, cookies: { [SESSION_COOKIE]: cookie } });
+    return (url: string, headers: Record<string, string> = {}) =>
+      current!.app.inject({ url, headers, cookies: { [SESSION_COOKIE]: cookie } });
   }
 
   async function seedWord(written: string, reading: string): Promise<number> {
@@ -200,6 +173,34 @@ describeWithDb('media audio API', () => {
       ['generated', `audio/item/${id}-jf_alpha.opus`],
     ]);
     expect(await readFile(join(mediaDir, 'uploads/mizu.opus'), 'utf8')).toBe('recorded');
+  });
+
+  it('sends an ETag and answers 304 for an unchanged clip (#66)', async () => {
+    const tts = fakeTts();
+    const get = await start(tts.provider);
+    const id = await seedWord('上手', 'うわて');
+    const first = await get(`/api/v1/media/audio/item/${id}`);
+    expect(first.headers['cache-control']).toBe('private, no-cache');
+    const etag = first.headers.etag as string;
+    expect(etag).toMatch(/^"[0-9a-f]{32}"$/);
+
+    const again = await get(`/api/v1/media/audio/item/${id}`, { 'if-none-match': etag });
+    expect(again.statusCode).toBe(304);
+    expect(again.rawPayload).toHaveLength(0);
+    expect(again.headers.etag).toBe(etag);
+    expect(
+      (await get(`/api/v1/media/audio/item/${id}`, { 'if-none-match': `"x", W/${etag}` }))
+        .statusCode,
+    ).toBe(304);
+
+    // A new reading is a new clip: the old tag no longer matches.
+    await query(pool(), `UPDATE items SET overrides = '{"reading": "じょうず"}' WHERE id = $1`, [
+      id,
+    ]);
+    const changed = await get(`/api/v1/media/audio/item/${id}`, { 'if-none-match': etag });
+    expect(changed.statusCode).toBe(200);
+    expect(changed.headers.etag).not.toBe(etag);
+    expect(tts.calls).toHaveLength(2);
   });
 
   it('generates once for two concurrent first requests', async () => {

@@ -171,6 +171,40 @@ export const packSupplementaryWordSchema = z
 export type PackSupplementaryWord = z.infer<typeof packSupplementaryWordSchema>;
 export const packSupplementaryWordsFileSchema = z.array(packSupplementaryWordSchema);
 
+/**
+ * #128, SDD section 4 (`audio/`): one entry of `audio/clips.yaml`, a recorded clip in `audio/` and
+ * its owner. An item is named by its stable key; a sentence, which has no key, as the import
+ * matches it: an imported one by source and source id, an authored one by its text.
+ */
+export const packAudioClipSchema = z
+  .object({
+    /** A plain file name inside `audio/`: no folders, so it can never point outside the pack. */
+    file: z
+      .string()
+      .max(200)
+      .regex(
+        /^[\p{L}\p{N}][\p{L}\p{N}._-]*\.(opus|ogg|oga|mp3|wav|webm|m4a|flac)$/u,
+        'a file name in audio/ ending in .opus, .ogg, .oga, .mp3, .wav, .webm, .m4a or .flac',
+      ),
+    item: stableKeySchema.optional(),
+    sentence: z
+      .union([
+        z.object({ source: nonEmptyTextSchema, sourceId: nonEmptyTextSchema }).strict(),
+        z.object({ text: nonEmptyTextSchema }).strict(),
+      ])
+      .optional(),
+  })
+  .strict()
+  .refine((c) => (c.item === undefined) !== (c.sentence === undefined), {
+    message: 'name either an item or a sentence',
+    path: ['item'],
+  });
+export type PackAudioClipEntry = z.infer<typeof packAudioClipSchema>;
+export const packAudioClipsFileSchema = z.array(packAudioClipSchema);
+
+/** A clip of a pack with its file's bytes. */
+export type PackAudioClip = PackAudioClipEntry & { data: Uint8Array };
+
 /** A whole pack in memory, as read from (or written to) a pack directory. */
 export interface ContentPack {
   course: PackCourse;
@@ -182,6 +216,8 @@ export interface ContentPack {
   /** FR-237: `lists/blocked-words.yaml`; empty when the file is missing. */
   blockedWords: string[];
   supplementaryWords: PackSupplementaryWord[];
+  /** #128: recorded clips from `audio/`, which replace generated ones; none when absent. */
+  audio?: PackAudioClip[];
 }
 
 /** A pack that cannot be read or imported. Each problem names its file or key, and a path. */

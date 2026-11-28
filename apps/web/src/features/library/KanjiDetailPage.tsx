@@ -6,7 +6,7 @@ import type { LibraryItem, LibraryItemDetail } from '@manabi/core';
 import { tapTarget } from '../../theme';
 import { useApi } from '../../state/session';
 import { ActivePluginContext, ActivePluginStatusContext } from '../../state/plugins';
-import { SpeakerButton } from '../audio/SpeakerButton';
+import { SpeakerButtons } from '../audio/SpeakerButton';
 import { SpeechProvider } from '../audio/speech';
 import { apiErrorMessage } from '../auth/ui';
 import { ChoiceButton } from '../exercises/ui';
@@ -229,7 +229,11 @@ export default function KanjiDetailPage() {
                   </Link>{' '}
                   <span lang="ja">{word.reading}</span>{' '}
                   {[word.senses[0]?.meanings.join(', '), stage(w)].join(' · ')}{' '}
-                  <SpeakerButton reading={word.reading} what="word" />
+                  <SpeakerButtons
+                    reading={word.reading}
+                    what="word"
+                    owner={{ type: 'item', id: w.id }}
+                  />
                 </li>
               );
             })}
