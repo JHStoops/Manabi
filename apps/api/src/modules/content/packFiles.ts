@@ -4,6 +4,7 @@ import { isCollection, LineCounter, parseDocument, stringify } from 'yaml';
 import type { z } from 'zod';
 import {
   ContentPackError,
+  packAudioClipsFileSchema,
   packBlockedWordsFileSchema,
   packCourseSchema,
   packGrammarFrontMatterSchema,
@@ -12,10 +13,11 @@ import {
   packSupplementaryWordsFileSchema,
   packUnitSchema,
 } from '@manabi/core';
-import type { ContentPack } from '@manabi/core';
+import type { ContentPack, PackAudioClip } from '@manabi/core';
 
 // Reads and writes content pack directories (SDD section 4). Schema errors name the file and the
-// path inside it. STUB: audio/ clips are carried by #66, which owns the media store.
+// path inside it. Recorded clips live in audio/, listed with their owners in audio/clips.yaml
+// (#128); the import checks and transcodes them like an author's upload (FR-132).
 
 /** `file:line` of each object readPack returned, and of each of its fields (FR-228 lint). */
 const origins = new WeakMap<object, Map<string | number | undefined, string>>();
@@ -48,15 +50,23 @@ function hasRange(node: unknown): node is { range: [number, number, number] } {
 }
 
 const GRAMMAR_TYPE = 'grammar';
+const AUDIO_DIR = 'audio';
+const CLIPS_FILE = `${AUDIO_DIR}/clips.yaml`;
+/** The audio files a pack may carry (packAudioClipSchema's extensions). */
+const AUDIO_FILE = /\.(opus|ogg|oga|mp3|wav|webm|m4a|flac)$/;
+
+/** Names in a pack folder; none when the folder does not exist. */
+async function listNames(dir: string): Promise<string[]> {
+  return readdir(dir).catch((err: NodeJS.ErrnoException) => {
+    if (err.code === 'ENOENT') return [];
+    throw err;
+  });
+}
 const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 
 /** Pack files in one folder, in path order (`units/2-…` before `units/10-…`). */
 async function listFiles(dir: string, sub: string, ext: string): Promise<string[]> {
-  const names = await readdir(join(dir, sub)).catch((err: NodeJS.ErrnoException) => {
-    if (err.code === 'ENOENT') return [];
-    throw err;
-  });
-  return names
+  return (await listNames(join(dir, sub)))
     .filter((name) => name.endsWith(ext))
     .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))
     .map((name) => `${sub}/${name}`);
@@ -143,8 +153,28 @@ export async function readPack(dir: string): Promise<ContentPack> {
   pack.supplementaryWords =
     check(supplementary, (await readOr(supplementary, '[]'))!, packSupplementaryWordsFileSchema) ??
     [];
+  const clips = check(CLIPS_FILE, (await readOr(CLIPS_FILE, '[]'))!, packAudioClipsFileSchema);
+  const audio: PackAudioClip[] = [];
+  for (const entry of clips ?? []) {
+    try {
+      audio.push({ ...entry, data: await readFile(join(dir, AUDIO_DIR, entry.file)) });
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      problems.push(
+        `${originOf(entry, 'file') ?? CLIPS_FILE}: file: audio/${entry.file} not found`,
+      );
+    }
+  }
+  if (clips) {
+    // A clip nobody listed would silently never play.
+    const listed = new Set(clips.map((c) => c.file));
+    for (const name of await listNames(join(dir, AUDIO_DIR))) {
+      if (AUDIO_FILE.test(name) && !listed.has(name))
+        problems.push(`${AUDIO_DIR}/${name}: (root): not listed in ${CLIPS_FILE}`);
+    }
+  }
   if (problems.length > 0 || !course) throw new ContentPackError(problems);
-  return { course, ...pack };
+  return { course, ...pack, ...(audio.length > 0 ? { audio } : {}) };
 }
 
 /** A file-name-safe slug from the last segment of a stable key. */
@@ -199,4 +229,16 @@ export async function writePack(dir: string, pack: ContentPack): Promise<void> {
   await mkdir(join(dir, 'lists'), { recursive: true });
   await writeFile(join(dir, 'lists', 'blocked-words.yaml'), toYaml(pack.blockedWords));
   await writeFile(join(dir, 'lists/supplementary-words.yaml'), toYaml(pack.supplementaryWords));
+
+  // #128: the clips a previous export wrote go; other files in audio/ are kept.
+  for (const name of await listNames(join(dir, AUDIO_DIR))) {
+    if (AUDIO_FILE.test(name) || name === 'clips.yaml') await rm(join(dir, AUDIO_DIR, name));
+  }
+  const audio = pack.audio ?? [];
+  if (audio.length === 0) return;
+  await mkdir(join(dir, AUDIO_DIR), { recursive: true });
+  for (const { data, file } of audio) {
+    await writeFile(join(dir, AUDIO_DIR, file), data);
+  }
+  await writeFile(join(dir, CLIPS_FILE), toYaml(audio.map(({ data: _, ...entry }) => entry)));
 }

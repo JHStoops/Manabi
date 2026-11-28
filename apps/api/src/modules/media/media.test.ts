@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import type { TtsProvider, TtsRequest } from '@manabi/core';
 import { query } from '../../db/db';
 import { testApp } from '../../test/app';
+import { wav } from '../../test/audio';
 import type { TestApp } from '../../test/app';
 import { describeWithDb, useTestDatabase } from '../../test/db';
 import { seedCourse, seedUser } from '../../test/fixtures';
@@ -18,35 +19,6 @@ import { kokoroProvider } from './kokoro';
 
 const PASSWORD = 'correct horse battery';
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
-
-/**
- * A 16-bit stereo 24 kHz WAV: 0.5 s of silence, `toneSeconds` of a 440 Hz tone, 0.5 s of silence.
- * Stereo and padded so the test sees the downmix and the trim.
- */
-function wav(toneSeconds = 1.5): Uint8Array {
-  const rate = 24000;
-  const pad = rate / 2;
-  const frames = pad * 2 + Math.round(rate * toneSeconds);
-  const buf = Buffer.alloc(44 + frames * 4);
-  buf.write('RIFF', 0);
-  buf.writeUInt32LE(36 + frames * 4, 4);
-  buf.write('WAVEfmt ', 8);
-  buf.writeUInt32LE(16, 16);
-  buf.writeUInt16LE(1, 20); // PCM
-  buf.writeUInt16LE(2, 22); // channels
-  buf.writeUInt32LE(rate, 24);
-  buf.writeUInt32LE(rate * 4, 28);
-  buf.writeUInt16LE(4, 32);
-  buf.writeUInt16LE(16, 34);
-  buf.write('data', 36);
-  buf.writeUInt32LE(frames * 4, 40);
-  for (let i = pad; i < frames - pad; i++) {
-    const v = Math.round(Math.sin((2 * Math.PI * 440 * i) / rate) * 12000);
-    buf.writeInt16LE(v, 44 + i * 4);
-    buf.writeInt16LE(v, 46 + i * 4);
-  }
-  return buf;
-}
 
 /** A fake engine that records what it was sent and answers after a tick. */
 function fakeTts() {

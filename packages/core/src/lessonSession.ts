@@ -135,6 +135,8 @@ export const teachingCardSchema = z.object({
   examples: z
     .array(
       z.object({
+        /** FR-130: the sentence's id, for its clip; null in sessions saved before #66. */
+        sentenceId: idSchema.nullable().default(null),
         text: nonEmptyTextSchema,
         translation: nonEmptyTextSchema,
         tiles: z.array(tileSchema),
