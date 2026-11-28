@@ -196,6 +196,69 @@ describeWithDb('lesson sessions API', () => {
     expect([...used].sort()).toEqual([item.w1, item.w2, item.w3].sort());
   });
 
+  it('re-presents earlier items the learner is low on, before their first exercise (FR-041, #256)', async () => {
+    const { lesson, item } = await seed();
+    const { userId, session } = await signIn('aiko');
+    await complete(userId, lesson.l1!);
+    // w1 is at a low stage (its lowest facet counts); w2 is past REFRESHER_MAX_STAGE (4).
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       VALUES ($1, $2, 'meaning', 5, now()), ($1, $2, 'reading', 2, now()),
+              ($1, $3, 'meaning', 6, now())`,
+      [userId, item.w1, item.w2],
+    );
+    // The first exercise names only the new item; the generated ones name every taught item.
+    await sql(
+      `INSERT INTO exercises (lesson_id, type, payload, origin) VALUES ($1, 'choice', $2, 'authored')`,
+      [lesson.l2, { prompt: 'stored', options: [{ itemId: item.w3 }] }],
+    );
+
+    const response = await start(lesson.l2!, session);
+    expect(response.statusCode).toBe(200);
+    const body = response.json<LessonSession>();
+    expect(body.teachingCards.map((c) => [c.item.id, c.refresher, c.before])).toEqual([
+      [item.w3, false, 0],
+      [item.w1, true, 1],
+    ]);
+    expect(payloadItemIds(body.exercises[0]!.payload)).not.toContain(item.w1);
+    expect(payloadItemIds(body.exercises[1]!.payload)).toContain(item.w1);
+
+    // A session saved before #256 (no refresher flag) resumes with new-item cards only.
+    await sql(
+      `UPDATE lesson_sessions
+          SET state = jsonb_set(state, '{teachingCards}', (state->'teachingCards') - 1 #- '{0,refresher}')`,
+    );
+    const resumed = (await start(lesson.l2!, session)).json<LessonSession>();
+    expect(resumed.id).toBe(body.id);
+    expect(resumed.teachingCards.map((c) => [c.item.id, c.refresher])).toEqual([[item.w3, false]]);
+  });
+
+  it('caps refresher cards at the configured density (FR-041, #256)', async () => {
+    await current?.close();
+    current = await testApp({ pool: pool(), env: { LESSON_CARDS_PER_EXERCISES: '1/5' } });
+    app = current.app;
+    const { lesson, item } = await seed();
+    const { userId, session } = await signIn('aiko');
+    await complete(userId, lesson.l1!);
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       VALUES ($1, $2, 'meaning', 3, now()), ($1, $3, 'meaning', 1, now())`,
+      [userId, item.w1, item.w2],
+    );
+    // The test plugin makes 9 exercises per new item; a stored one fills the session to 10.
+    await sql(
+      `INSERT INTO exercises (lesson_id, type, payload, origin) VALUES ($1, 'choice', $2, 'authored')`,
+      [lesson.l2, { prompt: 'stored', options: [{ itemId: item.w3 }] }],
+    );
+    const body = (await start(lesson.l2!, session)).json<LessonSession>();
+    // 10 exercises allow 2 cards: the new item's, then the lowest-stage earlier item (w2).
+    expect(body.exercises).toHaveLength(10);
+    expect(body.teachingCards.map((c) => [c.item.id, c.refresher])).toEqual([
+      [item.w3, false],
+      [item.w2, true],
+    ]);
+  });
+
   it('uses stored exercises in position order and skips archived ones', async () => {
     const { lesson, item } = await seed();
     const { userId, session } = await signIn('aiko');

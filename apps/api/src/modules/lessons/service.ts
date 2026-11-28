@@ -14,6 +14,7 @@ import {
   gradeResponse,
   learnerSettingsSchema,
   TEACHING_CARD_MAX_WORDS,
+  chooseRefreshers,
   lessonCompletionSchema,
   isFlowCard,
   lessonFlows,
@@ -25,6 +26,7 @@ import {
   z,
 } from '@manabi/core';
 import type {
+  CardDensity,
   ExerciseResponse,
   GeneratorContext,
   Item,
@@ -113,6 +115,7 @@ export async function startSession(
   db: Pool,
   userId: ScopedUserId,
   lessonId: number,
+  refreshers: RefresherOptions,
 ): Promise<LessonSession> {
   const lesson = await q.findLesson(db, lessonId);
   if (!lesson) throw new AppError('not_found', 'Lesson not found');
@@ -136,7 +139,10 @@ export async function startSession(
         client,
         userId,
         lessonId,
-        await buildState(client, lesson, await drawingOn(client, userId)),
+        await buildState(client, lesson, await drawingOn(client, userId), {
+          ...refreshers,
+          userId,
+        }),
       )
     );
   });
@@ -152,6 +158,15 @@ export async function startSession(
   };
 }
 
+/**
+ * FR-041 (#256): the density cap on a session's teaching cards, and the highest SRS stage at which
+ * an item from an earlier lesson gets a refresher card (from configuration).
+ */
+export interface RefresherOptions {
+  density: CardDensity;
+  maxStage: number;
+}
+
 /** FR-074: whether the learner wants drawing exercises (EX-11, EX-12) in new sessions. */
 async function drawingOn(db: Queryable, userId: number): Promise<boolean> {
   return learnerSettingsSchema.parse((await q.findSettings(db, userId))?.settings ?? {})
@@ -163,6 +178,9 @@ async function lessonInputs(db: Queryable, lesson: q.LessonContextRow) {
   const plugin = languagePlugins.get(lesson.plugin);
   const newItems = (await q.listLessonItems(db, lesson.id)).map(toItem);
   const taughtItems = (await q.listTaughtItems(db, lesson.id)).map(toItem);
+  // FR-041 (#256): taught in an earlier lesson, so an item can get a refresher card.
+  const newIds = new Set(newItems.map((i) => i.id));
+  const earlierItems = taughtItems.filter((i) => !newIds.has(i.id));
   // FR-056, FR-048: sentences at or below the section level, not challenging, taught items only.
   const sentences = await q.listSentences(
     db,
@@ -190,19 +208,25 @@ async function lessonInputs(db: Queryable, lesson: q.LessonContextRow) {
         containing.set(link.item_id, [...(containing.get(link.item_id) ?? []), container]);
     }
   }
-  return { plugin, newItems, context, strokeKeys, containing };
+  return { plugin, newItems, earlierItems, context, strokeKeys, containing };
 }
 
 /**
  * SDD section 6: teaching cards for the new items, then the stored exercises, filled up to 10 by
  * the plugin's generators per the lesson type's recipe. Exercises use taught items only (FR-048).
+ * With a learner (`refreshers`), items from earlier lessons that the exercises use and the learner
+ * is at a low stage on get refresher cards, up to the density cap (FR-041, #256).
  */
 async function buildState(
   db: Queryable,
   lesson: q.LessonContextRow,
   drawing: boolean,
+  refreshers?: RefresherOptions & { userId: number },
 ): Promise<LessonSessionState> {
-  const { plugin, newItems, context, strokeKeys, containing } = await lessonInputs(db, lesson);
+  const { plugin, newItems, earlierItems, context, strokeKeys, containing } = await lessonInputs(
+    db,
+    lesson,
+  );
   const stored = await q.listStoredExercises(db, lesson.id);
   const flow = lessonFlows[lesson.type];
   const flowSession = flow
@@ -240,7 +264,7 @@ async function buildState(
     lesson.type === 'kanji' && plugin.features.strokeDrawing && strokeKeys.has(item.key);
   // A flow places its cards among the exercises (#237): the kanji, meaning and strokes before
   // the exercises; the reading, words and example after the meaning exercises.
-  const teachingCards = flowSession
+  const lessonCards = flowSession
     ? flowSession.cards.flatMap(({ facet, before }) =>
         newItems.map((item) => ({
           item,
@@ -257,6 +281,25 @@ async function buildState(
         words: words(item),
         strokeAnimation: strokeAnimation(item),
       }));
+  // FR-041 (#256): a refresher card per chosen earlier item, before the first exercise that uses
+  // it, after the lesson's own cards at the same place. The plain one-card form (no facet).
+  const byId = new Map(earlierItems.map((i) => [i.id, i]));
+  const candidates = refreshers
+    ? (await q.listLowStageItems(db, refreshers.userId, [...byId.keys()], refreshers.maxStage)).map(
+        (r) => byId.get(r.item_id)!,
+      )
+    : [];
+  const refresherCards = chooseRefreshers(
+    candidates,
+    exercises,
+    lessonCards.length,
+    refreshers?.density,
+  ).map(({ item, before }) => ({ item, before, refresher: true, examples: examples(item) }));
+  const placeOf = (card: object) => ('before' in card ? Number(card.before) : 0);
+  const teachingCards = [...lessonCards, ...refresherCards]
+    .map((card, order) => ({ card, order }))
+    .sort((a, b) => placeOf(a.card) - placeOf(b.card) || a.order - b.order)
+    .map(({ card }) => card);
   return lessonSessionStateSchema.parse({ teachingCards, exercises });
 }
 
@@ -303,6 +346,7 @@ export async function previewLesson(db: Queryable, lessonId: number): Promise<Le
     lessonType: lesson.type,
     sectionLevel: lesson.level_code,
     plugin: lesson.plugin,
+    // No learner, so no refresher cards (they depend on the learner's stages, #256).
     ...(await buildState(db, lesson, true)),
   };
 }

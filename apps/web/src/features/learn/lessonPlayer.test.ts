@@ -20,6 +20,7 @@ const session = (cards: number, exercises: number): LessonSession => ({
     strokeAnimation: false,
     facet: null,
     before: 0,
+    refresher: false,
   })),
   exercises: Array.from({ length: exercises }, (_, i) => ({ type: 'test_echo', payload: { i } })),
 });
