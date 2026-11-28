@@ -225,6 +225,42 @@ describeWithDb('lesson completion API', () => {
     expect(await counts()).toMatchObject({ progress: 2, keys: 2 });
   });
 
+  it('awards an achievement once, even on repeated requests (FR-165)', async () => {
+    const { courseId, lesson } = await seed();
+    const { userId, session } = await learner('aiko', courseId);
+    const unlocked = (res: { json: <T>() => T }) =>
+      res.json<LessonCompletion>().achievements.map((a) => a.key);
+
+    // A perfect first lesson unlocks "First perfect lesson"; the replay of the same request
+    // returns the same response and records nothing more.
+    const sessionId = await start(lesson.a!, session);
+    const first = await complete(sessionId, session, { responses: responses() }, 'key-1');
+    expect(first.json<LessonCompletion>().achievements).toEqual([
+      { key: 'first_perfect_lesson', group: 'effort', title: 'First perfect lesson', threshold: 1 },
+    ]);
+    const again = await complete(sessionId, session, { responses: responses() }, 'key-1');
+    expect(again.json()).toEqual(first.json());
+
+    // Another perfect lesson does not unlock it again; finishing every unit of the N5 section
+    // unlocks "N5 complete".
+    expect(
+      unlocked(
+        await complete(await start(lesson.b!, session), session, { responses: responses() }),
+      ),
+    ).toEqual([]);
+    expect(
+      unlocked(
+        await complete(await start(lesson.c!, session), session, { responses: responses(2) }),
+      ),
+    ).toEqual(['section_n5']);
+    expect(
+      await sql<{ key: string }>(
+        `SELECT achievement_key AS key FROM user_achievements WHERE user_id = $1 ORDER BY 1`,
+        [userId],
+      ),
+    ).toEqual([{ key: 'first_perfect_lesson' }, { key: 'section_n5' }]);
+  });
+
   it('completes a session once when two different keys race (FR-051, FR-052)', async () => {
     const { courseId, lesson } = await seed();
     const { session } = await learner('aiko', courseId);

@@ -276,11 +276,7 @@ describeWithDb('account schema (migration 0002)', () => {
         `INSERT INTO weekly_results (week_start, user_id, xp, rank) VALUES ('2026-11-09', $1, 10, 1)`,
         [gone.id],
       );
-      await query(
-        pool(),
-        `INSERT INTO achievements (key, group_key, metric, threshold, title)
-         VALUES ('streak_7', 'streak', 'streak_days', 7, 'One week')`,
-      );
+      // streak_7 is seeded by migration 0015.
       await query(
         pool(),
         `INSERT INTO user_achievements (user_id, achievement_key) VALUES ($1, 'streak_7')`,

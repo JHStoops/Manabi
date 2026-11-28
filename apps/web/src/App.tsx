@@ -3,6 +3,8 @@ import styled from '@emotion/styled';
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import './i18n';
+import { CelebrationHost } from './features/achievements/CelebrationHost';
+import { CelebrationProvider, CelebrationScope } from './state/celebrations';
 import { ActivePluginProvider } from './state/plugins';
 import { useSession } from './state/session';
 import { tapTarget, useMediaQuery } from './theme';
@@ -163,7 +165,15 @@ function RequireSignedIn() {
   if (user.mustChangePassword && pathname !== '/change-password') {
     return <Navigate to="/change-password" replace />;
   }
-  return <Outlet />;
+  // FR-165: celebrations show over every signed-in screen, the full-screen player included.
+  return (
+    <CelebrationProvider>
+      <CelebrationScope>
+        <Outlet />
+      </CelebrationScope>
+      <CelebrationHost />
+    </CelebrationProvider>
+  );
 }
 
 function RequireAdmin() {

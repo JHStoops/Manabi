@@ -275,6 +275,40 @@ describeWithDb('kanji lessons API', () => {
     ]);
   });
 
+  it('adds refresher cards after the flow cards at the same place, within the cap (FR-041, #256)', async () => {
+    const { courseId, lesson, items } = await seed();
+    const { userId, session } = await learner(courseId);
+    await completeEarlier(userId, lesson);
+    // Every item of the earlier lessons is at stage 1, so any the exercises name may come back.
+    await sql(
+      `INSERT INTO item_progress (user_id, item_id, facet, stage, due_at)
+       SELECT $1, li.item_id, 'meaning', 1, now() FROM lesson_items li
+        WHERE li.lesson_id = ANY($2::bigint[])`,
+      [userId, [lesson.v, lesson.k0]],
+    );
+
+    const body = (await start(lesson.k!, session)).json<LessonSession>();
+    const cards = body.teachingCards;
+    const refreshers = cards.filter((c) => c.refresher);
+    expect(refreshers.length).toBeGreaterThan(0);
+    expect(cards.length).toBeLessThanOrEqual(Math.floor((body.exercises.length * 3) / 5));
+    // The flow's own cards are all kept: meaning and reading for 休 and 本.
+    expect(cards.filter((c) => !c.refresher)).toHaveLength(4);
+    const kanjiIds = new Set([items['k:休'], items['k:本']]);
+    for (const [i, card] of cards.entries()) {
+      if (i > 0) expect(card.before).toBeGreaterThanOrEqual(cards[i - 1]!.before);
+      if (!card.refresher) continue;
+      expect(kanjiIds.has(card.item.id)).toBe(false);
+      // Before the first exercise that names the item, after every flow card at that place.
+      const first = body.exercises.findIndex((e) =>
+        payloadItemIds(e.payload).includes(card.item.id),
+      );
+      expect(card.before).toBe(first);
+      expect(card.facet).toBeNull();
+      expect(cards.slice(i + 1).some((c) => !c.refresher && c.before === card.before)).toBe(false);
+    }
+  });
+
   it('resumes and completes a kanji session saved before #237, with its cards upfront', async () => {
     const { courseId, lesson, items } = await seed();
     const { userId, session } = await learner(courseId);

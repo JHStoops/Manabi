@@ -52,6 +52,14 @@ test('invite to first lesson', async ({ page }, testInfo) => {
   await expect(page.getByText('Accuracy 100%')).toBeVisible();
   expect(Date.now() - started).toBeLessThan(FLOW_BUDGET_MS);
 
+  // FR-165: the fixture's only kana lesson, done perfectly, unlocks two achievements, each
+  // celebrated once over the results.
+  for (const title of ['Kana complete', 'First perfect lesson']) {
+    await expect(page.getByRole('dialog', { name: title })).toBeVisible();
+    await page.getByRole('button', { name: 'Continue' }).click();
+  }
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
   // FR-051, FR-161: the first lesson of the day starts a one-day streak.
   await page.getByRole('link', { name: 'Done' }).click();
   await expect(page.getByLabel('1 day streak')).toBeVisible();

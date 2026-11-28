@@ -1,8 +1,10 @@
 import {
   KANJI_LESSON_FLOW,
+  chooseRefreshers,
   isFlowCard,
   lessonFlows,
   lessonRecipes,
+  maxTeachingCards,
   payloadItemIds,
   teachingCardSchema,
 } from './lessonSession';
@@ -57,7 +59,7 @@ describe('kanji lesson flow (Product Spec section 5, #53, #237)', () => {
 });
 
 describe('teachingCardSchema', () => {
-  it('reads cards saved before #53 and #237 as one card per item, before every exercise', () => {
+  it('reads cards saved before #53, #237 and #256 as one new-item card per item, before every exercise', () => {
     const item = {
       id: 1,
       courseId: 1,
@@ -77,6 +79,64 @@ describe('teachingCardSchema', () => {
       strokeAnimation: false,
       facet: null,
       before: 0,
+      refresher: false,
     });
+  });
+});
+
+describe('refresher cards (FR-041, FR-048, #256)', () => {
+  /** An exercise that names these items, as a choice's options do. */
+  const uses = (...ids: number[]) => ({
+    type: 'choice',
+    payload: { options: ids.map((itemId) => ({ text: String(itemId), itemId })) },
+  });
+  const item = (id: number) => ({ id });
+  // Ten exercises: 1 and 2 are the lesson's new items; 10, 11, 12 and 13 were taught earlier.
+  const exercises = [
+    uses(1),
+    uses(1, 11),
+    uses(2),
+    uses(2, 10),
+    uses(1),
+    uses(11),
+    uses(2, 12),
+    uses(1),
+    uses(2, 13),
+    uses(1, 2),
+  ];
+
+  it('caps the cards at 3 for every 5 exercises', () => {
+    expect([10, 11, 14, 15].map((n) => maxTeachingCards(n))).toEqual([6, 6, 8, 9]);
+    expect(maxTeachingCards(14, { cards: 3, exercises: 7 })).toBe(6);
+    expect(maxTeachingCards(10, { cards: 0, exercises: 5 })).toBe(0);
+  });
+
+  it('places each card before the first exercise that uses its item, in showing order', () => {
+    expect(chooseRefreshers([item(10), item(11)], exercises, 2)).toEqual([
+      { item: item(11), before: 1 },
+      { item: item(10), before: 3 },
+    ]);
+  });
+
+  it('only makes cards for candidates the exercises use (earlier items, chosen by the caller)', () => {
+    // 99 is not in any exercise; the caller never passes the lesson's own items.
+    expect(chooseRefreshers([item(99), item(12)], exercises, 0)).toEqual([
+      { item: item(12), before: 6 },
+    ]);
+  });
+
+  it('fills only what the cap leaves after the lesson cards, most needed first', () => {
+    // 10 exercises allow 6 cards; 4 lesson cards leave room for 2 of the 4 candidates.
+    const chosen = chooseRefreshers([item(13), item(12), item(11), item(10)], exercises, 4);
+    expect(chosen).toEqual([
+      { item: item(12), before: 6 },
+      { item: item(13), before: 8 },
+    ]);
+    expect(4 + chosen.length).toBeLessThanOrEqual(maxTeachingCards(exercises.length));
+    // A lesson at or over the cap with its own cards gets none.
+    expect(chooseRefreshers([item(10)], exercises, 6)).toEqual([]);
+    expect(chooseRefreshers([item(10)], exercises, 9)).toEqual([]);
+    // A candidate listed twice gets one card.
+    expect(chooseRefreshers([item(10), item(10)], exercises, 0)).toHaveLength(1);
   });
 });

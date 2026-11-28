@@ -27,7 +27,7 @@ Migrations only go up. There is no down-migration path: files have no `-- Down M
 
 ## Tests
 
-API integration tests (`npm test -w @manabi/api` with `DATABASE_URL` set) run against a real PostgreSQL. Jest global setup creates a fresh template database for the run, applies every migration to it, and clones one database per Jest worker; each test starts from empty tables in `public` (the `pgboss` schema, created by pg-boss when a test starts it, is not truncated), and global teardown drops the run's databases. Without `DATABASE_URL`, database tests are skipped locally (CI requires it).
+API integration tests (`npm test -w @manabi/api` with `DATABASE_URL` set) run against a real PostgreSQL. Jest global setup creates a fresh template database for the run, applies every migration to it, and clones one database per Jest worker; each test starts from empty tables in `public`, except the seeded achievement definitions (`achievements`, migration 0015), which are reference data and are kept (the `pgboss` schema, created by pg-boss when a test starts it, is not truncated), and global teardown drops the run's databases. Without `DATABASE_URL`, database tests are skipped locally (CI requires it).
 
 Locally, a throwaway server:
 
