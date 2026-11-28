@@ -61,7 +61,8 @@ describeWithDb('media audio API', () => {
       payload: { identifier: 'amy', password: PASSWORD },
     });
     const cookie = login.cookies.find((c) => c.name === SESSION_COOKIE)!.value;
-    return (url: string) => current!.app.inject({ url, cookies: { [SESSION_COOKIE]: cookie } });
+    return (url: string, headers: Record<string, string> = {}) =>
+      current!.app.inject({ url, headers, cookies: { [SESSION_COOKIE]: cookie } });
   }
 
   async function seedWord(written: string, reading: string): Promise<number> {
@@ -172,6 +173,34 @@ describeWithDb('media audio API', () => {
       ['generated', `audio/item/${id}-jf_alpha.opus`],
     ]);
     expect(await readFile(join(mediaDir, 'uploads/mizu.opus'), 'utf8')).toBe('recorded');
+  });
+
+  it('sends an ETag and answers 304 for an unchanged clip (#66)', async () => {
+    const tts = fakeTts();
+    const get = await start(tts.provider);
+    const id = await seedWord('上手', 'うわて');
+    const first = await get(`/api/v1/media/audio/item/${id}`);
+    expect(first.headers['cache-control']).toBe('private, no-cache');
+    const etag = first.headers.etag as string;
+    expect(etag).toMatch(/^"[0-9a-f]{32}"$/);
+
+    const again = await get(`/api/v1/media/audio/item/${id}`, { 'if-none-match': etag });
+    expect(again.statusCode).toBe(304);
+    expect(again.rawPayload).toHaveLength(0);
+    expect(again.headers.etag).toBe(etag);
+    expect(
+      (await get(`/api/v1/media/audio/item/${id}`, { 'if-none-match': `"x", W/${etag}` }))
+        .statusCode,
+    ).toBe(304);
+
+    // A new reading is a new clip: the old tag no longer matches.
+    await query(pool(), `UPDATE items SET overrides = '{"reading": "じょうず"}' WHERE id = $1`, [
+      id,
+    ]);
+    const changed = await get(`/api/v1/media/audio/item/${id}`, { 'if-none-match': etag });
+    expect(changed.statusCode).toBe(200);
+    expect(changed.headers.etag).not.toBe(etag);
+    expect(tts.calls).toHaveLength(2);
   });
 
   it('generates once for two concurrent first requests', async () => {

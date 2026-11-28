@@ -19,9 +19,25 @@ export function findVoice(voices: readonly SpeechSynthesisVoice[], locale: strin
   return voices.find((v) => v.lang.split(/[-_]/)[0]!.toLowerCase() === language);
 }
 
+/** An item or sentence the server has a clip for (FR-130). */
+export interface ClipOwner {
+  type: 'item' | 'sentence';
+  id: number;
+}
+
+/**
+ * FR-131, FR-132: the clip's URL: the uploaded recording, or the generated clip (made on the
+ * first request). The browser keeps it and revalidates it on each play (ETag), so a new upload
+ * or reading is heard at once.
+ */
+export function clipUrl(owner: ClipOwner): string {
+  return `/api/v1/media/audio/${owner.type}/${owner.id}`;
+}
+
 /**
  * What to say: the reading (kana for Japanese) and, when the server can provide one, a function
- * returning the clip URL. It rejects when no clip can be served.
+ * returning the clip URL. Playback falls back to the device voice when the clip cannot be
+ * played (none can be generated, or the request fails).
  */
 export interface Utterance {
   reading: string;

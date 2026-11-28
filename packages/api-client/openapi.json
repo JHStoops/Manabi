@@ -3463,6 +3463,14 @@
                             "items": {
                               "type": "object",
                               "properties": {
+                                "sentenceId": {
+                                  "default": null,
+                                  "nullable": true,
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991
+                                },
                                 "text": { "type": "string", "minLength": 1 },
                                 "translation": { "type": "string", "minLength": 1 },
                                 "tiles": {
@@ -3487,7 +3495,7 @@
                                   }
                                 }
                               },
-                              "required": ["text", "translation", "tiles"],
+                              "required": ["sentenceId", "text", "translation", "tiles"],
                               "additionalProperties": false
                             }
                           },
@@ -17296,6 +17304,14 @@
                             "items": {
                               "type": "object",
                               "properties": {
+                                "sentenceId": {
+                                  "default": null,
+                                  "nullable": true,
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991
+                                },
                                 "text": { "type": "string", "minLength": 1 },
                                 "translation": { "type": "string", "minLength": 1 },
                                 "tiles": {
@@ -17320,7 +17336,7 @@
                                   }
                                 }
                               },
-                              "required": ["text", "translation", "tiles"],
+                              "required": ["sentenceId", "text", "translation", "tiles"],
                               "additionalProperties": false
                             }
                           },
@@ -21474,6 +21490,10 @@
             "description": "Default Response",
             "content": { "application/json": { "schema": {} } }
           },
+          "304": {
+            "description": "Default Response",
+            "content": { "application/json": { "schema": {} } }
+          },
           "404": {
             "description": "Default Response",
             "content": {
@@ -21679,6 +21699,717 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/authoring/audio/{ownerType}/{ownerId}": {
+      "get": {
+        "summary": "Whether an item or sentence has an uploaded recording, and whether it is current",
+        "tags": ["authoring"],
+        "parameters": [
+          {
+            "schema": { "type": "string", "enum": ["item", "sentence"] },
+            "in": "path",
+            "name": "ownerType",
+            "required": true
+          },
+          {
+            "schema": { "type": "string", "pattern": "^[1-9][0-9]{0,15}$" },
+            "in": "path",
+            "name": "ownerId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uploaded": { "type": "boolean" },
+                    "stale": { "type": "boolean" }
+                  },
+                  "required": ["uploaded", "stale"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Upload a recording (audio/ogg, audio/opus, audio/mpeg, audio/mp3, audio/wav, audio/x-wav, audio/wave, audio/webm, audio/mp4, audio/x-m4a, audio/flac; at most 5 MB) that replaces the generated clip",
+        "tags": ["authoring"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": {} } } },
+        "parameters": [
+          {
+            "schema": { "type": "string", "enum": ["item", "sentence"] },
+            "in": "path",
+            "name": "ownerType",
+            "required": true
+          },
+          {
+            "schema": { "type": "string", "pattern": "^[1-9][0-9]{0,15}$" },
+            "in": "path",
+            "name": "ownerId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uploaded": { "type": "boolean" },
+                    "stale": { "type": "boolean" }
+                  },
+                  "required": ["uploaded", "stale"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove an uploaded recording, so the generated clip plays again",
+        "tags": ["authoring"],
+        "parameters": [
+          {
+            "schema": { "type": "string", "enum": ["item", "sentence"] },
+            "in": "path",
+            "name": "ownerType",
+            "required": true
+          },
+          {
+            "schema": { "type": "string", "pattern": "^[1-9][0-9]{0,15}$" },
+            "in": "path",
+            "name": "ownerId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uploaded": { "type": "boolean" },
+                    "stale": { "type": "boolean" }
+                  },
+                  "required": ["uploaded", "stale"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "bad_request",
+                            "validation_failed",
+                            "unauthenticated",
+                            "password_change_required",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "idempotency_conflict",
+                            "payload_too_large",
+                            "rate_limited",
+                            "internal_error",
+                            "service_unavailable"
+                          ]
+                        },
+                        "message": { "type": "string", "minLength": 1 },
+                        "details": {}
+                      },
+                      "required": ["code", "message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "413": {
             "description": "Default Response",
             "content": {
               "application/json": {

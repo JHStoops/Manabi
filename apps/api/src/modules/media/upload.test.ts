@@ -75,12 +75,13 @@ describeWithDb('authoring audio uploads API', () => {
       method: 'GET' | 'PUT' | 'DELETE',
       url: string,
       body?: { type: string; bytes: Uint8Array | string },
+      headers: Record<string, string> = {},
     ) =>
       app.inject({
         method,
         url: `/api/v1${url}`,
         cookies: { [SESSION_COOKIE]: cookie },
-        headers: { origin: ORIGIN, ...(body ? { 'content-type': body.type } : {}) },
+        headers: { origin: ORIGIN, ...headers, ...(body ? { 'content-type': body.type } : {}) },
         ...(body ? { payload: Buffer.from(body.bytes) } : {}),
       });
   }
@@ -140,8 +141,12 @@ describeWithDb('authoring audio uploads API', () => {
     const stored = await readFile(join(mediaDir, upload.path));
     expect(stored.subarray(0, 4).toString()).toBe('OggS');
 
-    const served = await admin('GET', `/media/audio/item/${id}`);
+    // The browser's cached generated clip is revalidated and replaced by the upload.
+    const served = await admin('GET', `/media/audio/item/${id}`, undefined, {
+      'if-none-match': generated.headers.etag as string,
+    });
     expect(served.statusCode).toBe(200);
+    expect(served.headers.etag).not.toBe(generated.headers.etag);
     expect(served.rawPayload).toEqual(stored);
     expect(served.rawPayload).not.toEqual(generated.rawPayload);
     expect(tts.calls).toHaveLength(1);

@@ -61,12 +61,27 @@ interface ClipRequest {
   ownerId: number;
 }
 
+/** A clip on the media volume, and its entity tag for conditional requests. */
+export interface ClipFile {
+  path: string;
+  /**
+   * #66: changes whenever the clip that plays changes: a new upload (a new path) or a new reading
+   * (a new text_hash), so a browser that revalidates never keeps playing an old clip.
+   */
+  etag: string;
+}
+
+const clipFile = (path: string, textHash: string): ClipFile => ({
+  path,
+  etag: `"${sha256(`${path}\n${textHash}`).slice(0, 32)}"`,
+});
+
 /**
  * FR-131, FR-132, FR-136: the Opus clip of an item or sentence. An uploaded clip whose text_hash
  * matches the current reading wins; then a current generated one. Otherwise a clip is generated
  * from the reading, stored on the media volume and recorded. Uploaded clips are never overwritten.
  */
-export async function audioClip(req: ClipRequest): Promise<Buffer> {
+export async function resolveClip(req: ClipRequest): Promise<ClipFile> {
   const { db, ownerType, ownerId } = req;
   const owner = await findAudioOwner(db, ownerType, ownerId);
   if (!owner) throw new AppError('not_found', `No such ${ownerType}`);
@@ -77,7 +92,7 @@ export async function audioClip(req: ClipRequest): Promise<Buffer> {
   const current =
     assets.find((a) => a.origin === 'uploaded' && a.text_hash === textHash) ??
     assets.find((a) => a.origin === 'generated' && a.voice === voice && a.text_hash === textHash);
-  if (current) return readFile(join(req.mediaDir, current.path));
+  if (current) return clipFile(current.path, textHash);
 
   const path = `audio/${ownerType}/${ownerId}-${voice}.opus`;
   let pending = generating.get(path);
@@ -99,7 +114,12 @@ export async function audioClip(req: ClipRequest): Promise<Buffer> {
     req.log.warn({ err, ownerType, ownerId }, 'Audio generation failed');
     throw new AppError('service_unavailable', 'Speech engine unavailable');
   }
-  return readFile(join(req.mediaDir, path));
+  return clipFile(path, textHash);
+}
+
+/** The bytes of the clip resolveClip finds or generates. */
+export async function audioClip(req: ClipRequest): Promise<Buffer> {
+  return readFile(join(req.mediaDir, (await resolveClip(req)).path));
 }
 
 /** FR-071, FR-077: a character's stroke data for the stroke canvas; 404 when it has none. */
@@ -249,4 +269,9 @@ export async function exportCourseClips(
     }
   }
   return clips;
+}
+
+/** The bytes of a stored clip. */
+export function readClip(mediaDir: string, path: string): Promise<Buffer> {
+  return readFile(join(mediaDir, path));
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ApiClient } from '@manabi/api-client';
 import type { Item, LessonSession, TestOutSession } from '@manabi/core';
@@ -598,11 +598,22 @@ describe('LessonPlayerPage', () => {
           }),
         ),
       );
+      // FR-130: the word's server clip is tried first; here it cannot play (NFR-23).
+      const clips: string[] = [];
+      Object.assign(globalThis, {
+        Audio: function (this: { play: () => Promise<void> }, src: string) {
+          clips.push(src);
+          this.play = () => Promise.reject(new Error('503'));
+        },
+      });
       fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
       expect(speakers()).toHaveLength(2); // normal and slow
       fireEvent.click(speakers()[0]!);
+      await waitFor(() => expect(speak).toHaveBeenCalledTimes(1));
       expect(speak.mock.calls[0]![0]).toMatchObject({ text: 'みず', rate: 1 });
+      expect(clips).toEqual([`/api/v1/media/audio/item/${water.id}`]);
       fireEvent.click(screen.getByRole('button', { name: 'Play word slowly' }));
+      await waitFor(() => expect(speak).toHaveBeenCalledTimes(2));
       expect(speak.mock.calls[1]![0]).toMatchObject({ rate: 0.75 });
 
       fireEvent.click(button('Next'));

@@ -3,7 +3,7 @@ import styled from '@emotion/styled';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { LibraryItemDetail } from '@manabi/core';
-import { SpeakerButton } from '../audio/SpeakerButton';
+import { SpeakerButtons } from '../audio/SpeakerButton';
 import { SpeechProvider } from '../audio/speech';
 import { apiErrorMessage } from '../auth/ui';
 import { AnnotatedText } from '../text/AnnotatedText';
@@ -67,7 +67,8 @@ export default function WordPage() {
       <BackLink to="/library">{t('area.library')}</BackLink>
       <h1 lang={plugin.code}>{written}</h1>
       <p lang={plugin.code}>
-        {reading} <SpeakerButton reading={reading} what="word" />
+        {reading}{' '}
+        <SpeakerButtons reading={reading} what="word" owner={{ type: 'item', id: item.id }} />
       </p>
       <p>
         {item.stage !== null ? t('library.stage', { stage: item.stage }) : t('library.notStarted')}
@@ -88,7 +89,11 @@ export default function WordPage() {
           {/* shortcut: no learned-item list yet, so "learned only" furigana shows every reading;
               feed it the learner's stage 4+ items once the library API exposes them. */}
           <AnnotatedText plugin={plugin} tiles={sentence.tokens} learnedItems={[]} />{' '}
-          <SpeakerButton reading={sentence.tokens.map((x) => x.reading).join('')} what="example" />
+          <SpeakerButtons
+            reading={plugin.readingOf(sentence.tokens)}
+            what="example"
+            owner={{ type: 'sentence', id: sentence.id }}
+          />
           <p>{sentence.translation}</p>
         </section>
       )}

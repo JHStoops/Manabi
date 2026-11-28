@@ -12,7 +12,23 @@ import {
   z,
 } from '@manabi/core';
 import { requireAuth } from '../auth/guard';
-import { audioClip, getStrokes, removeUpload, uploadClip, uploadStatus } from './service';
+import {
+  readClip,
+  getStrokes,
+  removeUpload,
+  resolveClip,
+  uploadClip,
+  uploadStatus,
+} from './service';
+
+/** RFC 9110 If-None-Match: `*` or a list of tags, weak ones (W/) compared weakly. */
+function etagMatches(header: string | undefined, etag: string): boolean {
+  if (!header) return false;
+  return header.split(',').some((tag) => {
+    const t = tag.trim();
+    return t === '*' || t.replace(/^W\//, '') === etag;
+  });
+}
 
 const authoringErrors = {
   400: apiErrorSchema,
@@ -43,19 +59,25 @@ export const mediaRoutes: FastifyPluginAsyncZod = async (app) => {
         params: audioParamsSchema,
         querystring: emptyQuerySchema,
         // The body is the Ogg file; Fastify sends a Buffer as is, unserialized.
-        response: { 200: z.unknown(), 404: apiErrorSchema, 503: apiErrorSchema },
+        response: { 200: z.unknown(), 304: z.unknown(), 404: apiErrorSchema, 503: apiErrorSchema },
       },
     },
     async (request, reply) => {
-      const clip = await audioClip({
+      const clip = await resolveClip({
         db: app.db,
         tts: app.tts,
         mediaDir: app.config.mediaDir,
         log: request.log,
         ...request.params,
       });
-      // The URL stays the same when the reading changes, so the browser revalidates each play.
-      return reply.type('audio/ogg').header('cache-control', 'private, no-cache').send(clip);
+      // #66: the browser keeps the clip and revalidates it on every play, as the URL stays the
+      // same when a reading changes or an author uploads a recording; an unchanged clip costs a
+      // 304 with no body. `private`: clips are only for signed-in users.
+      reply.header('cache-control', 'private, no-cache').header('etag', clip.etag);
+      if (etagMatches(request.headers['if-none-match'], clip.etag)) {
+        return reply.code(304).send();
+      }
+      return reply.type('audio/ogg').send(await readClip(app.config.mediaDir, clip.path));
     },
   );
 
