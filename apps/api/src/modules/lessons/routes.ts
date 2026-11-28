@@ -26,8 +26,8 @@ export const lessonsRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         summary: 'Start a lesson session, or resume the unexpired one',
         description:
-          'Teaching cards for the new items, then 10 to 15 exercises with payloads and accept ' +
-          'lists. A session is kept for 24 hours; starting again within that time returns it.',
+          'Teaching cards for the new items and refresher cards for earlier items, each placed ' +
+          'before an exercise, then 10 to 15 exercises with payloads and accept lists. A session is kept for 24 hours; starting again within that time returns it.',
         tags: ['lessons'],
         querystring: emptyQuerySchema,
         params: lessonIdParamsSchema,
@@ -42,7 +42,11 @@ export const lessonsRoutes: FastifyPluginAsyncZod = async (app) => {
         },
       },
     },
-    async (request) => lessons.startSession(app.db, scopedUserId(request), request.params.id),
+    async (request) =>
+      lessons.startSession(app.db, scopedUserId(request), request.params.id, {
+        density: app.config.lessonCardDensity,
+        maxStage: app.config.refresherMaxStage,
+      }),
   );
   // FR-051, FR-052, FR-053, NFR-20
   app.post(

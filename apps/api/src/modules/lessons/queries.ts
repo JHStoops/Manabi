@@ -206,6 +206,28 @@ export function listContainingLinks(
 }
 
 /**
+ * FR-041 (#256): the learner's lowest SRS stage on each of these items they have met, for items
+ * at or below `maxStage`, lowest first (then by item id).
+ */
+export function listLowStageItems(
+  db: Queryable,
+  userId: number,
+  itemIds: readonly number[],
+  maxStage: number,
+): Promise<{ item_id: number; stage: number }[]> {
+  return query(
+    db,
+    `SELECT item_id, min(stage)::int AS stage
+       FROM item_progress
+      WHERE user_id = $1 AND item_id = ANY($2::bigint[])
+      GROUP BY item_id
+     HAVING min(stage) <= $3
+      ORDER BY stage, item_id`,
+    [userId, itemIds, maxStage],
+  );
+}
+
+/**
  * FR-048: the items taught in this lesson and every lesson before it on the path (active and
  * published, as the learner sees the path).
  */
