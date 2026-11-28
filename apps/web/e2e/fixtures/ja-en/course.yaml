@@ -1,4 +1,5 @@
-# Minimal course for the first-lesson e2e test (NFR-32): five hiragana, no imported datasets.
+# Minimal course for the e2e tests (NFR-32, #64): five hiragana and five kanji whose strokes come
+# from fixtures/kanjivg.xml, so there is no dataset download.
 key: ja-en
 targetLang: ja
 baseLang: en
@@ -9,3 +10,6 @@ sections:
   - key: ja-en:kana
     title: Kana
     level: kana
+  - key: ja-en:n5
+    title: N5
+    level: N5

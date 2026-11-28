@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Test data for the e2e tests (#64), written for this repository, not taken from KanjiVG. The
+     format is KanjiVG's, in its 109 x 109 space (y down). This file was generated on 2026-11-01 for tests. -->
+<kanjivg xmlns:kvg='http://kanjivg.tagaini.net'>
+<kanji id="kvg:kanji_04e00">
+<g id="kvg:04e00" kvg:element="一">
+	<path id="kvg:04e00-s1" d="M10,54.5L99,54.5"/>
+</g>
+</kanji>
+<kanji id="kvg:kanji_04e8c">
+<g id="kvg:04e8c" kvg:element="二">
+	<path id="kvg:04e8c-s1" d="M25,30L84,30"/>
+	<path id="kvg:04e8c-s2" d="M10,80L99,80"/>
+</g>
+</kanji>
+<kanji id="kvg:kanji_04e09">
+<g id="kvg:04e09" kvg:element="三">
+	<path id="kvg:04e09-s1" d="M25,20L84,20"/>
+	<path id="kvg:04e09-s2" d="M35,55L74,55"/>
+	<path id="kvg:04e09-s3" d="M10,90L99,90"/>
+</g>
+</kanji>
+<kanji id="kvg:kanji_05341">
+<g id="kvg:05341" kvg:element="十">
+	<path id="kvg:05341-s1" d="M10,54.5L99,54.5"/>
+	<path id="kvg:05341-s2" d="M54.5,10L54.5,99"/>
+</g>
+</kanji>
+<kanji id="kvg:kanji_04eba">
+<g id="kvg:04eba" kvg:element="人">
+	<path id="kvg:04eba-s1" d="M54.5,12L20,95"/>
+	<path id="kvg:04eba-s2" d="M45,50L90,95"/>
+</g>
+</kanji>
+</kanjivg>

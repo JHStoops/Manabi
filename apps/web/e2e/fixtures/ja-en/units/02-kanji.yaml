@@ -1,0 +1,10 @@
+key: ja-en:n5:numbers
+section: ja-en:n5
+title: Numbers
+status: published
+lessons:
+  - key: ja-en:n5:numbers:one-two-three
+    type: kanji
+    title: 一 二 三 十 人
+    status: published
+    items: [ja:kanji:一, ja:kanji:二, ja:kanji:三, ja:kanji:十, ja:kanji:人]
