@@ -288,6 +288,7 @@ describeWithDb('reviews API', () => {
       stage: null,
       xpEarned: 0,
       retryIndex: null,
+      achievements: [],
     });
     res = await answer(started.id, session, {
       index: index(item.kanji!, 'reading'),
@@ -298,6 +299,7 @@ describeWithDb('reviews API', () => {
       stage: 3,
       xpEarned: 0,
       retryIndex: 4,
+      achievements: [],
     });
 
     // The word: right on the second try and a near-miss count as right; it moves up with XP.
@@ -314,6 +316,7 @@ describeWithDb('reviews API', () => {
       stage: 6,
       xpEarned: 1,
       retryIndex: null,
+      achievements: [],
     });
 
     const rows = await progress(userId);
@@ -357,6 +360,7 @@ describeWithDb('reviews API', () => {
       stage: null,
       xpEarned: 0,
       retryIndex: 5,
+      achievements: [],
     });
     res = await answer(started.id, session, { index: 5, response: RIGHT });
     expect(res.json<ReviewAnswerResult>()).toMatchObject({ correct: true, retryIndex: null });

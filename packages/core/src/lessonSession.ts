@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { unlockedAchievementsSchema } from './achievements';
 import type { LessonType } from './content';
 import { itemSchema, lessonTypeSchema } from './content';
 import { coursePathSchema } from './coursePath';
@@ -212,6 +213,8 @@ export const lessonCompletionSchema = z.object({
   totalXp: z.number().int().min(0),
   level: z.number().int().min(1),
   path: coursePathSchema,
+  /** FR-165: achievements this completion unlocked, to celebrate once. */
+  achievements: unlockedAchievementsSchema,
 });
 export type LessonCompletion = z.infer<typeof lessonCompletionSchema>;
 

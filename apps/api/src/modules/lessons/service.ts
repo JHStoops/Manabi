@@ -3,6 +3,8 @@ import type { Pool } from 'pg';
 import {
   CHOICE_TYPE,
   DRAWING_EXERCISE_TYPES,
+  DRAW_MEMORY_TYPE,
+  drawMemoryPayloadSchema,
   GRAMMAR_EXERCISE_ORDER,
   LESSON_MAX_EXERCISES,
   LESSON_MIN_EXERCISES,
@@ -49,6 +51,12 @@ import { AppError } from '../../errors';
 import { languagePlugins } from '../../plugins';
 import type { ScopedUserId } from '../auth/service';
 import type { ExerciseRow, ItemRow } from '../content/rows';
+import {
+  LESSON_METRICS,
+  TEST_OUT_METRICS,
+  evaluateAchievements,
+  recordDrawnCharacters,
+} from '../achievements/service';
 import { awardLessonXp, getPath, recordTestOut } from '../courses/service';
 import { createReviewEntries } from '../reviews/service';
 import * as q from './queries';
@@ -619,6 +627,16 @@ function storedStep(
   ).index;
 }
 
+/**
+ * FR-165: the characters drawn from memory (EX-12) in a completed session. A draw-from-memory
+ * answer is only reported once every stroke is right, so each one counts.
+ */
+function drawnItemKeys(exercises: readonly SessionExercise[]): string[] {
+  return exercises
+    .filter((e) => e.type === DRAW_MEMORY_TYPE)
+    .map((e) => drawMemoryPayloadSchema.parse(e.payload).itemKey);
+}
+
 /** FR-053: how many responses the shared grader counts right; near-misses count as right. */
 function countRight(
   exercises: SessionExercise[],
@@ -698,7 +716,8 @@ export async function completeSession(
     userId,
     idempotencyKey,
     { sessionId, body },
-    (saved) => lessonCompletionSchema.parse(saved),
+    // A response saved before achievements existed has none.
+    (saved) => lessonCompletionSchema.parse({ achievements: [], ...(saved as object) }),
     async (client) => {
       const session = await q.lockOwnSession(client, userId, sessionId);
       if (!session?.lesson_id) throw new AppError('not_found', 'Lesson session not found');
@@ -719,14 +738,17 @@ export async function completeSession(
         languagePlugins.get(lesson.plugin),
         srsIntervalHours,
       );
-      // Achievements are not built yet; they join this transaction here when their issue lands.
+      await recordDrawnCharacters(client, userId, drawnItemKeys(exercises));
       await q.deleteSession(client, session.id);
+      // FR-165: last, so every metric sees this completion's writes.
+      const achievements = await evaluateAchievements(client, userId, LESSON_METRICS);
 
       return {
         lessonId: lesson.id,
         accuracy,
         ...xp,
         path: await getPath(client, userId, lesson.course_id, false),
+        achievements,
       };
     },
   );
@@ -796,7 +818,7 @@ export async function completeTestOut(
     userId,
     idempotencyKey,
     { testOutSessionId: sessionId, body },
-    (saved) => testOutCompletionSchema.parse(saved),
+    (saved) => testOutCompletionSchema.parse({ achievements: [], ...(saved as object) }),
     async (client) => {
       const session = await q.lockOwnSession(client, userId, sessionId);
       if (!session?.unit_id) throw new AppError('not_found', 'Test-out session not found');
@@ -826,7 +848,10 @@ export async function completeTestOut(
           );
         }
       }
+      await recordDrawnCharacters(client, userId, drawnItemKeys(exercises));
       await q.deleteSession(client, session.id);
+      // FR-165: last, so every metric sees this completion's writes.
+      const achievements = await evaluateAchievements(client, userId, TEST_OUT_METRICS);
 
       return {
         unitId: unit.id,
@@ -834,6 +859,7 @@ export async function completeTestOut(
         passed,
         ...xp,
         path: await getPath(client, userId, unit.course_id, false),
+        achievements,
       };
     },
   );
