@@ -76,8 +76,20 @@ describe('review session', () => {
   it('gives a second try, saves the answer once and plays the server-queued retry', async () => {
     const answers = jest
       .fn()
-      .mockResolvedValueOnce({ correct: false, stage: null, xpEarned: 0, retryIndex: 2 })
-      .mockResolvedValue({ correct: true, stage: 2, xpEarned: 1, retryIndex: null });
+      .mockResolvedValueOnce({
+        correct: false,
+        stage: null,
+        xpEarned: 0,
+        retryIndex: 2,
+        achievements: [],
+      })
+      .mockResolvedValue({
+        correct: true,
+        stage: 2,
+        xpEarned: 1,
+        retryIndex: null,
+        achievements: [],
+      });
     const post = show(answers);
     fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
 
@@ -110,9 +122,13 @@ describe('review session', () => {
   });
 
   it('can be stopped early; answers already given are kept by the server', async () => {
-    const answers = jest
-      .fn()
-      .mockResolvedValue({ correct: true, stage: null, xpEarned: 0, retryIndex: null });
+    const answers = jest.fn().mockResolvedValue({
+      correct: true,
+      stage: null,
+      xpEarned: 0,
+      retryIndex: null,
+      achievements: [],
+    });
     show(answers);
     fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
     await answer('a1');
@@ -124,9 +140,13 @@ describe('review session', () => {
 
   it('skips exercises a resumed session already has answers for', async () => {
     const resumed = { ...session, exercises: [{ ...exercise(1), correct: true }, exercise(2)] };
-    const answers = jest
-      .fn()
-      .mockResolvedValue({ correct: true, stage: null, xpEarned: 0, retryIndex: null });
+    const answers = jest.fn().mockResolvedValue({
+      correct: true,
+      stage: null,
+      xpEarned: 0,
+      retryIndex: null,
+      achievements: [],
+    });
     show(answers, resumed);
     fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
     await answer('a2');

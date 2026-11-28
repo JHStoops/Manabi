@@ -12,6 +12,7 @@ import {
   payloadItemIds,
 } from '@manabi/core';
 import type {
+  UnlockedAchievement,
   AnswerText,
   ExerciseResponse,
   LanguagePlugin,
@@ -23,6 +24,7 @@ import type {
 import { SpeakerButton } from '../audio/SpeakerButton';
 import type { ClipOwner } from '../audio/speech';
 import { SpeechProvider, useSpeech } from '../audio/speech';
+import { useCelebrate, useHoldCelebrations } from '../../state/celebrations';
 import { plugins } from '../../state/plugins';
 import { useApi, useSession } from '../../state/session';
 import { Confetti, pressable, primaryLedge, tapTarget, useSound } from '../../theme';
@@ -368,6 +370,9 @@ export default function LessonPlayerPage({
   const { lessonId = '', unitId = '' } = useParams();
   const [state, dispatch] = useReducer(lessonPlayerReducer, initialPlayerState);
   const { phase, session, error } = state;
+  const celebrate = useCelebrate();
+  // FR-165: no celebration covers a live exercise; they wait for the results (or for leaving).
+  useHoldCelebrations(['loading', 'intro', 'teaching', 'answering', 'feedback'].includes(phase));
   const bodyRef = useRef<HTMLElement>(null);
   const actionRef = useRef<HTMLButtonElement>(null);
 
@@ -423,13 +428,18 @@ export default function LessonPlayerPage({
             idempotencyKey: `lesson-session-${session.id}`,
           });
     done.then(
-      (completion) => current && dispatch({ type: 'completed', completion }),
+      (completion) => {
+        if (!current) return;
+        dispatch({ type: 'completed', completion });
+        // FR-165: the results screen, then any achievement it unlocked.
+        if ('achievements' in completion) celebrate(completion.achievements);
+      },
       (err: unknown) => current && dispatch({ type: 'failed', error: err }),
     );
     return () => {
       current = false;
     };
-  }, [api, phase, error, session, responses]);
+  }, [api, phase, error, session, responses, celebrate]);
 
   const exerciseIndex = state.queue[0];
   const exercise = exerciseIndex === undefined ? undefined : session?.exercises[exerciseIndex];
@@ -443,6 +453,18 @@ export default function LessonPlayerPage({
   const [savedAt, setSavedAt] = useState(-1); // the step whose answer the server has
   const [saveTry, setSaveTry] = useState(0);
   const savedStep = useRef<string | null>(null);
+  // FR-165: a review's unlocks wait for the end of the session (or leaving it), so a celebration
+  // never interrupts answering.
+  const reviewUnlocks = useRef<UnlockedAchievement[]>([]);
+  const reviewOver = review && (phase === 'completing' || phase === 'results');
+  useEffect(() => {
+    const flush = () => {
+      celebrate(reviewUnlocks.current);
+      reviewUnlocks.current = [];
+    };
+    if (reviewOver) flush();
+    return flush;
+  }, [reviewOver, celebrate]);
   useEffect(() => {
     if (!review || phase !== 'feedback' || !session || !exercise || exerciseIndex === undefined)
       return;
@@ -457,6 +479,7 @@ export default function LessonPlayerPage({
       .then(
         (result) => {
           setSavedAt(state.step);
+          reviewUnlocks.current.push(...result.achievements);
           const retry = 'retry' in exercise && exercise.retry;
           setTally((t) => ({
             first: t.first + (retry ? 0 : 1),
