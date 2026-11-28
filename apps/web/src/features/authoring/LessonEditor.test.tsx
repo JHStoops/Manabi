@@ -244,6 +244,75 @@ describe('ExerciseForm', () => {
 });
 
 describe('LessonEditorPage', () => {
+  const lesson = {
+    id: 3,
+    unitId: 1,
+    key: 'l',
+    position: 0,
+    type: 'vocabulary',
+    title: 'Lesson',
+    status: 'draft',
+    courseId: 7,
+    plugin: 'ja',
+    sectionLevel: 'N5',
+  };
+  const pin = (id: number, detached: boolean) => ({
+    id,
+    type: 'typed_answer',
+    origin: 'pinned',
+    key: `ex-${id}`,
+    detached,
+    payload: { prompt: `Meaning of 水 ${id}`, answerLanguage: 'base', accept: [] },
+  });
+
+  function page(api: object) {
+    render(
+      <ApiContext.Provider value={api as unknown as ApiClient}>
+        <AppThemeProvider>
+          <MemoryRouter initialEntries={['/authoring/lessons/3']}>
+            <Routes>
+              <Route path="/authoring/lessons/:lessonId" element={<LessonEditorPage />} />
+            </Routes>
+          </MemoryRouter>
+        </AppThemeProvider>
+      </ApiContext.Provider>,
+    );
+  }
+
+  // #259: a pin whose original the generators no longer make.
+  it('marks a detached pin only, and re-ties it', async () => {
+    const api = {
+      GET: jest
+        .fn()
+        .mockResolvedValueOnce({ lesson, items: [], exercises: [pin(8, false), pin(9, true)] })
+        .mockResolvedValue({ lesson, items: [], exercises: [pin(8, false), pin(9, false)] }),
+      POST: jest.fn(() => Promise.resolve({ exercise: pin(9, false) })),
+    };
+    page(api);
+    const list = (await screen.findByRole('heading', { name: 'Exercises' })).parentElement!;
+    const items = within(list).getAllByRole('listitem');
+    expect(items[0]!.textContent).not.toContain('Detached');
+    expect(items[1]!.textContent).toContain('Detached:');
+    fireEvent.click(within(items[1]!).getByRole('button', { name: 'Re-tie Meaning of 水 9' }));
+    await waitFor(() => expect(within(list).queryByText('Detached:')).toBeNull());
+    expect(api.POST).toHaveBeenCalledWith('/api/v1/authoring/exercises/{id}/retie', {
+      params: { path: { id: '9' } },
+      body: {},
+    });
+    expect(api.GET).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows why a re-tie failed', async () => {
+    const api = {
+      GET: jest.fn(() => Promise.resolve({ lesson, items: [], exercises: [pin(9, true)] })),
+      POST: jest.fn(() => Promise.reject(new Error('boom'))),
+    };
+    page(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'Re-tie Meaning of 水 9' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByText('Detached:')).toBeTruthy();
+  });
+
   it('keeps the blocked-word warning shown after the first save of a new exercise', async () => {
     const editor = {
       lesson: {

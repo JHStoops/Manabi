@@ -7,6 +7,7 @@ import { japanese } from '@manabi/lang-ja';
 import { useApi } from '../../state/session';
 import { apiErrorMessage } from '../auth/ui';
 import { Button, Form, Section } from '../admin/ui';
+import { DetachedPin } from './DetachedPin';
 import { ExerciseForm, exerciseSummary as summary } from './ExerciseForm';
 import { ItemPicker } from './ItemPicker';
 
@@ -59,6 +60,21 @@ export default function LessonEditorPage() {
     }
   }
 
+  // #259: ties a detached pin to what the generators make now, then reloads the lesson.
+  async function retie(id: number) {
+    setMessage('');
+    try {
+      await api.POST('/api/v1/authoring/exercises/{id}/retie', {
+        params: { path: { id: String(id) } },
+        body: {},
+      });
+    } catch (err) {
+      setMessage(apiErrorMessage(t, err));
+      return;
+    }
+    await load();
+  }
+
   async function generate() {
     setMessage('');
     try {
@@ -105,6 +121,7 @@ export default function LessonEditorPage() {
           {editor.exercises.map((e) => (
             <li key={e.id}>
               <strong>{e.type}</strong> {t(`lessonEditor.origin.${e.origin}`)} {summary(e)}{' '}
+              <DetachedPin exercise={e} label={summary(e)} onRetie={(pin) => void retie(pin.id)} />
               <Button
                 aria-label={t('lessonEditor.editEntry', { title: summary(e) })}
                 onClick={() => open(e)}

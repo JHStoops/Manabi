@@ -4,6 +4,7 @@ import type { EditorExercise, ItemExercises as ItemExerciseList } from '@manabi/
 import { useApi } from '../../state/session';
 import { apiErrorMessage } from '../auth/ui';
 import { Button, Section } from '../admin/ui';
+import { DetachedPin } from './DetachedPin';
 import { ExerciseForm, exerciseSummary as summary } from './ExerciseForm';
 
 // #241, FR-229, Product Spec section 11: an item's item-level exercises, such as the generated
@@ -49,6 +50,22 @@ export function ItemExercises({ itemId, itemKey }: { itemId: number; itemKey: st
     setStatus(t('authoring.items.removed', { title: label(e) }));
   }
 
+  // #259: ties a detached pin to what the generators make now, then lists the item's again.
+  async function retie(e: EditorExercise) {
+    setStatus('');
+    setMessage('');
+    try {
+      await api.POST('/api/v1/authoring/exercises/{id}/retie', {
+        params: { path: { id: String(e.id) } },
+        body: {},
+      });
+    } catch (err) {
+      setMessage(apiErrorMessage(t, err));
+      return;
+    }
+    if (await load()) setStatus(t('lessonEditor.retied', { label: label(e) }));
+  }
+
   const load = () => send(api.GET('/api/v1/authoring/items/{id}/exercises', { params }));
   // Keyed by item in the item editor, so a new item gets a fresh list and no stale responses.
   useEffect(() => {
@@ -70,6 +87,7 @@ export function ItemExercises({ itemId, itemKey }: { itemId: number; itemKey: st
           {exercises.map((e) => (
             <li key={e.id}>
               <strong>{e.type}</strong> {t(`lessonEditor.origin.${e.origin}`)} {summary(e)}{' '}
+              <DetachedPin exercise={e} label={label(e)} onRetie={(pin) => void retie(pin)} />
               <Button
                 type="button"
                 aria-label={t('lessonEditor.editEntry', { title: label(e) })}

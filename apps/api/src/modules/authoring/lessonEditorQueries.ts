@@ -1,6 +1,6 @@
 import type { Queryable } from '../../db/db';
 import { insertReturning, query, queryOne } from '../../db/db';
-import type { ExerciseRow, JsonObject, LessonRow } from '../content/rows';
+import type { ExerciseRow, ItemRow, JsonObject, LessonRow } from '../content/rows';
 
 // Hand-written, parameterized SQL for the lesson editor (FR-223, FR-224). Nothing here writes to
 // a progress table.
@@ -155,4 +155,53 @@ export async function archiveExercise(db: Queryable, id: number): Promise<void> 
   await query(db, `UPDATE exercises SET archived_at = now(), updated_at = now() WHERE id = $1`, [
     id,
   ]);
+}
+
+/**
+ * #259: what an item-level pin is checked against: the item, with the level of the section that
+ * first teaches it (as reviews generate with, FR-141; null for an item no lesson teaches).
+ */
+export function findPinItem(
+  db: Queryable,
+  id: number,
+): Promise<(ItemRow & { section_level: string | null }) | null> {
+  return queryOne(
+    db,
+    `SELECT i.*,
+            (SELECT s.level_code
+               FROM lesson_items li
+               JOIN lessons l ON l.id = li.lesson_id
+               JOIN units u ON u.id = l.unit_id
+               JOIN sections s ON s.id = u.section_id
+              WHERE li.item_id = i.id
+              ORDER BY s.position, u.position, l.position
+              LIMIT 1) AS section_level
+       FROM items i
+      WHERE i.id = $1 AND i.archived_at IS NULL`,
+    [id],
+  );
+}
+
+/** #259: a course's active items, every item a learner of it could have been taught. */
+export function listCourseItems(db: Queryable, courseId: number): Promise<ItemRow[]> {
+  return query<ItemRow>(
+    db,
+    `SELECT * FROM items WHERE course_id = $1 AND archived_at IS NULL ORDER BY id`,
+    [courseId],
+  );
+}
+
+/** #259: ties a pin to a new generated original; its accept list is dropped. */
+export function updateExerciseOriginal(
+  db: Queryable,
+  id: number,
+  original: JsonObject,
+): Promise<ExerciseRow> {
+  return insertReturning<ExerciseRow>(
+    db,
+    `UPDATE exercises SET original_payload = $2::jsonb - 'accept', updated_at = now()
+      WHERE id = $1 AND origin = 'pinned'
+      RETURNING *`,
+    [id, original],
+  );
 }

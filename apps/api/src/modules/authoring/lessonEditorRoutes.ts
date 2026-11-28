@@ -8,6 +8,7 @@ import {
   exerciseWriteSchema,
   generatedExercisesSchema,
   lessonEditorSchema,
+  retieExerciseSchema,
   lessonPreviewSchema,
   setLessonItemsRequestSchema,
   updateExerciseRequestSchema,
@@ -124,6 +125,24 @@ export const lessonEditorRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => editor.updateExercise(app.db, request.params.id, request.body),
+  );
+
+  app.post(
+    '/authoring/exercises/:id/retie',
+    {
+      schema: {
+        summary: 'Tie a pin to an exercise the generators make now (#259)',
+        description:
+          "For a pin marked detached: records the generated exercise closest to the pin's " +
+          'payload as its original. The payload and accept list stay. 409 when none is made.',
+        tags,
+        querystring,
+        params,
+        body: emptyBodySchema,
+        response: { 200: retieExerciseSchema, ...errors },
+      },
+    },
+    async (request) => editor.retieExercise(app.db, request.params.id),
   );
 
   app.delete(

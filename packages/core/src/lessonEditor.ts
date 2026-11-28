@@ -22,6 +22,12 @@ export const editorExerciseSchema = z.object({
   origin: exerciseOriginSchema.exclude(['generated']),
   /** The key a content pack export names it by (DR-02). */
   key: z.string().nullable(),
+  /**
+   * #259, SDD section 6: a pin whose recorded original the generators no longer make (new prompt
+   * wording, an item data override), so lessons and reviews serve it next to the changed
+   * exercise. Re-tie it (`POST /authoring/exercises/:id/retie`) or remove it. False otherwise.
+   */
+  detached: z.boolean(),
 });
 export type EditorExercise = z.infer<typeof editorExerciseSchema>;
 
@@ -89,6 +95,13 @@ export const exerciseWriteSchema = z.object({
   blockedWords: z.array(nonEmptyTextSchema),
 });
 export type ExerciseWrite = z.infer<typeof exerciseWriteSchema>;
+
+/**
+ * #259: `POST /authoring/exercises/:id/retie`: the pin, tied to an exercise the generators make
+ * now, the one closest to its payload. The pin's payload and accept list stay as they are.
+ */
+export const retieExerciseSchema = z.object({ exercise: editorExerciseSchema });
+export type RetieExercise = z.infer<typeof retieExerciseSchema>;
 
 /**
  * FR-224: `POST /authoring/lessons/:id/preview`: the lesson as a session would start it, built the

@@ -64,6 +64,7 @@ async function open(item: AuthoringItem, exercises: EditorExercise[] = []) {
       ),
     ),
     PATCH: jest.fn(),
+    POST: jest.fn(),
     DELETE: jest.fn(),
   };
   render(
@@ -218,6 +219,7 @@ describe('ItemEditor', () => {
       id,
       type: 'typed_answer',
       origin: 'pinned',
+      detached: false,
       key: null,
       payload: { prompt: `Meaning of 水 ${id}`, answerLanguage: 'base', accept: accept(texts) },
     });
@@ -308,6 +310,45 @@ describe('ItemEditor', () => {
         'Removed typed_answer 11: Meaning of 水 11.',
       );
       confirm.mockRestore();
+    });
+
+    // #259: a pin whose original the generators no longer make.
+    it('marks a detached pin only, and re-ties it', async () => {
+      const detached = { ...pinned(12, ['water']), detached: true };
+      const api = await open(water(), [pinned(11, ['water', 'aqua']), detached]);
+      const items = await within(list()).findAllByRole('listitem');
+      expect(items[0]!.textContent).not.toContain('Detached');
+      expect(items[1]!.textContent).toContain(
+        'Detached: the generators no longer make the exercise this pin was made from',
+      );
+      expect(within(items[0]!).queryByRole('button', { name: /^Re-tie/ })).toBeNull();
+
+      api.POST.mockResolvedValueOnce({ exercise: pinned(12, ['water']) });
+      api.GET.mockImplementation(() =>
+        Promise.resolve({ exercises: [pinned(11, ['water', 'aqua']), pinned(12, ['water'])] }),
+      );
+      fireEvent.click(
+        within(items[1]!).getByRole('button', { name: 'Re-tie typed_answer 12: Meaning of 水 12' }),
+      );
+      await waitFor(() =>
+        expect(screen.getByRole('status').textContent).toBe(
+          'Re-tied typed_answer 12: Meaning of 水 12.',
+        ),
+      );
+      expect(api.POST).toHaveBeenCalledWith('/api/v1/authoring/exercises/{id}/retie', {
+        params: { path: { id: '12' } },
+        body: {},
+      });
+      expect(within(list()).queryByText(/Detached/)).toBeNull();
+    });
+
+    it('shows why a re-tie failed', async () => {
+      const api = await open(water(), [{ ...pinned(12, ['water']), detached: true }]);
+      api.POST.mockRejectedValueOnce(new Error('boom'));
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Re-tie typed_answer 12: Meaning of 水 12' }),
+      );
+      expect(await within(list()).findByRole('alert')).toBeTruthy();
     });
   });
 });
