@@ -235,7 +235,7 @@ The web app uses only the public REST API under `/api/v1`, so a mobile client ge
 | Library | `GET /items` (filter by type, level, stage, search), `GET /items/:key`, `PUT /items/:key/note`, `POST /items/:key/drill`, `PATCH /items/:key/progress` |
 | Media | `GET /media/audio/:ownerType/:ownerId` (the uploaded or cached clip; generated on the first request), `GET /media/strokes/:itemKey` |
 | Social | `GET /leaderboard`, `GET /users/:id/profile`, `PUT /follows/:userId`, `DELETE /follows/:userId`, `GET /friends`, `POST /nudges` |
-| Profile | `GET /me/stats`, `GET /me/achievements`, `GET /me/export`, `DELETE /me` |
+| Profile | `GET /me/stats`, `GET /me/achievements`, `POST /me/achievements/seen`, `GET /me/export`, `DELETE /me` |
 | Reports | `POST /answer-reports` |
 | Admin | `/admin/users`, `/admin/invites`, `/admin/imports`, `/admin/system`, `/admin/backups` |
 | Authoring | `/authoring/courses`, `/authoring/units`, `/authoring/lessons`, `/authoring/items`, `/authoring/exercises`, `/authoring/sentences`, `/authoring/word-lists`, `/authoring/audio`, `/authoring/reports`, `/authoring/pack/import`, `/authoring/pack/export` |

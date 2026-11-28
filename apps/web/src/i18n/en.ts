@@ -165,6 +165,12 @@ export const en = {
     badge: 'Week of {{date}}: place {{rank}} ({{xp}} XP)',
     noBadges: 'No badges yet. Finish in the top three of a week to earn one.',
   },
+  // FR-165: achievement celebrations.
+  achievements: {
+    unlocked: 'Achievement unlocked',
+    streakMilestone: 'Streak milestone',
+    continue: 'Continue',
+  },
   // FR-160, FR-162: the lesson results screen.
   results: {
     xpEarned: '+{{count}} XP',

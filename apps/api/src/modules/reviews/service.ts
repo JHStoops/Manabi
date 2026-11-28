@@ -26,6 +26,7 @@ import { AppError } from '../../errors';
 import { languagePlugins } from '../../plugins';
 import type { ScopedUserId } from '../auth/service';
 import type { ExerciseRow, ItemRow } from '../content/rows';
+import { REVIEW_METRICS, evaluateAchievements } from '../achievements/service';
 import { awardXp } from '../courses/service';
 import { originalKey, questionKey, toItem } from '../lessons/service';
 import * as q from './queries';
@@ -310,7 +311,7 @@ export async function answer(
         : q.saveReviewSessionState(client, session.id, state);
     if (exercise.retry) {
       await save();
-      return { correct, stage: null, xpEarned: 0, retryIndex };
+      return { correct, stage: null, xpEarned: 0, retryIndex, achievements: [] };
     }
 
     const { itemId, facet } = exercise;
@@ -351,6 +352,18 @@ export async function answer(
     const stage = next?.stage ?? null;
 
     await save();
-    return { correct, stage, xpEarned, retryIndex };
+    // FR-165: only the metrics this answer could change (a log row always; the stage when the
+    // item moved; streak and weekly XP when XP was awarded).
+    const achievements = await evaluateAchievements(
+      client,
+      userId,
+      REVIEW_METRICS.filter(
+        (m) =>
+          m === 'reviews_in_day' ||
+          (m === 'familiar_items' && next !== null) ||
+          ((m === 'streak_days' || m === 'xp_in_week') && xpEarned > 0),
+      ),
+    );
+    return { correct, stage, xpEarned, retryIndex, achievements };
   });
 }

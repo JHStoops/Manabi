@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { unlockedAchievementsSchema } from './achievements';
 import { exerciseResponseSchema } from './exerciseRegistry';
 import { sessionExerciseSchema } from './lessonSession';
 import {
@@ -81,5 +82,7 @@ export const reviewAnswerResultSchema = z.object({
   xpEarned: z.number().int().min(0),
   /** Where a wrong answer's exercise was queued again at the end; null when right. */
   retryIndex: z.number().int().min(0).nullable(),
+  /** FR-165: achievements this answer unlocked, to celebrate once. */
+  achievements: unlockedAchievementsSchema,
 });
 export type ReviewAnswerResult = z.infer<typeof reviewAnswerResultSchema>;

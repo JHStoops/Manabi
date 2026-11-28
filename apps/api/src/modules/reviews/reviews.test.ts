@@ -288,6 +288,7 @@ describeWithDb('reviews API', () => {
       stage: null,
       xpEarned: 0,
       retryIndex: null,
+      achievements: [],
     });
     res = await answer(started.id, session, {
       index: index(item.kanji!, 'reading'),
@@ -298,6 +299,7 @@ describeWithDb('reviews API', () => {
       stage: 3,
       xpEarned: 0,
       retryIndex: 4,
+      achievements: [],
     });
 
     // The word: right on the second try and a near-miss count as right; it moves up with XP.
@@ -314,6 +316,7 @@ describeWithDb('reviews API', () => {
       stage: 6,
       xpEarned: 1,
       retryIndex: null,
+      achievements: [],
     });
 
     const rows = await progress(userId);
@@ -357,6 +360,7 @@ describeWithDb('reviews API', () => {
       stage: null,
       xpEarned: 0,
       retryIndex: 5,
+      achievements: [],
     });
     res = await answer(started.id, session, { index: 5, response: RIGHT });
     expect(res.json<ReviewAnswerResult>()).toMatchObject({ correct: true, retryIndex: null });
@@ -578,6 +582,37 @@ describeWithDb('reviews API', () => {
       [item.word, 'meaning', 1],
       [item.word, 'reading', 1],
     ]);
+  });
+
+  it('returns an achievement a review answer unlocks, once (FR-165)', async () => {
+    const { courseId, item, lesson } = await seed();
+    const { userId, session } = await learner('aiko', courseId);
+    await completeAll(lesson, session);
+    await makeDue(userId, [item.word!], 5);
+    // A 6-day streak that last counted yesterday: today's XP so far (from the lessons) is enough,
+    // so the next award counts today and makes it 7.
+    await sql(
+      `UPDATE user_stats SET current_streak = 6, longest_streak = 6,
+              last_active_date = last_active_date - 1
+        WHERE user_id = $1`,
+      [userId],
+    );
+    await sql(`DELETE FROM user_achievements WHERE user_id = $1`, [userId]);
+    const started = (await startReviews(session)).json<ReviewSession>();
+    const index = (facet: string) =>
+      started.exercises.findIndex((e) => e.itemId === item.word && e.facet === facet);
+
+    // The first facet settles nothing and awards no XP; the second moves the item up with XP.
+    let res = await answer(started.id, session, { index: index('meaning'), response: RIGHT });
+    expect(res.json<ReviewAnswerResult>().achievements).toEqual([]);
+    res = await answer(started.id, session, { index: index('reading'), response: RIGHT });
+    expect(res.json<ReviewAnswerResult>()).toMatchObject({
+      xpEarned: 1,
+      achievements: [{ key: 'streak_7', group: 'streak', title: '7-day streak', threshold: 7 }],
+    });
+    expect(
+      await sql(`SELECT achievement_key FROM user_achievements WHERE user_id = $1`, [userId]),
+    ).toEqual([{ achievement_key: 'streak_7' }]);
   });
 
   it('starts a session in under a second with 2,000 due items (NFR-02)', async () => {
