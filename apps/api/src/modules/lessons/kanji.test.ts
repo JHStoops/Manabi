@@ -452,8 +452,12 @@ describeWithDb('kanji lessons API', () => {
         accept: [{ text: 'やすみ' }],
       },
     });
-    // The meaning exercise does not ask for the reading.
-    expect(exercises[0]!.payload.prompt).not.toBe('How do you read 休み?');
+    // The meaning exercise asks for the meaning or the word, never the kana reading.
+    const meaning = exercises[0]!;
+    expect(['choice', 'typed_answer']).toContain(meaning.type);
+    if (meaning.type === 'typed_answer' && meaning.payload.answerLanguage === 'target') {
+      expect(meaning.payload).toMatchObject({ accept: [{ text: '休み' }] });
+    }
     const answered = await app.inject({
       method: 'POST',
       url: `/api/v1/review-sessions/${reviews.json<ReviewSession>().id}/answers`,

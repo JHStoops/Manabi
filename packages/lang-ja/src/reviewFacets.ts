@@ -6,6 +6,7 @@ import {
   TYPED_ANSWER_TYPE,
 } from '@manabi/core';
 import type { ChoicePayload, LanguagePlugin, TypedAnswerPayload } from '@manabi/core';
+import { KANA_ONLY } from './generators';
 
 // FR-110, Product Spec section 7: review facets per item type, each with its exercise types.
 // shortcut: word listening waits for EX-07/EX-08 (#67), which adds its facet here. The API
@@ -22,14 +23,14 @@ const FACETS: Record<string, Record<string, readonly string[]>> = {
 export const reviewFacets: LanguagePlugin['reviewFacets'] = (itemType) =>
   Object.hasOwn(FACETS, itemType) ? FACETS[itemType]! : {};
 
-const KANA_ONLY = /^[ぁ-ゟ゠-ヿ]+$/u;
-
 /**
  * A stored exercise reviews a kanji's meaning only when it plainly asks for it: a typed answer in
  * English, or a choice among items (generated meaning choices name their options' items; an
- * authored choice of readings does not). A word's typed answer in Japanese reviews its reading
- * when every accepted answer is kana only, and its meaning otherwise (#225). Other facets take
- * any exercise of their types.
+ * authored choice of readings does not). A word's typed answer reviews its reading when its
+ * first (original) answer spells, in kana tiles, a word written with kanji, as the reading
+ * exercise does; any other typed answer reviews its meaning (#225). Answers added from reports
+ * come after the first, so they never move an exercise between facets. Other facets take any
+ * exercise of their types.
  */
 export const testsFacet: NonNullable<LanguagePlugin['testsFacet']> = (
   exercise,
@@ -38,8 +39,13 @@ export const testsFacet: NonNullable<LanguagePlugin['testsFacet']> = (
 ) => {
   if (itemType === 'word' && exercise.type === TYPED_ANSWER_TYPE) {
     const { answerLanguage, accept } = exercise.payload as TypedAnswerPayload;
-    if (answerLanguage !== 'target') return facet === 'meaning';
-    return (facet === 'reading') === accept.every((a) => KANA_ONLY.test(a.text));
+    const tiles = accept[0]?.tiles ?? [];
+    const asksReading =
+      answerLanguage === 'target' &&
+      tiles.length > 0 &&
+      tiles.every((t) => KANA_ONLY.test(t.surface)) &&
+      tiles.some((t) => !KANA_ONLY.test(t.base));
+    return (facet === 'reading') === asksReading;
   }
   if (itemType !== 'kanji' || facet !== 'meaning') return true;
   if (exercise.type === TYPED_ANSWER_TYPE) {

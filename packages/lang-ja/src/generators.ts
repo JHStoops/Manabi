@@ -59,7 +59,8 @@ function shuffled<T>(items: readonly T[]): T[] {
 /** DR-09: an item's data with the author's overrides applied, field by field. */
 export const effective = (item: Item) => ({ ...item.data, ...item.overrides });
 
-const KANA_ONLY = /^[ぁ-ゟ゠-ヿ]*$/u;
+/** Kana only (or empty). */
+export const KANA_ONLY = /^[ぁ-ゟ゠-ヿ]*$/u;
 
 /** A kanji's readings in hiragana, without okurigana and prefix or suffix marks, distinct. */
 const readingsOf = (kanji: KanjiData) => [
@@ -275,7 +276,7 @@ function typedKanjiReading(item: Item, kanji: KanjiData, context: GeneratorConte
  * EX-04 for a word's `reading` facet (#225, Product Spec section 7): type the word's reading in
  * kana. The tiles are the kana reading, so typing the shown kanji is not accepted. A word written
  * only in kana would answer itself, so it is asked for from its meaning instead: its kana
- * spelling is its reading. Katakana readings also accept hiragana.
+ * spelling is its reading (its written form counts too). Katakana answers also accept hiragana.
  */
 function typedWordReading(item: Item, word: WordData): Exercise[] {
   const kanaOnly = KANA_ONLY.test(word.written);
@@ -284,7 +285,11 @@ function typedWordReading(item: Item, word: WordData): Exercise[] {
       ? `Which word means “${word.senses[0]!.meanings[0]!}”? Type it in kana.`
       : `How do you read ${word.written}?`,
     answerLanguage: 'target',
-    accept: [...new Set([word.reading, toHiragana(word.reading)])].map((text) => ({
+    accept: [
+      ...new Set(
+        [word.reading, ...(kanaOnly ? [word.written] : [])].flatMap((t) => [t, toHiragana(t)]),
+      ),
+    ].map((text) => ({
       text,
       tiles: [{ surface: text, base: word.written, reading: word.reading, itemId: item.id }],
     })),
