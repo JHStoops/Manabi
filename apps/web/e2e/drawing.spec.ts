@@ -3,6 +3,8 @@ import type { Page } from '@playwright/test';
 import type { LessonSession } from '@manabi/core';
 import {
   answer,
+  dismissAchievements,
+  FIRST_LESSON_ACHIEVEMENTS,
   createLearner,
   drawStroke,
   loadMedians,
@@ -34,6 +36,7 @@ test('draw kanji by tracing and from memory', async ({ page, isMobile }, testInf
   await page.getByRole('button', { name: 'Enroll in Japanese for English speakers' }).click();
   // The kanji lesson unlocks with the first kana lesson.
   await playLesson(page, await openLesson(page, /Kana lesson, available/));
+  await dismissAchievements(page, FIRST_LESSON_ACHIEVEMENTS);
   await page.getByRole('link', { name: 'Done' }).click();
 
   // IF-11: count the raw events, to prove each project drew with its own kind of pointer.
@@ -102,6 +105,8 @@ test('draw kanji by tracing and from memory', async ({ page, isMobile }, testInf
   expect(isMobile ? events.touchstart : events.mousedown).toBeGreaterThan(0);
 
   await expect(page.getByText(/^\+\d+ XP$/)).toBeVisible();
+  // FR-165: the fixture's only N5 lesson completes the level.
+  await dismissAchievements(page, ['N5 complete']);
   await page.getByRole('link', { name: 'Done' }).click();
   await expect(page.getByRole('button', { name: /Kanji lesson, (completed|done)/i })).toBeVisible();
 });

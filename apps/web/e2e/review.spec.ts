@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 import type { ReviewSession } from '@manabi/core';
 import {
   answer,
+  dismissAchievements,
+  FIRST_LESSON_ACHIEVEMENTS,
   createLearner,
   makeAllDue,
   openLesson,
@@ -21,6 +23,7 @@ test('review session after the first lesson', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: 'Enroll in Japanese for English speakers' }).click();
   const lesson = await openLesson(page, /Kana lesson, available/);
   await playLesson(page, lesson);
+  await dismissAchievements(page, FIRST_LESSON_ACHIEVEMENTS);
   await page.getByRole('link', { name: 'Done' }).click();
 
   // FR-113: the lesson's items are not due yet.

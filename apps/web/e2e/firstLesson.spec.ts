@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { LessonSession } from '@manabi/core';
-import { answer } from './helpers';
+import { answer, dismissAchievements, FIRST_LESSON_ACHIEVEMENTS } from './helpers';
 
 // NFR-32, FR-001, FR-051: an admin invites, the invitee accepts, enrolls and finishes the first
 // kana lesson of the fixture pack, then sees XP on the results and the streak on the Learn tab.
@@ -54,11 +54,7 @@ test('invite to first lesson', async ({ page }, testInfo) => {
 
   // FR-165: the fixture's only kana lesson, done perfectly, unlocks two achievements, each
   // celebrated once over the results.
-  for (const title of ['Kana complete', 'First perfect lesson']) {
-    await expect(page.getByRole('dialog', { name: title })).toBeVisible();
-    await page.getByRole('button', { name: 'Continue' }).click();
-  }
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await dismissAchievements(page, FIRST_LESSON_ACHIEVEMENTS);
 
   // FR-051, FR-161: the first lesson of the day starts a one-day streak.
   await page.getByRole('link', { name: 'Done' }).click();

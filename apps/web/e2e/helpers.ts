@@ -182,3 +182,15 @@ export async function drawStroke(
   await touch('touchEnd', []);
   await cdp.detach();
 }
+
+/** FR-165: achievements unlocked by a lesson are each celebrated once over its results, in order. */
+export async function dismissAchievements(page: Page, titles: string[]) {
+  for (const title of titles) {
+    await expect(page.getByRole('dialog', { name: title })).toBeVisible();
+    await page.getByRole('button', { name: 'Continue' }).click();
+  }
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+}
+
+/** The achievements the fixture's first kana lesson unlocks when answered perfectly. */
+export const FIRST_LESSON_ACHIEVEMENTS = ['Kana complete', 'First perfect lesson'];
